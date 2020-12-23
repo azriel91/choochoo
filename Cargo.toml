@@ -1,0 +1,13 @@
+[package]
+name = "choochoo"
+version = "0.0.0"
+authors = ["Azriel Hoh <azriel91@gmail.com>"]
+edition = "2018"
+description = "Automation that starts where it stops."
+repository = "https://github.com/azriel91/choochoo"
+documentation = "https://docs.rs/choochoo/"
+readme = "README.md"
+keywords = ["automation"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
