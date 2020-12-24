@@ -13,7 +13,7 @@ impl Train {
         if dest.is_reached() {
             // TODO: Report
         } else {
-            dest.stations().node_weights_mut().for_each(Station::visit);
+            dest.stations().iter_mut().for_each(Station::visit);
         }
     }
 }
@@ -45,7 +45,6 @@ mod tests {
         stations: Stations,
     }
 
-    #[cfg(not(tarpaulin_include))]
     impl Destination for EmptyDest {
         fn is_reached(&self) -> bool {
             true
@@ -63,10 +62,9 @@ mod tests {
 
     impl Destination for TestDest {
         fn is_reached(&self) -> bool {
-            use daggy::petgraph::visit::IntoNodeReferences;
             self.stations
-                .node_references()
-                .all(|(_, station)| station.visit_status() == VisitStatus::Visited)
+                .iter()
+                .all(|station| station.visit_status() == VisitStatus::Visited)
         }
 
         fn stations(&mut self) -> &mut Stations {

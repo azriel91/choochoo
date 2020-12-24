@@ -4,7 +4,7 @@ use crate::VisitStatus;
 ///
 /// This is a high level item that is included in the user facing progress
 /// report.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Station {
     /// Whether this station has been visited.
     visit_status: VisitStatus,
