@@ -2,6 +2,7 @@
 
 //! Automation that starts where it stops.
 
-pub use crate::train::Train;
+pub use crate::{destination::Destination, train::Train};
 
+mod destination;
 mod train;
