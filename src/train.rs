@@ -38,7 +38,7 @@ mod tests {
         assert!(
             dest.stations()
                 .iter()
-                .all(|station| station.visit_status() == VisitStatus::Visited)
+                .all(|station| station.visit_status() == VisitStatus::VisitSuccess)
         )
     }
 

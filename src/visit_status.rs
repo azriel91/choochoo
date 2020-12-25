@@ -12,6 +12,8 @@ pub enum VisitStatus {
     ///
     /// There is a train at this station.
     InProgress,
-    /// This station has been visited, and does not need to be visited again.
-    Visited,
+    /// This station has been successfully visited.
+    VisitSuccess,
+    /// This station has been visited, but the visit failed.
+    VisitFail,
 }

@@ -23,6 +23,6 @@ impl Station {
 
     /// Returns a station visitation pass.
     pub fn visit(&mut self) {
-        self.visit_status = VisitStatus::Visited
+        self.visit_status = VisitStatus::VisitSuccess
     }
 }
