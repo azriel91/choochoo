@@ -55,13 +55,23 @@ mod tests {
     use daggy::NodeIndex;
 
     use super::Stations;
-    use crate::{Station, VisitStatus};
+    use crate::{Station, VisitFn, VisitStatus};
 
     #[test]
     fn iter_with_indices_returns_iterator_with_all_stations() {
         let mut stations = Stations::new();
-        let a = stations.add_node(Station::new(VisitStatus::Queued));
-        let b = stations.add_node(Station::new(VisitStatus::Queued));
+        let a = stations.add_node(Station::new(
+            VisitStatus::Queued,
+            VisitFn(|station| {
+                Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+            }),
+        ));
+        let b = stations.add_node(Station::new(
+            VisitStatus::Queued,
+            VisitFn(|station| {
+                Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+            }),
+        ));
 
         let indicies = stations
             .iter_with_indices()

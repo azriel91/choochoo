@@ -1,3 +1,5 @@
+use futures::stream::{self, StreamExt};
+
 use crate::{Destination, Station};
 
 /// Ensures all carriages are at the destination.
@@ -6,40 +8,61 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub fn reach<D>(dest: &mut D)
+    pub async fn reach<D>(dest: &mut D)
     where
         D: Destination,
     {
-        dest.stations_mut().iter_mut().for_each(Station::visit);
+        stream::iter(dest.stations_mut().iter_mut())
+            .for_each(Station::visit)
+            .await;
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tokio::runtime;
+
     use super::Train;
-    use crate::{Destination, Station, Stations, VisitStatus};
+    use crate::{Destination, Station, Stations, VisitFn, VisitStatus};
 
     #[test]
-    fn reaches_empty_dest() {
+    fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
+        let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = TestDest::default();
-        Train::reach(&mut dest);
+
+        rt.block_on(Train::reach(&mut dest));
+
+        Ok(())
     }
 
     #[test]
-    fn visits_stations_to_destination() {
+    fn visits_stations_to_destination() -> Result<(), Box<dyn std::error::Error>> {
+        let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            let _a = stations.add_node(Station::new(VisitStatus::Queued));
-            let _b = stations.add_node(Station::new(VisitStatus::Queued));
+            let _a = stations.add_node(Station::new(
+                VisitStatus::Queued,
+                VisitFn(|station| {
+                    Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                }),
+            ));
+            let _b = stations.add_node(Station::new(
+                VisitStatus::Queued,
+                VisitFn(|station| {
+                    Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                }),
+            ));
             TestDest { stations }
         };
-        Train::reach(&mut dest);
+        rt.block_on(Train::reach(&mut dest));
 
         assert!(
             dest.stations()
                 .iter()
-                .all(|station| station.visit_status() == VisitStatus::VisitSuccess)
-        )
+                .all(|station| station.visit_status == VisitStatus::VisitSuccess)
+        );
+
+        Ok(())
     }
 
     #[derive(Debug, Default)]

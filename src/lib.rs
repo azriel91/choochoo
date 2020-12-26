@@ -4,12 +4,13 @@
 
 pub use crate::{
     destination::Destination, station::Station, stations::Stations, train::Train,
-    visit_status::VisitStatus, workload::Workload,
+    visit_fn::VisitFn, visit_status::VisitStatus, workload::Workload,
 };
 
 mod destination;
 mod station;
 mod stations;
 mod train;
+mod visit_fn;
 mod visit_status;
 mod workload;

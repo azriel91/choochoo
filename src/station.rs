@@ -1,4 +1,6 @@
-use crate::VisitStatus;
+use std::{future::Future, pin::Pin};
+
+use crate::{VisitFn, VisitStatus};
 
 /// A state along the way to the destination.
 ///
@@ -7,22 +9,27 @@ use crate::VisitStatus;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Station {
     /// Whether this station has been visited.
-    visit_status: VisitStatus,
+    pub visit_status: VisitStatus,
+    /// Steps to run when this station is visited.
+    visit_fn: VisitFn,
 }
 
 impl Station {
     /// Returns a new [`Station`].
-    pub fn new(visit_status: VisitStatus) -> Self {
-        Self { visit_status }
-    }
-
-    /// Returns whether this [`Station`] has been visited.
-    pub fn visit_status(&self) -> VisitStatus {
-        self.visit_status
+    ///
+    /// # Parameters
+    ///
+    /// * `visit_status`: Whether this [`Station`] is ready to be visited.
+    /// * `visit_fn`: Steps to run when this station is visited.
+    pub fn new(visit_status: VisitStatus, visit_fn: VisitFn) -> Self {
+        Self {
+            visit_status,
+            visit_fn,
+        }
     }
 
     /// Returns a station visitation pass.
-    pub fn visit(&mut self) {
-        self.visit_status = VisitStatus::VisitSuccess
+    pub fn visit(&mut self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+        (self.visit_fn.0)(self)
     }
 }
