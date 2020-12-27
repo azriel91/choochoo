@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use daggy::{Dag, NodeIndex};
 
-use crate::{rt_model::Station, Workload};
+use crate::{cfg_model::Workload, rt_model::Station};
 
 /// Directed acyclic graph of [`Station`]s.
 #[derive(Clone, Debug, Default)]
@@ -55,7 +55,10 @@ mod tests {
     use daggy::NodeIndex;
 
     use super::Stations;
-    use crate::{cfg_model::StationSpec, rt_model::Station, VisitFn, VisitStatus};
+    use crate::{
+        cfg_model::{StationSpec, VisitFn},
+        rt_model::{Station, VisitStatus},
+    };
 
     #[test]
     fn iter_with_indices_returns_iterator_with_all_stations() {

@@ -1,6 +1,6 @@
 use futures::stream::{self, StreamExt};
 
-use crate::{rt_model::Station, Destination};
+use crate::rt_model::{Destination, Station};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -24,7 +24,8 @@ mod tests {
 
     use super::Train;
     use crate::{
-        cfg_model::StationSpec, rt_model::Station, Destination, Stations, VisitFn, VisitStatus,
+        cfg_model::{StationSpec, VisitFn},
+        rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
     #[test]

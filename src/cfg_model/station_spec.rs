@@ -1,4 +1,4 @@
-use crate::VisitFn;
+use crate::cfg_model::VisitFn;
 
 /// Behaviour specification for a station.
 #[derive(Clone, Debug, PartialEq)]

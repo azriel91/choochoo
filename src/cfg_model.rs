@@ -2,6 +2,8 @@
 //!
 //! Types in this module are analogous to source artifacts.
 
-pub use self::station_spec::StationSpec;
+pub use self::{station_spec::StationSpec, visit_fn::VisitFn, workload::Workload};
 
 mod station_spec;
+mod visit_fn;
+mod workload;

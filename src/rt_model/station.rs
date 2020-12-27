@@ -1,6 +1,6 @@
 use std::{future::Future, pin::Pin};
 
-use crate::{cfg_model::StationSpec, VisitStatus};
+use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
 
 /// A state along the way to the destination.
 ///

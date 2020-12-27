@@ -1,4 +1,4 @@
-use crate::Stations;
+use crate::rt_model::Stations;
 
 /// Specification of a desired state.
 pub trait Destination {
