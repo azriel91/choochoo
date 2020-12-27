@@ -3,12 +3,14 @@
 //! Automation that starts where it stops.
 
 pub use crate::{
-    destination::Destination, station::Station, stations::Stations, train::Train,
-    visit_fn::VisitFn, visit_status::VisitStatus, workload::Workload,
+    destination::Destination, stations::Stations, train::Train, visit_fn::VisitFn,
+    visit_status::VisitStatus, workload::Workload,
 };
 
+pub mod cfg_model;
+pub mod rt_model;
+
 mod destination;
-mod station;
 mod stations;
 mod train;
 mod visit_fn;

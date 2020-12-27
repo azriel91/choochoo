@@ -1,6 +1,6 @@
 use futures::stream::{self, StreamExt};
 
-use crate::{Destination, Station};
+use crate::{rt_model::Station, Destination};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -23,7 +23,9 @@ mod tests {
     use tokio::runtime;
 
     use super::Train;
-    use crate::{Destination, Station, Stations, VisitFn, VisitStatus};
+    use crate::{
+        cfg_model::StationSpec, rt_model::Station, Destination, Stations, VisitFn, VisitStatus,
+    };
 
     #[test]
     fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,18 +42,20 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            let _a = stations.add_node(Station::new(
-                VisitStatus::Queued,
-                VisitFn(|station| {
+            let _a = {
+                let station_spec = StationSpec::new(VisitFn(|station| {
                     Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
-                }),
-            ));
-            let _b = stations.add_node(Station::new(
-                VisitStatus::Queued,
-                VisitFn(|station| {
+                }));
+                let station = Station::new(station_spec, VisitStatus::Queued);
+                stations.add_node(station)
+            };
+            let _b = {
+                let station_spec = StationSpec::new(VisitFn(|station| {
                     Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
-                }),
-            ));
+                }));
+                let station = Station::new(station_spec, VisitStatus::Queued);
+                stations.add_node(station)
+            };
             TestDest { stations }
         };
         rt.block_on(Train::reach(&mut dest));

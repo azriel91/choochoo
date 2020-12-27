@@ -4,7 +4,7 @@ use std::{
     pin::Pin,
 };
 
-use crate::Station;
+use crate::rt_model::Station;
 
 /// Steps to run when a station is visited.
 #[derive(Clone, Copy)]

@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use daggy::{Dag, NodeIndex};
 
-use crate::{Station, Workload};
+use crate::{rt_model::Station, Workload};
 
 /// Directed acyclic graph of [`Station`]s.
 #[derive(Clone, Debug, Default)]
@@ -55,23 +55,25 @@ mod tests {
     use daggy::NodeIndex;
 
     use super::Stations;
-    use crate::{Station, VisitFn, VisitStatus};
+    use crate::{cfg_model::StationSpec, rt_model::Station, VisitFn, VisitStatus};
 
     #[test]
     fn iter_with_indices_returns_iterator_with_all_stations() {
         let mut stations = Stations::new();
-        let a = stations.add_node(Station::new(
-            VisitStatus::Queued,
-            VisitFn(|station| {
+        let a = {
+            let station_spec = StationSpec::new(VisitFn(|station| {
                 Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
-            }),
-        ));
-        let b = stations.add_node(Station::new(
-            VisitStatus::Queued,
-            VisitFn(|station| {
+            }));
+            let station = Station::new(station_spec, VisitStatus::Queued);
+            stations.add_node(station)
+        };
+        let b = {
+            let station_spec = StationSpec::new(VisitFn(|station| {
                 Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
-            }),
-        ));
+            }));
+            let station = Station::new(station_spec, VisitStatus::Queued);
+            stations.add_node(station)
+        };
 
         let indicies = stations
             .iter_with_indices()
