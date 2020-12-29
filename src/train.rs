@@ -1,6 +1,6 @@
 use futures::stream::{self, StreamExt};
 
-use crate::rt_model::{Destination, Station};
+use crate::rt_model::{Destination, TrainReport};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -8,13 +8,17 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<D>(dest: &mut D)
+    pub async fn reach<D>(dest: &mut D) -> TrainReport<'_>
     where
         D: Destination,
     {
         stream::iter(dest.stations_mut().iter_mut())
-            .for_each(Station::visit)
-            .await;
+            .fold(TrainReport::new(), |mut train_report, station| async move {
+                station.visit().await;
+                train_report.stations_successful.push(station);
+                train_report
+            })
+            .await
     }
 }
 
@@ -33,8 +37,9 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = TestDest::default();
 
-        rt.block_on(Train::reach(&mut dest));
+        let train_report = rt.block_on(Train::reach(&mut dest));
 
+        assert!(train_report.stations_successful.is_empty());
         Ok(())
     }
 
@@ -59,8 +64,9 @@ mod tests {
             };
             TestDest { stations }
         };
-        rt.block_on(Train::reach(&mut dest));
+        let train_report = rt.block_on(Train::reach(&mut dest));
 
+        assert_eq!(2, train_report.stations_successful.len());
         assert!(
             dest.stations()
                 .iter()

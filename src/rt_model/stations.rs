@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use daggy::{Dag, NodeIndex};
+use daggy::{petgraph::graph::NodeReferences, Dag};
 
 use crate::{cfg_model::Workload, rt_model::Station};
 
@@ -15,7 +15,7 @@ impl Stations {
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter(&self) -> impl Iterator<Item = &Station> {
+    pub fn iter(&self) -> impl Iterator<Item = &Station> + ExactSizeIterator {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references().map(|(_, station)| station)
     }
@@ -26,7 +26,7 @@ impl Stations {
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter_with_indices(&self) -> impl Iterator<Item = (NodeIndex, &Station)> {
+    pub fn iter_with_indices(&self) -> NodeReferences<Station> {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references()
     }
