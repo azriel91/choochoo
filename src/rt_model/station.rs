@@ -1,27 +1,28 @@
-use std::{future::Future, pin::Pin};
-
-use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
+use crate::{
+    cfg_model::{StationSpec, VisitFnReturn},
+    rt_model::VisitStatus,
+};
 
 /// A state along the way to the destination.
 ///
 /// This is a high level item that is included in the user facing progress
 /// report.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Station {
+pub struct Station<E> {
     /// Behaviour specification for this station.
-    pub station_spec: StationSpec,
+    pub station_spec: StationSpec<E>,
     /// Whether this station has been visited.
     pub visit_status: VisitStatus,
 }
 
-impl Station {
+impl<E> Station<E> {
     /// Returns a new [`Station`].
     ///
     /// # Parameters
     ///
     /// * `station_spec`: Behaviour specification for this station.
     /// * `visit_status`: Whether this [`Station`] is ready to be visited.
-    pub fn new(station_spec: StationSpec, visit_status: VisitStatus) -> Self {
+    pub fn new(station_spec: StationSpec<E>, visit_status: VisitStatus) -> Self {
         Self {
             station_spec,
             visit_status,
@@ -29,7 +30,7 @@ impl Station {
     }
 
     /// Returns a station visitation pass.
-    pub fn visit(&mut self) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+    pub fn visit(&mut self) -> VisitFnReturn<'_, E> {
         (self.station_spec.visit_fn().0)(self)
     }
 }

@@ -8,14 +8,18 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<D>(dest: &mut D) -> TrainReport<'_>
+    pub async fn reach<'dest, D, E>(dest: &'dest mut D) -> TrainReport<'dest, E>
     where
-        D: Destination,
+        D: Destination<E>,
+        E: 'dest,
     {
         stream::iter(dest.stations_mut().iter_mut())
             .fold(TrainReport::new(), |mut train_report, station| async move {
-                station.visit().await;
-                train_report.stations_successful.push(station);
+                if let Err(_e) = station.visit().await {
+                    train_report.stations_failed.push(station);
+                } else {
+                    train_report.stations_successful.push(station);
+                }
                 train_report
             })
             .await
@@ -35,7 +39,7 @@ mod tests {
     #[test]
     fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
-        let mut dest = TestDest::default();
+        let mut dest = TestDest::<()>::default();
 
         let train_report = rt.block_on(Train::reach(&mut dest));
 
@@ -44,20 +48,26 @@ mod tests {
     }
 
     #[test]
-    fn visits_stations_to_destination() -> Result<(), Box<dyn std::error::Error>> {
+    fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
             let _a = {
                 let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        Result::<(), ()>::Ok(())
+                    })
                 }));
                 let station = Station::new(station_spec, VisitStatus::Queued);
                 stations.add_node(station)
             };
             let _b = {
                 let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        Result::<(), ()>::Ok(())
+                    })
                 }));
                 let station = Station::new(station_spec, VisitStatus::Queued);
                 stations.add_node(station)
@@ -76,17 +86,52 @@ mod tests {
         Ok(())
     }
 
-    #[derive(Debug, Default)]
-    struct TestDest {
-        stations: Stations,
+    #[test]
+    fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Error>> {
+        let rt = runtime::Builder::new_current_thread().build()?;
+        let mut dest = {
+            let mut stations = Stations::new();
+            let _a = {
+                let station_spec = StationSpec::new(VisitFn(|station| {
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        Result::<(), ()>::Ok(())
+                    })
+                }));
+                let station = Station::new(station_spec, VisitStatus::Queued);
+                stations.add_node(station)
+            };
+            let _b = {
+                let station_spec = StationSpec::new(VisitFn(|station| {
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        Result::<(), ()>::Err(())
+                    })
+                }));
+                let station = Station::new(station_spec, VisitStatus::Queued);
+                stations.add_node(station)
+            };
+            TestDest { stations }
+        };
+        let train_report = rt.block_on(Train::reach(&mut dest));
+
+        assert_eq!(1, train_report.stations_successful.len());
+        assert_eq!(1, train_report.stations_failed.len());
+
+        Ok(())
     }
 
-    impl Destination for TestDest {
-        fn stations(&self) -> &Stations {
+    #[derive(Debug, Default)]
+    struct TestDest<E> {
+        stations: Stations<E>,
+    }
+
+    impl<E> Destination<E> for TestDest<E> {
+        fn stations(&self) -> &Stations<E> {
             &self.stations
         }
 
-        fn stations_mut(&mut self) -> &mut Stations {
+        fn stations_mut(&mut self) -> &mut Stations<E> {
             &mut self.stations
         }
     }

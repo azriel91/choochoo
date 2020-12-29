@@ -6,34 +6,34 @@ use crate::{cfg_model::Workload, rt_model::Station};
 
 /// Directed acyclic graph of [`Station`]s.
 #[derive(Clone, Debug, Default)]
-pub struct Stations(pub Dag<Station, Workload>);
+pub struct Stations<E>(pub Dag<Station<E>, Workload>);
 
-impl Stations {
+impl<E> Stations<E> {
     /// Returns an empty graph of [`Station`]s.
     pub fn new() -> Self {
         Self(Dag::new())
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter(&self) -> impl Iterator<Item = &Station> + ExactSizeIterator {
+    pub fn iter(&self) -> impl Iterator<Item = &Station<E>> + ExactSizeIterator {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references().map(|(_, station)| station)
     }
 
     /// Returns an iterator over mutable references of all [`Station`]s.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Station> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Station<E>> {
         self.0.node_weights_mut()
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter_with_indices(&self) -> NodeReferences<Station> {
+    pub fn iter_with_indices(&self) -> NodeReferences<Station<E>> {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references()
     }
 }
 
-impl Deref for Stations {
-    type Target = Dag<Station, Workload>;
+impl<E> Deref for Stations<E> {
+    type Target = Dag<Station<E>, Workload>;
 
     #[cfg(not(tarpaulin_include))]
     fn deref(&self) -> &Self::Target {
@@ -41,7 +41,7 @@ impl Deref for Stations {
     }
 }
 
-impl DerefMut for Stations {
+impl<E> DerefMut for Stations<E> {
     #[cfg(not(tarpaulin_include))]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -65,14 +65,20 @@ mod tests {
         let mut stations = Stations::new();
         let a = {
             let station_spec = StationSpec::new(VisitFn(|station| {
-                Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                Box::pin(async move {
+                    station.visit_status = VisitStatus::VisitSuccess;
+                    Result::<(), ()>::Ok(())
+                })
             }));
             let station = Station::new(station_spec, VisitStatus::Queued);
             stations.add_node(station)
         };
         let b = {
             let station_spec = StationSpec::new(VisitFn(|station| {
-                Box::pin(async move { station.visit_status = VisitStatus::VisitSuccess })
+                Box::pin(async move {
+                    station.visit_status = VisitStatus::VisitSuccess;
+                    Result::<(), ()>::Ok(())
+                })
             }));
             let station = Station::new(station_spec, VisitStatus::Queued);
             stations.add_node(station)
@@ -88,13 +94,13 @@ mod tests {
 
     #[test]
     fn deref() {
-        let stations = Stations::new();
+        let stations = Stations::<()>::new();
         assert!(std::ptr::eq(Deref::deref(&stations), &stations.0));
     }
 
     #[test]
     fn deref_mut() {
-        let mut stations = Stations::new();
+        let mut stations = Stations::<()>::new();
         assert!(std::ptr::eq(
             DerefMut::deref_mut(&mut stations),
             &mut stations.0
