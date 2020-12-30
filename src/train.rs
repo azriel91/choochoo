@@ -12,7 +12,7 @@ impl Train {
     where
         E: 'dest,
     {
-        stream::iter(dest.stations.iter_mut())
+        stream::iter(dest.stations_queued())
             .fold(TrainReport::new(), |mut train_report, station| async move {
                 if let Err(_e) = station.visit().await {
                     train_report.stations_failed.push(station);
