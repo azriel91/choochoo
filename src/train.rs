@@ -8,12 +8,11 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<'dest, D, E>(dest: &'dest mut D) -> TrainReport<'dest, E>
+    pub async fn reach<'dest, E>(dest: &'dest mut Destination<E>) -> TrainReport<'dest, E>
     where
-        D: Destination<E>,
         E: 'dest,
     {
-        stream::iter(dest.stations_mut().iter_mut())
+        stream::iter(dest.stations.iter_mut())
             .fold(TrainReport::new(), |mut train_report, station| async move {
                 if let Err(_e) = station.visit().await {
                     train_report.stations_failed.push(station);
@@ -39,7 +38,7 @@ mod tests {
     #[test]
     fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
-        let mut dest = TestDest::<()>::default();
+        let mut dest = Destination::<()>::default();
 
         let train_report = rt.block_on(Train::reach(&mut dest));
 
@@ -72,13 +71,13 @@ mod tests {
                 let station = Station::new(station_spec, VisitStatus::Queued);
                 stations.add_node(station)
             };
-            TestDest { stations }
+            Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
         assert_eq!(2, train_report.stations_successful.len());
         assert!(
-            dest.stations()
+            dest.stations
                 .iter()
                 .all(|station| station.visit_status == VisitStatus::VisitSuccess)
         );
@@ -111,7 +110,7 @@ mod tests {
                 let station = Station::new(station_spec, VisitStatus::Queued);
                 stations.add_node(station)
             };
-            TestDest { stations }
+            Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
@@ -119,20 +118,5 @@ mod tests {
         assert_eq!(1, train_report.stations_failed.len());
 
         Ok(())
-    }
-
-    #[derive(Debug, Default)]
-    struct TestDest<E> {
-        stations: Stations<E>,
-    }
-
-    impl<E> Destination<E> for TestDest<E> {
-        fn stations(&self) -> &Stations<E> {
-            &self.stations
-        }
-
-        fn stations_mut(&mut self) -> &mut Stations<E> {
-            &mut self.stations
-        }
     }
 }
