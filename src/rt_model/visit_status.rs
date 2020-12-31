@@ -1,11 +1,12 @@
 /// Status of whether a [`Station`] has been visited.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum VisitStatus {
-    /// Station is not ready to be visited.
-    ///
-    /// Typically means other stations must be visited beforehand -- there is a
-    /// dependency.
+    /// Station has at least one parent that hasn't been visited.
     NotReady,
+    /// At least one of this station's parents failed to be visited.
+    ///
+    /// There will not be an attempt to visit this station.
+    ParentFail,
     /// Station is ready to be visited, but has not been.
     Queued,
     /// Station visit is in progress.
