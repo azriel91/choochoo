@@ -19,12 +19,10 @@ use crate::rt_model::{Station, Stations, VisitStatus};
 ///
 /// ## `ParentFail` Stations
 ///
-/// * If any parents are not in either `ParentFail` or `VisitFailed`, return
-///   error.
+/// No transitions.
 ///
 /// ## `Queued` Stations
 ///
-/// * If any parents are `NotReady`, `Queued`, or `InProgress`, return error.
 /// * If at least one parent has `VisitFailed` or `ParentFail`, switch to
 ///   `ParentFail`.
 ///
@@ -37,7 +35,7 @@ use crate::rt_model::{Station, Stations, VisitStatus};
 ///
 /// No transitions.
 ///
-/// ## `VisitFailed`
+/// ## `VisitFail`
 ///
 /// No transitions.
 #[derive(Debug)]
@@ -78,6 +76,7 @@ impl<E> VisitStatusUpdater<E> {
     ) -> Option<VisitStatus> {
         match station.visit_status {
             VisitStatus::NotReady => Self::transition_not_ready(stations, node_index),
+            VisitStatus::ParentFail | VisitStatus::VisitSuccess | VisitStatus::VisitFail => None,
             _ => None,
         }
     }
@@ -234,6 +233,31 @@ mod tests {
 
             let visit_status_next =
                 VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+
+            assert_eq!(None, visit_status_next);
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn no_change_to_parent_fail_visit_success_or_visit_fail() -> Result<(), WouldCycle<Workload>> {
+        [
+            VisitStatus::ParentFail,
+            VisitStatus::VisitSuccess,
+            VisitStatus::VisitFail,
+        ]
+        .iter()
+        .copied()
+        .try_for_each(|visit_status| {
+            let mut stations = Stations::new();
+            let station_a = station(visit_status);
+            let node_index_a = stations.add_node(station_a);
+
+            let station_a = stations.node_weight(node_index_a).unwrap();
+
+            let visit_status_next =
+                VisitStatusUpdater::visit_status_next(&stations, node_index_a, &station_a);
 
             assert_eq!(None, visit_status_next);
 
