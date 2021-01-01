@@ -15,7 +15,9 @@ impl<E> Stations<E> {
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter(&self) -> impl Iterator<Item = &Station<E>> + ExactSizeIterator {
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = &Station<E>> + ExactSizeIterator + DoubleEndedIterator {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references().map(|(_, station)| station)
     }
