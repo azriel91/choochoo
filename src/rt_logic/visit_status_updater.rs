@@ -23,13 +23,13 @@ use crate::rt_model::{Station, Stations, VisitStatus};
 ///
 /// ## `Queued` Stations
 ///
-/// * If at least one parent has `VisitFailed` or `ParentFail`, switch to
-///   `ParentFail`.
+/// No transitions -- [`Train::reach`] sets this to `InProgress` when visiting
+/// the station.
 ///
 /// ## `InProgress` Stations
 ///
-/// * If `visit` is successful, switch to `VisitSuccess`.
-/// * If `visit` fails, switch to `VisitFailed`.
+/// No transitions -- [`Train::reach`] sets this to `VisitSuccess` or
+/// `VisitFail` depending on [`Station::visit`]'s result.
 ///
 /// ## `VisitSuccess`
 ///

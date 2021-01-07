@@ -1,6 +1,6 @@
 use futures::stream::{self, StreamExt};
 
-use crate::rt_model::{Destination, TrainReport};
+use crate::rt_model::{Destination, TrainReport, VisitStatus};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -14,9 +14,15 @@ impl Train {
     {
         stream::iter(dest.stations_queued())
             .fold(TrainReport::new(), |mut train_report, station| async move {
+                // Because this is in an async block, concurrent tasks may access this station's
+                // `visit_status` while the `visit()` is `await`ed.
+                station.visit_status = VisitStatus::InProgress;
+
                 if let Err(_e) = station.visit().await {
+                    station.visit_status = VisitStatus::VisitFail;
                     train_report.stations_failed.push(station);
                 } else {
+                    station.visit_status = VisitStatus::VisitSuccess;
                     train_report.stations_successful.push(station);
                 }
                 train_report
@@ -51,26 +57,8 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            let _a = {
-                let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move {
-                        station.visit_status = VisitStatus::VisitSuccess;
-                        Result::<(), ()>::Ok(())
-                    })
-                }));
-                let station = Station::new(station_spec, VisitStatus::Queued);
-                stations.add_node(station)
-            };
-            let _b = {
-                let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move {
-                        station.visit_status = VisitStatus::VisitSuccess;
-                        Result::<(), ()>::Ok(())
-                    })
-                }));
-                let station = Station::new(station_spec, VisitStatus::Queued);
-                stations.add_node(station)
-            };
+            add_station(&mut stations, VisitStatus::Queued, Ok(()));
+            add_station(&mut stations, VisitStatus::Queued, Ok(()));
             Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
@@ -90,33 +78,38 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            let _a = {
-                let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move {
-                        station.visit_status = VisitStatus::VisitSuccess;
-                        Result::<(), ()>::Ok(())
-                    })
-                }));
-                let station = Station::new(station_spec, VisitStatus::Queued);
-                stations.add_node(station)
-            };
-            let _b = {
-                let station_spec = StationSpec::new(VisitFn(|station| {
-                    Box::pin(async move {
-                        station.visit_status = VisitStatus::VisitSuccess;
-                        Result::<(), ()>::Err(())
-                    })
-                }));
-                let station = Station::new(station_spec, VisitStatus::Queued);
-                stations.add_node(station)
-            };
+            add_station(&mut stations, VisitStatus::Queued, Ok(()));
+            add_station(&mut stations, VisitStatus::Queued, Err(()));
             Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
         assert_eq!(1, train_report.stations_successful.len());
+        assert_eq!(
+            VisitStatus::VisitSuccess,
+            train_report.stations_successful[0].visit_status
+        );
         assert_eq!(1, train_report.stations_failed.len());
+        assert_eq!(
+            VisitStatus::VisitFail,
+            train_report.stations_failed[0].visit_status
+        );
 
         Ok(())
+    }
+
+    fn add_station(
+        stations: &mut Stations<()>,
+        visit_status: VisitStatus,
+        visit_result: Result<(), ()>,
+    ) {
+        let visit_fn = if visit_result.is_ok() {
+            VisitFn(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+        } else {
+            VisitFn(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+        };
+        let station_spec = StationSpec::new(visit_fn);
+        let station = Station::new(station_spec, visit_status);
+        stations.add_node(station);
     }
 }
