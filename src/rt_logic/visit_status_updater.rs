@@ -47,6 +47,9 @@ pub struct VisitStatusUpdater<E> {
 impl<E> VisitStatusUpdater<E> {
     /// Updates the [`VisitStatus`]es for all [`Station`]s.
     ///
+    /// `ParentFail` transitions are propagated through to all later stations,
+    /// on the condition that the nodes are added in order.
+    ///
     /// # Parameters
     ///
     /// * `stations`: `Stations` to update the `VisitStatus` for.
@@ -54,15 +57,13 @@ impl<E> VisitStatusUpdater<E> {
         stations.graph().node_indices().for_each(|node_index| {
             // The `Option<&mut Station>` returned by `node_weight_mut` cannot be returned
             // outside an iterator closure, which is why we cannot use `filter_map`.
-            if let Some((station, visit_status_next)) = stations
+
+            let visit_status_next = stations
                 .node_weight(node_index)
-                .and_then(|station| Self::visit_status_next(stations, node_index, station))
-                .and_then(|visit_status_next| {
-                    stations
-                        .node_weight_mut(node_index)
-                        .map(|station| (station, visit_status_next))
-                })
-            {
+                .and_then(|station| Self::visit_status_next(stations, node_index, station));
+            let station_mut = stations.node_weight_mut(node_index);
+
+            if let (Some(station), Some(visit_status_next)) = (station_mut, visit_status_next) {
                 station.visit_status = visit_status_next;
             }
         });
@@ -76,8 +77,11 @@ impl<E> VisitStatusUpdater<E> {
     ) -> Option<VisitStatus> {
         match station.visit_status {
             VisitStatus::NotReady => Self::transition_not_ready(stations, node_index),
-            VisitStatus::ParentFail | VisitStatus::VisitSuccess | VisitStatus::VisitFail => None,
-            _ => None,
+            VisitStatus::Queued
+            | VisitStatus::InProgress
+            | VisitStatus::ParentFail
+            | VisitStatus::VisitSuccess
+            | VisitStatus::VisitFail => None,
         }
     }
 
@@ -122,6 +126,86 @@ mod tests {
         cfg_model::{StationSpec, VisitFn, Workload},
         rt_model::{Station, Stations, VisitStatus},
     };
+
+    #[test]
+    fn update_processes_all_possible_transitions() -> Result<(), WouldCycle<Workload>> {
+        // a -> c
+        //      ^
+        // b --/
+        //   \
+        //    \--> d
+        //
+        // e --> f
+        let mut stations = Stations::new();
+        let station_a = station(VisitStatus::VisitSuccess);
+        let station_b = station(VisitStatus::VisitSuccess);
+        let station_c = station(VisitStatus::NotReady); // Should become `Queued`
+        let station_d = station(VisitStatus::NotReady); // Should become `Queued`
+        let station_e = station(VisitStatus::VisitFail);
+        let station_f = station(VisitStatus::NotReady); // Should become `ParentFail`
+        let node_index_a = stations.add_node(station_a);
+        let node_index_b = stations.add_node(station_b);
+        let node_index_c = stations.add_node(station_c);
+        let node_index_d = stations.add_node(station_d);
+        let node_index_e = stations.add_node(station_e);
+        let node_index_f = stations.add_node(station_f);
+        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
+        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        stations.add_edge(node_index_b, node_index_d, Workload::default())?;
+        stations.add_edge(node_index_e, node_index_f, Workload::default())?;
+
+        VisitStatusUpdater::update(&mut stations);
+
+        let station_a = stations.node_weight(node_index_a).unwrap();
+        let station_b = stations.node_weight(node_index_b).unwrap();
+        let station_c = stations.node_weight(node_index_c).unwrap();
+        let station_d = stations.node_weight(node_index_d).unwrap();
+        let station_e = stations.node_weight(node_index_e).unwrap();
+        let station_f = stations.node_weight(node_index_f).unwrap();
+        assert_eq!(VisitStatus::VisitSuccess, station_a.visit_status);
+        assert_eq!(VisitStatus::VisitSuccess, station_b.visit_status);
+        assert_eq!(VisitStatus::Queued, station_c.visit_status);
+        assert_eq!(VisitStatus::Queued, station_d.visit_status);
+        assert_eq!(VisitStatus::VisitFail, station_e.visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_f.visit_status);
+        Ok(())
+    }
+
+    #[test]
+    fn update_propagates_parent_fail_transitions() -> Result<(), WouldCycle<Workload>> {
+        // a -> c -> d -> e
+        //      ^
+        // b --/
+        let mut stations = Stations::new();
+        let station_a = station(VisitStatus::InProgress);
+        let station_b = station(VisitStatus::VisitFail);
+        let station_c = station(VisitStatus::NotReady);
+        let station_d = station(VisitStatus::NotReady);
+        let station_e = station(VisitStatus::NotReady);
+        let node_index_a = stations.add_node(station_a);
+        let node_index_b = stations.add_node(station_b);
+        let node_index_c = stations.add_node(station_c);
+        let node_index_d = stations.add_node(station_d);
+        let node_index_e = stations.add_node(station_e);
+        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
+        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        stations.add_edge(node_index_c, node_index_d, Workload::default())?;
+        stations.add_edge(node_index_d, node_index_e, Workload::default())?;
+
+        VisitStatusUpdater::update(&mut stations);
+
+        let station_a = stations.node_weight(node_index_a).unwrap();
+        let station_b = stations.node_weight(node_index_b).unwrap();
+        let station_c = stations.node_weight(node_index_c).unwrap();
+        let station_d = stations.node_weight(node_index_d).unwrap();
+        let station_e = stations.node_weight(node_index_e).unwrap();
+        assert_eq!(VisitStatus::InProgress, station_a.visit_status);
+        assert_eq!(VisitStatus::VisitFail, station_b.visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_c.visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_d.visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_e.visit_status);
+        Ok(())
+    }
 
     #[test]
     fn updates_not_ready_to_queued_when_no_parents_exist() {
