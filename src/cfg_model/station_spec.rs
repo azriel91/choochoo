@@ -19,6 +19,6 @@ impl<E> StationSpec<E> {
 
     /// Returns a station visitation pass.
     pub fn visit_fn(&self) -> VisitFn<E> {
-        self.visit_fn
+        self.visit_fn.clone()
     }
 }

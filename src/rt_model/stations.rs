@@ -1,6 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
-use daggy::{petgraph::graph::NodeReferences, Dag};
+use daggy::{
+    petgraph::graph::{DefaultIx, NodeReferences},
+    Dag, NodeWeightsMut,
+};
 
 use crate::{cfg_model::Workload, rt_model::Station};
 
@@ -23,7 +26,7 @@ impl<E> Stations<E> {
     }
 
     /// Returns an iterator over mutable references of all [`Station`]s.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Station<E>> {
+    pub fn iter_mut(&mut self) -> NodeWeightsMut<Station<E>, DefaultIx> {
         self.0.node_weights_mut()
     }
 
@@ -66,7 +69,7 @@ mod tests {
     fn iter_with_indices_returns_iterator_with_all_stations() {
         let mut stations = Stations::new();
         let a = {
-            let station_spec = StationSpec::new(VisitFn(|station| {
+            let station_spec = StationSpec::new(VisitFn::new(|station| {
                 Box::pin(async move {
                     station.visit_status = VisitStatus::VisitSuccess;
                     Result::<(), ()>::Ok(())
@@ -76,7 +79,7 @@ mod tests {
             stations.add_node(station)
         };
         let b = {
-            let station_spec = StationSpec::new(VisitFn(|station| {
+            let station_spec = StationSpec::new(VisitFn::new(|station| {
                 Box::pin(async move {
                     station.visit_status = VisitStatus::VisitSuccess;
                     Result::<(), ()>::Ok(())

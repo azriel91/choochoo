@@ -350,7 +350,7 @@ mod tests {
     }
 
     fn station(visit_status: VisitStatus) -> Station<()> {
-        let station_spec = StationSpec::new(VisitFn(|_station| {
+        let station_spec = StationSpec::new(VisitFn::new(|_station| {
             Box::pin(async move { Result::<(), ()>::Ok(()) })
         }));
         Station::new(station_spec, visit_status)

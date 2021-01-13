@@ -104,9 +104,9 @@ mod tests {
         visit_result: Result<(), ()>,
     ) {
         let visit_fn = if visit_result.is_ok() {
-            VisitFn(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
         } else {
-            VisitFn(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
         };
         let station_spec = StationSpec::new(visit_fn);
         let station = Station::new(station_spec, visit_status);
