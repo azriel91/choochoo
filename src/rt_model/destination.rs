@@ -4,6 +4,11 @@ use daggy::{petgraph::graph::DefaultIx, NodeWeightsMut};
 
 use crate::rt_model::{Station, Stations, VisitStatus};
 
+type StationsQueuedIter<'dest, E> = Filter<
+    NodeWeightsMut<'dest, Station<E>, DefaultIx>,
+    for<'f> fn(&'f &'dest mut Station<E>) -> bool,
+>;
+
 /// Specification of a desired state.
 #[derive(Clone, Debug, Default)]
 pub struct Destination<E> {
@@ -15,9 +20,7 @@ impl<E> Destination<E> {
     /// Returns an iterator over the `Station`s that are ready to be visited.
     ///
     /// This does not include `Station`s that have a visit in progress.
-    pub fn stations_queued(
-        &mut self,
-    ) -> Filter<NodeWeightsMut<Station<E>, DefaultIx>, fn(&&mut Station<E>) -> bool> {
+    pub fn stations_queued(&mut self) -> StationsQueuedIter<'_, E> {
         self.stations
             .iter_mut()
             .filter(|station| station.visit_status == VisitStatus::Queued)
