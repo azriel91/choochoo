@@ -1,17 +1,15 @@
 use std::{
     fmt::{self, Debug},
-    iter::Filter,
     marker::PhantomData,
     pin::Pin,
 };
 
-use daggy::{petgraph::graph::DefaultIx, NodeWeightsMut};
 use futures::{
     task::{Context, Poll},
     Stream,
 };
 
-use crate::rt_model::{Destination, Station};
+use crate::rt_model::{Destination, Station, VisitStatus};
 
 /// [`Stream`] of [`Station`]s to process with integrity guarantees.
 ///
@@ -37,20 +35,22 @@ impl<'dest, E> IntegrityStrat<'dest, E> {
     /// # Parameters
     ///
     /// * `dest`: `Destination` whose stations to visit.
-    pub fn iter<'f>(dest: &'f mut Destination<E>) -> IntegrityStratIter<'f, E> {
+    pub fn iter(dest: &mut Destination<E>) -> IntegrityStratIter<'_, E> {
+        let stations_mut = dest.stations.iter_mut().collect::<Vec<_>>();
+
         IntegrityStratIter {
-            stations: dest.stations_queued(),
+            stations_mut,
             marker: PhantomData,
         }
     }
 }
 
+// TODO: Store a list of `NodeIndex`es, and the iterator gets the station via
+// `node_weight`.
+
 pub struct IntegrityStratIter<'dest, E> {
-    /// Iterator of stations to visit.
-    stations: Filter<
-        NodeWeightsMut<'dest, Station<E>, DefaultIx>,
-        for<'f> fn(&'f &'dest mut Station<E>) -> bool,
-    >,
+    /// References to stations that will be returned.
+    stations_mut: Vec<&'dest mut Station<E>>,
     /// Marker.
     marker: PhantomData<&'dest E>,
 }
@@ -61,7 +61,7 @@ where
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("Station")
-            .field("stations", &"..")
+            // .field("stations_frozen", &self.stations_frozen)
             .finish()
     }
 }
@@ -84,7 +84,12 @@ impl<'dest, E> Stream for IntegrityStratIter<'dest, E> {
         //
         // Not yet sure where to store it.
 
-        if let Some(station) = self.stations.next() {
+        if let Some(station_index) = self
+            .stations_mut
+            .iter()
+            .position(|station| station.visit_status == VisitStatus::Queued)
+        {
+            let station = self.stations_mut.swap_remove(station_index);
             Poll::Ready(Some(station))
         } else {
             Poll::Ready(None)
