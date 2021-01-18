@@ -1,11 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
 use daggy::{
-    petgraph::graph::{DefaultIx, NodeReferences},
+    petgraph::graph::{DefaultIx, Frozen, NodeReferences},
     Dag, NodeWeightsMut,
 };
 
 use crate::{cfg_model::Workload, rt_model::Station};
+
+/// Frozen stations graph.
+pub type StationsFrozen<'s, E> = Frozen<'s, Dag<Station<E>, Workload>>;
 
 /// Directed acyclic graph of [`Station`]s.
 #[derive(Clone, Debug, Default)]
@@ -15,6 +18,11 @@ impl<E> Stations<E> {
     /// Returns an empty graph of [`Station`]s.
     pub fn new() -> Self {
         Self(Dag::new())
+    }
+
+    /// Returns a frozen stations graph.
+    pub fn frozen(&mut self) -> StationsFrozen<'_, E> {
+        Frozen::new(&mut self.0)
     }
 
     /// Returns an iterator over references of all [`Station`]s.

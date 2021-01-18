@@ -1,7 +1,7 @@
 use crate::rt_model::Station;
 
 /// Record of what happened during a train's drive.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TrainReport<'rt, E> {
     /// Stations successfully visited.
     pub stations_successful: Vec<&'rt Station<E>>,

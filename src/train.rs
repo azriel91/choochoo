@@ -12,22 +12,27 @@ impl Train {
     where
         E: 'dest,
     {
-        stream::iter(dest.stations_queued())
-            .fold(TrainReport::new(), |mut train_report, station| async move {
-                // Because this is in an async block, concurrent tasks may access this station's
-                // `visit_status` while the `visit()` is `await`ed.
-                station.visit_status = VisitStatus::InProgress;
+        let train_report = TrainReport::new();
+        if let Some(stations_queued) = dest.stations_queued() {
+            stream::iter(stations_queued)
+                .fold(train_report, |mut train_report, station| async move {
+                    // Because this is in an async block, concurrent tasks may access this station's
+                    // `visit_status` while the `visit()` is `await`ed.
+                    station.visit_status = VisitStatus::InProgress;
 
-                if let Err(_e) = station.visit().await {
-                    station.visit_status = VisitStatus::VisitFail;
-                    train_report.stations_failed.push(station);
-                } else {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                    train_report.stations_successful.push(station);
-                }
-                train_report
-            })
-            .await
+                    if let Err(_e) = station.visit().await {
+                        station.visit_status = VisitStatus::VisitFail;
+                        train_report.stations_failed.push(station);
+                    } else {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        train_report.stations_successful.push(station);
+                    }
+                    train_report
+                })
+                .await
+        } else {
+            train_report
+        }
     }
 }
 
