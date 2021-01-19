@@ -1,4 +1,4 @@
-use std::{future::Future, marker::PhantomData};
+use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use futures::stream::{self, StreamExt};
 
@@ -21,11 +21,7 @@ use crate::{
 /// # Development Note
 ///
 /// Originally this was intended to be implemented as a single [`Stream`], but
-/// `Item` return type needs to be:
-///
-/// ```rust
-/// type Item<'a> = &'a mut Station<E>;
-/// ```
+/// `Item` return type needs to be `type Item<'a> = &'a mut Station<E>;`
 ///
 /// However, this requires GAT, which is not yet stable: <https://github.com/rust-lang/rust/issues/44265>.
 /// See <https://users.rust-lang.org/t/returning-borrowed-values-from-an-iterator/1096> for implementation hint.
@@ -42,31 +38,41 @@ impl<E> IntegrityStrat<E> {
     ///
     /// See the [`IntegrityStrat`] type level documentation for more details.
     ///
+    /// # Implementation Note
+    ///
+    /// The `Pin<Box<_>>` around the `Fut` is required to allow this to compile.
+    /// Without it, `&mut station` is only valid for the lifetime of the
+    /// closure, not of the returned future.
+    ///
+    /// We need to make it valid for the lifetime of the returned future, but
+    /// not so long that it extends beyond the `match` block.
+    ///
+    /// * https://users.rust-lang.org/t/function-that-takes-a-closure-with-mutable-reference-that-returns-a-future/54324
+    /// * https://github.com/rust-lang/rust/issues/74497#issuecomment-661995588
+    ///
     /// # Parameters
     ///
     /// * `dest`: `Destination` whose stations to visit.
-    pub async fn iter<F, Fut, R>(
-        dest: &mut Destination<E>,
-        mut return_seed: R,
-        mut visit_logic: F,
-    ) -> R
+    /// * `seed`: Initial seed for the return value.
+    /// * `visit_logic`: Logic to run to visit a `Station`.
+    pub async fn iter<F, R>(dest: &mut Destination<E>, mut seed: R, mut visit_logic: F) -> R
     where
-        F: FnMut(R, &mut Station<E>) -> Fut,
-        Fut: Future<Output = R>,
+        F: for<'a> FnMut(R, &'a mut Station<E>) -> Pin<Box<dyn Future<Output = R> + 'a>>,
     {
         loop {
-            match dest.stations_queued() {
+            let stations_queued = dest.stations_queued();
+            match stations_queued {
                 None => break,
                 Some(stations_queued) => {
-                    return_seed = stream::iter(stations_queued)
-                        .fold(return_seed, &mut visit_logic)
+                    seed = stream::iter(stations_queued)
+                        .fold(seed, &mut visit_logic)
                         .await;
                 }
             }
             VisitStatusUpdater::update(&mut dest.stations);
         }
 
-        return_seed
+        seed
     }
 }
 
@@ -114,25 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_queued_stations() -> Result<(), Box<dyn std::error::Error>> {
-        let (tx, rx) = mpsc::channel(10);
-        let dest = {
-            let mut stations = Stations::new();
-            add_station(&mut stations, VisitStatus::Queued, Ok((tx.clone(), 0)));
-            add_station(&mut stations, VisitStatus::Queued, Ok((tx.clone(), 1)));
-            add_station(&mut stations, VisitStatus::NotReady, Ok((tx, 2)));
-            Destination { stations }
-        };
-
-        let (call_count, stations_sequence) = call_iter(dest, Some(rx))?;
-
-        assert_eq!(2, call_count);
-        assert_eq!(vec![0u8, 1u8], stations_sequence);
-        Ok(())
-    }
-
-    #[test]
-    fn returns_propagated_newly_queued_stations() -> Result<(), Box<dyn std::error::Error>> {
+    fn returns_queued_stations_and_propagates_queued() -> Result<(), Box<dyn std::error::Error>> {
         let (tx, rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
@@ -175,15 +163,20 @@ mod tests {
     ) -> Result<(u32, Vec<u8>), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, station| async move {
-                station.visit().await.expect("Failed to visit station.");
+            let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, station| {
+                Box::pin(async move {
+                    station.visit().await.expect("Failed to visit station.");
 
-                call_count + 1
+                    call_count + 1
+                })
             })
             .await;
 
             let mut received_values = Vec::new();
             if let Some(mut rx) = rx {
+                // Prevent test from hanging.
+                rx.close();
+
                 while let Some(n) = rx.recv().await {
                     received_values.push(n);
                 }
