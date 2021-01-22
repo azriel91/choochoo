@@ -75,20 +75,18 @@ impl<E> IntegrityStrat<E> {
 
         loop {
             let mut frozen = dest.stations.frozen();
-            node_ids.iter().for_each(|station_id| {
-                let station = &frozen[*station_id];
+            node_ids.iter().for_each(|node_id| {
+                let station = &frozen[*node_id];
                 if station.visit_status == VisitStatus::Queued {
-                    node_ids_queued.push(*station_id);
+                    node_ids_queued.push(*node_id);
                 }
             });
 
             if !node_ids_queued.is_empty() {
-                let mut node_id_iter = node_ids_queued.iter();
-
-                while let Some(station_id) = node_id_iter.next() {
-                    let station_id = *station_id;
-                    let station = &mut frozen[station_id];
-                    seed = visit_logic(seed, station_id, station).await;
+                for node_id in node_ids_queued.iter() {
+                    let node_id = *node_id;
+                    let station = &mut frozen[node_id];
+                    seed = visit_logic(seed, node_id, station).await;
                 }
             } else {
                 break;

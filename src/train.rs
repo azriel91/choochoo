@@ -14,26 +14,22 @@ impl Train {
         E: 'dest,
     {
         let train_report = TrainReport::new();
-        IntegrityStrat::iter(
-            dest,
-            train_report,
-            |mut train_report, station_id, station| {
-                Box::pin(async move {
-                    // Because this is in an async block, concurrent tasks may access this station's
-                    // `visit_status` while the `visit()` is `await`ed.
-                    station.visit_status = VisitStatus::InProgress;
+        IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
+            Box::pin(async move {
+                // Because this is in an async block, concurrent tasks may access this station's
+                // `visit_status` while the `visit()` is `await`ed.
+                station.visit_status = VisitStatus::InProgress;
 
-                    if let Err(_e) = station.visit().await {
-                        station.visit_status = VisitStatus::VisitFail;
-                        train_report.stations_failed.push(station_id);
-                    } else {
-                        station.visit_status = VisitStatus::VisitSuccess;
-                        train_report.stations_successful.push(station_id);
-                    }
-                    train_report
-                })
-            },
-        )
+                if let Err(_e) = station.visit().await {
+                    station.visit_status = VisitStatus::VisitFail;
+                    train_report.stations_failed.push(node_id);
+                } else {
+                    station.visit_status = VisitStatus::VisitSuccess;
+                    train_report.stations_successful.push(node_id);
+                }
+                train_report
+            })
+        })
         .await
     }
 }
