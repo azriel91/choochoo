@@ -1,6 +1,7 @@
-use futures::stream::{self, StreamExt};
-
-use crate::rt_model::{Destination, TrainReport, VisitStatus};
+use crate::{
+    rt_logic::IntegrityStrat,
+    rt_model::{Destination, TrainReport, VisitStatus},
+};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -8,31 +9,32 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<'dest, E>(dest: &'dest mut Destination<E>) -> TrainReport<'dest, E>
+    pub async fn reach<'dest, E>(dest: &'dest mut Destination<E>) -> TrainReport
     where
         E: 'dest,
     {
         let train_report = TrainReport::new();
-        if let Some(stations_queued) = dest.stations_queued() {
-            stream::iter(stations_queued)
-                .fold(train_report, |mut train_report, station| async move {
+        IntegrityStrat::iter(
+            dest,
+            train_report,
+            |mut train_report, station_id, station| {
+                Box::pin(async move {
                     // Because this is in an async block, concurrent tasks may access this station's
                     // `visit_status` while the `visit()` is `await`ed.
                     station.visit_status = VisitStatus::InProgress;
 
                     if let Err(_e) = station.visit().await {
                         station.visit_status = VisitStatus::VisitFail;
-                        train_report.stations_failed.push(station);
+                        train_report.stations_failed.push(station_id);
                     } else {
                         station.visit_status = VisitStatus::VisitSuccess;
-                        train_report.stations_successful.push(station);
+                        train_report.stations_successful.push(station_id);
                     }
                     train_report
                 })
-                .await
-        } else {
-            train_report
-        }
+            },
+        )
+        .await
     }
 }
 
@@ -89,15 +91,16 @@ mod tests {
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
+        let frozen = dest.stations.frozen();
         assert_eq!(1, train_report.stations_successful.len());
         assert_eq!(
             VisitStatus::VisitSuccess,
-            train_report.stations_successful[0].visit_status
+            frozen[train_report.stations_successful[0]].visit_status
         );
         assert_eq!(1, train_report.stations_failed.len());
         assert_eq!(
             VisitStatus::VisitFail,
-            train_report.stations_failed[0].visit_status
+            frozen[train_report.stations_failed[0]].visit_status
         );
 
         Ok(())

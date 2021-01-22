@@ -54,3 +54,53 @@ impl<E> Destination<E> {
         station.visit_status == VisitStatus::Queued
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Destination;
+    use crate::{
+        cfg_model::{StationSpec, VisitFn},
+        rt_model::{Station, Stations, VisitStatus},
+    };
+
+    #[test]
+    fn stations_queued_returns_none_when_no_stations_queued() {
+        let mut dest = {
+            let mut stations = Stations::new();
+            add_station(&mut stations, VisitStatus::VisitSuccess);
+            add_station(&mut stations, VisitStatus::NotReady);
+            Destination { stations }
+        };
+
+        assert!(
+            dest.stations_queued().is_none(),
+            "Expected `stations_queued()` to be `None`."
+        );
+    }
+
+    #[test]
+    fn stations_queued_returns_iter_when_stations_queued_exists() {
+        let mut dest = {
+            let mut stations = Stations::new();
+            add_station(&mut stations, VisitStatus::Queued);
+            add_station(&mut stations, VisitStatus::Queued);
+            add_station(&mut stations, VisitStatus::NotReady);
+            Destination { stations }
+        };
+
+        if let Some(mut stations_queued) = dest.stations_queued() {
+            assert!(stations_queued.next().is_some());
+            assert!(stations_queued.next().is_some());
+            assert!(stations_queued.next().is_none());
+        } else {
+            panic!("Expected stations_queued to be `Some(..)`");
+        }
+    }
+
+    fn add_station(stations: &mut Stations<()>, visit_status: VisitStatus) {
+        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let station_spec = StationSpec::new(visit_fn);
+        let station = Station::new(station_spec, visit_status);
+        stations.add_node(station);
+    }
+}

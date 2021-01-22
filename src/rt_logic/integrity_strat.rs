@@ -1,10 +1,13 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use futures::stream::{self, StreamExt};
+use daggy::{
+    petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
+    NodeIndex,
+};
 
 use crate::{
     rt_logic::VisitStatusUpdater,
-    rt_model::{Destination, Station},
+    rt_model::{Destination, Station, VisitStatus},
 };
 
 /// [`Stream`] of [`Station`]s to process with integrity guarantees.
@@ -57,19 +60,43 @@ impl<E> IntegrityStrat<E> {
     /// * `visit_logic`: Logic to run to visit a `Station`.
     pub async fn iter<F, R>(dest: &mut Destination<E>, mut seed: R, mut visit_logic: F) -> R
     where
-        F: for<'a> FnMut(R, &'a mut Station<E>) -> Pin<Box<dyn Future<Output = R> + 'a>>,
+        F: for<'a> FnMut(
+            R,
+            NodeIndex<DefaultIx>,
+            &'a mut Station<E>,
+        ) -> Pin<Box<dyn Future<Output = R> + 'a>>,
     {
+        let node_ids = dest
+            .stations
+            .node_identifiers()
+            .collect::<Vec<NodeIndex<DefaultIx>>>();
+        let mut node_ids_queued = Vec::<NodeIndex<DefaultIx>>::with_capacity(node_ids.len());
+        let visit_logic = &mut visit_logic;
+
         loop {
-            let stations_queued = dest.stations_queued();
-            match stations_queued {
-                None => break,
-                Some(stations_queued) => {
-                    seed = stream::iter(stations_queued)
-                        .fold(seed, &mut visit_logic)
-                        .await;
+            let mut frozen = dest.stations.frozen();
+            node_ids.iter().for_each(|station_id| {
+                let station = &frozen[*station_id];
+                if station.visit_status == VisitStatus::Queued {
+                    node_ids_queued.push(*station_id);
                 }
+            });
+
+            if !node_ids_queued.is_empty() {
+                let mut node_id_iter = node_ids_queued.iter();
+
+                while let Some(station_id) = node_id_iter.next() {
+                    let station_id = *station_id;
+                    let station = &mut frozen[station_id];
+                    seed = visit_logic(seed, station_id, station).await;
+                }
+            } else {
+                break;
             }
+
             VisitStatusUpdater::update(&mut dest.stations);
+
+            node_ids_queued.clear();
         }
 
         seed
@@ -163,7 +190,7 @@ mod tests {
     ) -> Result<(u32, Vec<u8>), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, station| {
+            let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, _, station| {
                 Box::pin(async move {
                     station.visit().await.expect("Failed to visit station.");
 
