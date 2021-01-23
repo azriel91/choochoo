@@ -119,16 +119,14 @@ impl<E> VisitStatusUpdater<E> {
 
 #[cfg(test)]
 mod tests {
-    use daggy::WouldCycle;
-
     use super::VisitStatusUpdater;
     use crate::{
-        cfg_model::{StationId, StationSpec, VisitFn, Workload},
+        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn, Workload},
         rt_model::{Station, Stations, VisitStatus},
     };
 
     #[test]
-    fn update_processes_all_possible_transitions() -> Result<(), WouldCycle<Workload>> {
+    fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error::Error>> {
         // a -> c
         //      ^
         // b --/
@@ -137,12 +135,12 @@ mod tests {
         //
         // e --> f
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess);
-        let station_b = station("b", VisitStatus::VisitSuccess);
-        let station_c = station("c", VisitStatus::NotReady); // Should become `Queued`
-        let station_d = station("d", VisitStatus::NotReady); // Should become `Queued`
-        let station_e = station("e", VisitStatus::VisitFail);
-        let station_f = station("f", VisitStatus::NotReady); // Should become `ParentFail`
+        let station_a = station("a", VisitStatus::VisitSuccess)?;
+        let station_b = station("b", VisitStatus::VisitSuccess)?;
+        let station_c = station("c", VisitStatus::NotReady)?; // Should become `Queued`
+        let station_d = station("d", VisitStatus::NotReady)?; // Should become `Queued`
+        let station_e = station("e", VisitStatus::VisitFail)?;
+        let station_f = station("f", VisitStatus::NotReady)?; // Should become `ParentFail`
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -156,12 +154,12 @@ mod tests {
 
         VisitStatusUpdater::update(&mut stations);
 
-        let station_a = stations.node_weight(node_index_a).unwrap();
-        let station_b = stations.node_weight(node_index_b).unwrap();
-        let station_c = stations.node_weight(node_index_c).unwrap();
-        let station_d = stations.node_weight(node_index_d).unwrap();
-        let station_e = stations.node_weight(node_index_e).unwrap();
-        let station_f = stations.node_weight(node_index_f).unwrap();
+        let station_a = &stations[node_index_a];
+        let station_b = &stations[node_index_b];
+        let station_c = &stations[node_index_c];
+        let station_d = &stations[node_index_d];
+        let station_e = &stations[node_index_e];
+        let station_f = &stations[node_index_f];
         assert_eq!(VisitStatus::VisitSuccess, station_a.visit_status);
         assert_eq!(VisitStatus::VisitSuccess, station_b.visit_status);
         assert_eq!(VisitStatus::Queued, station_c.visit_status);
@@ -172,16 +170,16 @@ mod tests {
     }
 
     #[test]
-    fn update_propagates_parent_fail_transitions() -> Result<(), WouldCycle<Workload>> {
+    fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error::Error>> {
         // a -> c -> d -> e
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::InProgress);
-        let station_b = station("b", VisitStatus::VisitFail);
-        let station_c = station("c", VisitStatus::NotReady);
-        let station_d = station("d", VisitStatus::NotReady);
-        let station_e = station("e", VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::InProgress)?;
+        let station_b = station("b", VisitStatus::VisitFail)?;
+        let station_c = station("c", VisitStatus::NotReady)?;
+        let station_d = station("d", VisitStatus::NotReady)?;
+        let station_e = station("e", VisitStatus::NotReady)?;
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -194,11 +192,11 @@ mod tests {
 
         VisitStatusUpdater::update(&mut stations);
 
-        let station_a = stations.node_weight(node_index_a).unwrap();
-        let station_b = stations.node_weight(node_index_b).unwrap();
-        let station_c = stations.node_weight(node_index_c).unwrap();
-        let station_d = stations.node_weight(node_index_d).unwrap();
-        let station_e = stations.node_weight(node_index_e).unwrap();
+        let station_a = &stations[node_index_a];
+        let station_b = &stations[node_index_b];
+        let station_c = &stations[node_index_c];
+        let station_d = &stations[node_index_d];
+        let station_e = &stations[node_index_e];
         assert_eq!(VisitStatus::InProgress, station_a.visit_status);
         assert_eq!(VisitStatus::VisitFail, station_b.visit_status);
         assert_eq!(VisitStatus::ParentFail, station_c.visit_status);
@@ -208,35 +206,39 @@ mod tests {
     }
 
     #[test]
-    fn updates_not_ready_to_queued_when_no_parents_exist() {
+    fn updates_not_ready_to_queued_when_no_parents_exist() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut stations = Stations::new();
-        let station = station("n", VisitStatus::NotReady);
+        let station = station("n", VisitStatus::NotReady)?;
         let node_index = stations.add_node(station);
-        let station = stations.node_weight(node_index).unwrap();
+        let station = &stations[node_index];
 
         let visit_status_next =
             VisitStatusUpdater::visit_status_next(&stations, node_index, &station);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
+        Ok(())
     }
 
     #[test]
     fn updates_not_ready_to_queued_when_all_parents_visit_success()
-    -> Result<(), WouldCycle<Workload>> {
+    -> Result<(), Box<dyn std::error::Error>> {
         // a -> c
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess);
-        let station_b = station("b", VisitStatus::VisitSuccess);
-        let station_c = station("c", VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess)?;
+        let station_b = station("b", VisitStatus::VisitSuccess)?;
+        let station_c = station("c", VisitStatus::NotReady)?;
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
         stations.add_edge(node_index_a, node_index_c, Workload::default())?;
         stations.add_edge(node_index_b, node_index_c, Workload::default())?;
 
-        let station_c = stations.node_weight(node_index_c).unwrap();
+        let station_c = stations
+            .node_weight(node_index_c)
+            .expect("Expected station to exist.");
 
         let visit_status_next =
             VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
@@ -247,21 +249,21 @@ mod tests {
 
     #[test]
     fn updates_not_ready_to_parent_fail_when_any_parents_visit_fail()
-    -> Result<(), WouldCycle<Workload>> {
+    -> Result<(), Box<dyn std::error::Error>> {
         // a -> c
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess);
-        let station_b = station("b", VisitStatus::VisitFail);
-        let station_c = station("c", VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess)?;
+        let station_b = station("b", VisitStatus::VisitFail)?;
+        let station_c = station("c", VisitStatus::NotReady)?;
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
         stations.add_edge(node_index_a, node_index_c, Workload::default())?;
         stations.add_edge(node_index_b, node_index_c, Workload::default())?;
 
-        let station_c = stations.node_weight(node_index_c).unwrap();
+        let station_c = &stations[node_index_c];
 
         let visit_status_next =
             VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
@@ -272,18 +274,18 @@ mod tests {
 
     #[test]
     fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
-    -> Result<(), WouldCycle<Workload>> {
+    -> Result<(), Box<dyn std::error::Error>> {
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess);
-        let station_b = station("b", VisitStatus::ParentFail);
-        let station_c = station("c", VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess)?;
+        let station_b = station("b", VisitStatus::ParentFail)?;
+        let station_c = station("c", VisitStatus::NotReady)?;
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
         stations.add_edge(node_index_a, node_index_c, Workload::default())?;
         stations.add_edge(node_index_b, node_index_c, Workload::default())?;
 
-        let station_c = stations.node_weight(node_index_c).unwrap();
+        let station_c = &stations[node_index_c];
 
         let visit_status_next =
             VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
@@ -293,8 +295,8 @@ mod tests {
     }
 
     #[test]
-    fn no_change_to_not_ready_when_any_parents_on_other_status() -> Result<(), WouldCycle<Workload>>
-    {
+    fn no_change_to_not_ready_when_any_parents_on_other_status()
+    -> Result<(), Box<dyn std::error::Error>> {
         [
             VisitStatus::NotReady,
             VisitStatus::Queued,
@@ -304,16 +306,16 @@ mod tests {
         .copied()
         .try_for_each(|visit_status_parent| {
             let mut stations = Stations::new();
-            let station_a = station("a", VisitStatus::VisitSuccess);
-            let station_b = station("b", visit_status_parent);
-            let station_c = station("c", VisitStatus::NotReady);
+            let station_a = station("a", VisitStatus::VisitSuccess)?;
+            let station_b = station("b", visit_status_parent)?;
+            let station_c = station("c", VisitStatus::NotReady)?;
             let node_index_a = stations.add_node(station_a);
             let node_index_b = stations.add_node(station_b);
             let node_index_c = stations.add_node(station_c);
             stations.add_edge(node_index_a, node_index_c, Workload::default())?;
             stations.add_edge(node_index_b, node_index_c, Workload::default())?;
 
-            let station_c = stations.node_weight(node_index_c).unwrap();
+            let station_c = &stations[node_index_c];
 
             let visit_status_next =
                 VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
@@ -325,7 +327,8 @@ mod tests {
     }
 
     #[test]
-    fn no_change_to_parent_fail_visit_success_or_visit_fail() -> Result<(), WouldCycle<Workload>> {
+    fn no_change_to_parent_fail_visit_success_or_visit_fail()
+    -> Result<(), Box<dyn std::error::Error>> {
         [
             VisitStatus::ParentFail,
             VisitStatus::VisitSuccess,
@@ -335,10 +338,10 @@ mod tests {
         .copied()
         .try_for_each(|visit_status| {
             let mut stations = Stations::new();
-            let station_a = station("a", visit_status);
+            let station_a = station("a", visit_status)?;
             let node_index_a = stations.add_node(station_a);
 
-            let station_a = stations.node_weight(node_index_a).unwrap();
+            let station_a = &stations[node_index_a];
 
             let visit_status_next =
                 VisitStatusUpdater::visit_status_next(&stations, node_index_a, &station_a);
@@ -349,15 +352,18 @@ mod tests {
         })
     }
 
-    fn station(station_id: &'static str, visit_status: VisitStatus) -> Station<()> {
+    fn station(
+        station_id: &'static str,
+        visit_status: VisitStatus,
+    ) -> Result<Station<()>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
-        let station_id = StationId::new(station_id).unwrap();
+        let station_id = StationId::new(station_id)?;
         let station_spec = StationSpec::new(
             station_id,
             name,
             String::from(""),
             VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) })),
         );
-        Station::new(station_spec, visit_status)
+        Ok(Station::new(station_spec, visit_status))
     }
 }

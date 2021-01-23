@@ -69,15 +69,16 @@ mod tests {
 
     use super::Stations;
     use crate::{
-        cfg_model::{StationId, StationSpec, VisitFn},
+        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
         rt_model::{Station, VisitStatus},
     };
 
     #[test]
-    fn iter_with_indices_returns_iterator_with_all_stations() {
+    fn iter_with_indices_returns_iterator_with_all_stations()
+    -> Result<(), StationIdInvalidFmt<'static>> {
         let mut stations = Stations::new();
-        let a = add_station(&mut stations, "a");
-        let b = add_station(&mut stations, "b");
+        let a = add_station(&mut stations, "a")?;
+        let b = add_station(&mut stations, "b")?;
 
         let indicies = stations
             .iter_with_indices()
@@ -85,6 +86,7 @@ mod tests {
             .collect::<Vec<NodeIndex>>();
 
         assert_eq!(vec![a, b], indicies);
+        Ok(())
     }
 
     #[test]
@@ -102,9 +104,12 @@ mod tests {
         ));
     }
 
-    fn add_station(stations: &mut Stations<()>, station_id: &'static str) -> NodeIndex<DefaultIx> {
+    fn add_station(
+        stations: &mut Stations<()>,
+        station_id: &'static str,
+    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
-        let station_id = StationId::new(station_id).unwrap();
+        let station_id = StationId::new(station_id)?;
         let visit_fn = VisitFn::new(|station| {
             Box::pin(async move {
                 station.visit_status = VisitStatus::VisitSuccess;
@@ -113,6 +118,6 @@ mod tests {
         });
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, VisitStatus::Queued);
-        stations.add_node(station)
+        Ok(stations.add_node(station))
     }
 }

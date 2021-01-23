@@ -110,7 +110,7 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationId, StationSpec, VisitFn},
+        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -131,9 +131,9 @@ mod tests {
         let (tx, _rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::VisitSuccess, Ok((tx, 0)));
-            add_station(&mut stations, "b", VisitStatus::VisitFail, Err(()));
-            add_station(&mut stations, "c", VisitStatus::ParentFail, Err(()));
+            add_station(&mut stations, "a", VisitStatus::VisitSuccess, Ok((tx, 0)))?;
+            add_station(&mut stations, "b", VisitStatus::VisitFail, Err(()))?;
+            add_station(&mut stations, "c", VisitStatus::ParentFail, Err(()))?;
             Destination { stations }
         };
 
@@ -149,9 +149,9 @@ mod tests {
         let (tx, rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued, Ok((tx.clone(), 0)));
-            add_station(&mut stations, "b", VisitStatus::Queued, Ok((tx.clone(), 1)));
-            add_station(&mut stations, "c", VisitStatus::NotReady, Ok((tx, 2)));
+            add_station(&mut stations, "a", VisitStatus::Queued, Ok((tx.clone(), 0)))?;
+            add_station(&mut stations, "b", VisitStatus::Queued, Ok((tx.clone(), 1)))?;
+            add_station(&mut stations, "c", VisitStatus::NotReady, Ok((tx, 2)))?;
             Destination { stations }
         };
 
@@ -167,7 +167,7 @@ mod tests {
         station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,
-    ) {
+    ) -> Result<(), StationIdInvalidFmt<'static>> {
         let visit_fn = match visit_result {
             Ok((tx, n)) => VisitFn::new(move |station| {
                 let tx = tx.clone();
@@ -179,10 +179,11 @@ mod tests {
             _ => VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
         };
         let name = String::from(station_id);
-        let station_id = StationId::new(station_id).unwrap();
+        let station_id = StationId::new(station_id)?;
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
+        Ok(())
     }
 
     fn call_iter(

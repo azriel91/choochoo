@@ -37,7 +37,7 @@ mod tests {
 
     use super::Train;
     use crate::{
-        cfg_model::{StationId, StationSpec, VisitFn},
+        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -57,8 +57,8 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued, Ok(()));
-            add_station(&mut stations, "b", VisitStatus::Queued, Ok(()));
+            add_station(&mut stations, "a", VisitStatus::Queued, Ok(()))?;
+            add_station(&mut stations, "b", VisitStatus::Queued, Ok(()))?;
             Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
@@ -78,8 +78,8 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued, Ok(()));
-            add_station(&mut stations, "b", VisitStatus::Queued, Err(()));
+            add_station(&mut stations, "a", VisitStatus::Queued, Ok(()))?;
+            add_station(&mut stations, "b", VisitStatus::Queued, Err(()))?;
             Destination { stations }
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
@@ -104,9 +104,9 @@ mod tests {
         station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(), ()>,
-    ) {
+    ) -> Result<(), StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
-        let station_id = StationId::new(station_id).unwrap();
+        let station_id = StationId::new(station_id)?;
         let visit_fn = if visit_result.is_ok() {
             VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
         } else {
@@ -115,5 +115,6 @@ mod tests {
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
+        Ok(())
     }
 }
