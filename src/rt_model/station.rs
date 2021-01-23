@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     cfg_model::{StationSpec, VisitFnReturn},
     rt_model::VisitStatus,
@@ -32,5 +34,13 @@ impl<E> Station<E> {
     /// Returns a station visitation pass.
     pub fn visit(&mut self) -> VisitFnReturn<'_, E> {
         (self.station_spec.visit_fn().0)(self)
+    }
+}
+
+impl<E> fmt::Display for Station<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{:?}] ", self.visit_status)?;
+
+        self.station_spec.fmt(f)
     }
 }

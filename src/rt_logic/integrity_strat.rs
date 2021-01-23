@@ -110,7 +110,7 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationSpec, VisitFn},
+        cfg_model::{StationId, StationSpec, VisitFn},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -131,9 +131,9 @@ mod tests {
         let (tx, _rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, VisitStatus::VisitSuccess, Ok((tx, 0)));
-            add_station(&mut stations, VisitStatus::VisitFail, Err(()));
-            add_station(&mut stations, VisitStatus::ParentFail, Err(()));
+            add_station(&mut stations, "a", VisitStatus::VisitSuccess, Ok((tx, 0)));
+            add_station(&mut stations, "b", VisitStatus::VisitFail, Err(()));
+            add_station(&mut stations, "c", VisitStatus::ParentFail, Err(()));
             Destination { stations }
         };
 
@@ -149,9 +149,9 @@ mod tests {
         let (tx, rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, VisitStatus::Queued, Ok((tx.clone(), 0)));
-            add_station(&mut stations, VisitStatus::Queued, Ok((tx.clone(), 1)));
-            add_station(&mut stations, VisitStatus::NotReady, Ok((tx, 2)));
+            add_station(&mut stations, "a", VisitStatus::Queued, Ok((tx.clone(), 0)));
+            add_station(&mut stations, "b", VisitStatus::Queued, Ok((tx.clone(), 1)));
+            add_station(&mut stations, "c", VisitStatus::NotReady, Ok((tx, 2)));
             Destination { stations }
         };
 
@@ -164,6 +164,7 @@ mod tests {
 
     fn add_station(
         stations: &mut Stations<()>,
+        station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,
     ) {
@@ -177,7 +178,9 @@ mod tests {
             }),
             _ => VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
         };
-        let station_spec = StationSpec::new(visit_fn);
+        let name = String::from(station_id);
+        let station_id = StationId::new(station_id).unwrap();
+        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
     }

@@ -65,37 +65,19 @@ impl<E> DerefMut for Stations<E> {
 mod tests {
     use std::ops::{Deref, DerefMut};
 
-    use daggy::NodeIndex;
+    use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 
     use super::Stations;
     use crate::{
-        cfg_model::{StationSpec, VisitFn},
+        cfg_model::{StationId, StationSpec, VisitFn},
         rt_model::{Station, VisitStatus},
     };
 
     #[test]
     fn iter_with_indices_returns_iterator_with_all_stations() {
         let mut stations = Stations::new();
-        let a = {
-            let station_spec = StationSpec::new(VisitFn::new(|station| {
-                Box::pin(async move {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                    Result::<(), ()>::Ok(())
-                })
-            }));
-            let station = Station::new(station_spec, VisitStatus::Queued);
-            stations.add_node(station)
-        };
-        let b = {
-            let station_spec = StationSpec::new(VisitFn::new(|station| {
-                Box::pin(async move {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                    Result::<(), ()>::Ok(())
-                })
-            }));
-            let station = Station::new(station_spec, VisitStatus::Queued);
-            stations.add_node(station)
-        };
+        let a = add_station(&mut stations, "a");
+        let b = add_station(&mut stations, "b");
 
         let indicies = stations
             .iter_with_indices()
@@ -118,5 +100,19 @@ mod tests {
             DerefMut::deref_mut(&mut stations),
             &mut stations.0
         ));
+    }
+
+    fn add_station(stations: &mut Stations<()>, station_id: &'static str) -> NodeIndex<DefaultIx> {
+        let name = String::from(station_id);
+        let station_id = StationId::new(station_id).unwrap();
+        let visit_fn = VisitFn::new(|station| {
+            Box::pin(async move {
+                station.visit_status = VisitStatus::VisitSuccess;
+                Result::<(), ()>::Ok(())
+            })
+        });
+        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
+        let station = Station::new(station_spec, VisitStatus::Queued);
+        stations.add_node(station)
     }
 }

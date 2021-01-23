@@ -59,7 +59,7 @@ impl<E> Destination<E> {
 mod tests {
     use super::Destination;
     use crate::{
-        cfg_model::{StationSpec, VisitFn},
+        cfg_model::{StationId, StationSpec, VisitFn},
         rt_model::{Station, Stations, VisitStatus},
     };
 
@@ -67,8 +67,8 @@ mod tests {
     fn stations_queued_returns_none_when_no_stations_queued() {
         let mut dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, VisitStatus::VisitSuccess);
-            add_station(&mut stations, VisitStatus::NotReady);
+            add_station(&mut stations, "a", VisitStatus::VisitSuccess);
+            add_station(&mut stations, "b", VisitStatus::NotReady);
             Destination { stations }
         };
 
@@ -82,9 +82,9 @@ mod tests {
     fn stations_queued_returns_iter_when_stations_queued_exists() {
         let mut dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, VisitStatus::Queued);
-            add_station(&mut stations, VisitStatus::Queued);
-            add_station(&mut stations, VisitStatus::NotReady);
+            add_station(&mut stations, "a", VisitStatus::Queued);
+            add_station(&mut stations, "b", VisitStatus::Queued);
+            add_station(&mut stations, "c", VisitStatus::NotReady);
             Destination { stations }
         };
 
@@ -97,9 +97,15 @@ mod tests {
         }
     }
 
-    fn add_station(stations: &mut Stations<()>, visit_status: VisitStatus) {
+    fn add_station(
+        stations: &mut Stations<()>,
+        station_id: &'static str,
+        visit_status: VisitStatus,
+    ) {
+        let name = String::from(station_id);
+        let station_id = StationId::new(station_id).unwrap();
         let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
-        let station_spec = StationSpec::new(visit_fn);
+        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
     }

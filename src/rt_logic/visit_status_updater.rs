@@ -123,7 +123,7 @@ mod tests {
 
     use super::VisitStatusUpdater;
     use crate::{
-        cfg_model::{StationSpec, VisitFn, Workload},
+        cfg_model::{StationId, StationSpec, VisitFn, Workload},
         rt_model::{Station, Stations, VisitStatus},
     };
 
@@ -137,12 +137,12 @@ mod tests {
         //
         // e --> f
         let mut stations = Stations::new();
-        let station_a = station(VisitStatus::VisitSuccess);
-        let station_b = station(VisitStatus::VisitSuccess);
-        let station_c = station(VisitStatus::NotReady); // Should become `Queued`
-        let station_d = station(VisitStatus::NotReady); // Should become `Queued`
-        let station_e = station(VisitStatus::VisitFail);
-        let station_f = station(VisitStatus::NotReady); // Should become `ParentFail`
+        let station_a = station("a", VisitStatus::VisitSuccess);
+        let station_b = station("b", VisitStatus::VisitSuccess);
+        let station_c = station("c", VisitStatus::NotReady); // Should become `Queued`
+        let station_d = station("d", VisitStatus::NotReady); // Should become `Queued`
+        let station_e = station("e", VisitStatus::VisitFail);
+        let station_f = station("f", VisitStatus::NotReady); // Should become `ParentFail`
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -177,11 +177,11 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station(VisitStatus::InProgress);
-        let station_b = station(VisitStatus::VisitFail);
-        let station_c = station(VisitStatus::NotReady);
-        let station_d = station(VisitStatus::NotReady);
-        let station_e = station(VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::InProgress);
+        let station_b = station("b", VisitStatus::VisitFail);
+        let station_c = station("c", VisitStatus::NotReady);
+        let station_d = station("d", VisitStatus::NotReady);
+        let station_e = station("e", VisitStatus::NotReady);
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn updates_not_ready_to_queued_when_no_parents_exist() {
         let mut stations = Stations::new();
-        let station = station(VisitStatus::NotReady);
+        let station = station("n", VisitStatus::NotReady);
         let node_index = stations.add_node(station);
         let station = stations.node_weight(node_index).unwrap();
 
@@ -227,9 +227,9 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station(VisitStatus::VisitSuccess);
-        let station_b = station(VisitStatus::VisitSuccess);
-        let station_c = station(VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess);
+        let station_b = station("b", VisitStatus::VisitSuccess);
+        let station_c = station("c", VisitStatus::NotReady);
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -252,9 +252,9 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station(VisitStatus::VisitSuccess);
-        let station_b = station(VisitStatus::VisitFail);
-        let station_c = station(VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess);
+        let station_b = station("b", VisitStatus::VisitFail);
+        let station_c = station("c", VisitStatus::NotReady);
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -274,9 +274,9 @@ mod tests {
     fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
     -> Result<(), WouldCycle<Workload>> {
         let mut stations = Stations::new();
-        let station_a = station(VisitStatus::VisitSuccess);
-        let station_b = station(VisitStatus::ParentFail);
-        let station_c = station(VisitStatus::NotReady);
+        let station_a = station("a", VisitStatus::VisitSuccess);
+        let station_b = station("b", VisitStatus::ParentFail);
+        let station_c = station("c", VisitStatus::NotReady);
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);
         let node_index_c = stations.add_node(station_c);
@@ -304,9 +304,9 @@ mod tests {
         .copied()
         .try_for_each(|visit_status_parent| {
             let mut stations = Stations::new();
-            let station_a = station(VisitStatus::VisitSuccess);
-            let station_b = station(visit_status_parent);
-            let station_c = station(VisitStatus::NotReady);
+            let station_a = station("a", VisitStatus::VisitSuccess);
+            let station_b = station("b", visit_status_parent);
+            let station_c = station("c", VisitStatus::NotReady);
             let node_index_a = stations.add_node(station_a);
             let node_index_b = stations.add_node(station_b);
             let node_index_c = stations.add_node(station_c);
@@ -335,7 +335,7 @@ mod tests {
         .copied()
         .try_for_each(|visit_status| {
             let mut stations = Stations::new();
-            let station_a = station(visit_status);
+            let station_a = station("a", visit_status);
             let node_index_a = stations.add_node(station_a);
 
             let station_a = stations.node_weight(node_index_a).unwrap();
@@ -349,10 +349,15 @@ mod tests {
         })
     }
 
-    fn station(visit_status: VisitStatus) -> Station<()> {
-        let station_spec = StationSpec::new(VisitFn::new(|_station| {
-            Box::pin(async move { Result::<(), ()>::Ok(()) })
-        }));
+    fn station(station_id: &'static str, visit_status: VisitStatus) -> Station<()> {
+        let name = String::from(station_id);
+        let station_id = StationId::new(station_id).unwrap();
+        let station_spec = StationSpec::new(
+            station_id,
+            name,
+            String::from(""),
+            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) })),
+        );
         Station::new(station_spec, visit_status)
     }
 }
