@@ -153,4 +153,12 @@ mod tests {
             result
         );
     }
+
+    #[test]
+    fn display_returns_inner_str() -> Result<(), StationIdInvalidFmt<'static>> {
+        let station_id = StationId::try_from("good_id")?;
+
+        assert_eq!("good_id", station_id.to_string());
+        Ok(())
+    }
 }

@@ -44,3 +44,25 @@ impl<E> fmt::Display for Station<E> {
         self.station_spec.fmt(f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Station;
+    use crate::{
+        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        rt_model::VisitStatus,
+    };
+
+    #[test]
+    fn display_returns_readable_informative_message() -> Result<(), StationIdInvalidFmt<'static>> {
+        let station_id = StationId::new("station_id")?;
+        let name = String::from("Station Name");
+        let description = String::from("One liner.");
+        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let station_spec = StationSpec::new(station_id, name, description, visit_fn);
+        let station = Station::new(station_spec, VisitStatus::InProgress);
+
+        assert_eq!("[InProgress] Station Name: One liner.", station.to_string());
+        Ok(())
+    }
+}
