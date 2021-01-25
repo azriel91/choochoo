@@ -12,7 +12,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 daggy = { version = "0.7.0", default-features = false }
-futures = "0.3.9"
+futures = "0.3.12"
 
 [dev-dependencies]
-tokio = { version = "1.0.1", features = ["rt", "sync"] }
+tokio = { version = "1.1.0", features = ["rt", "sync"] }
