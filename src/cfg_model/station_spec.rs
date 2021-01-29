@@ -33,7 +33,22 @@ impl<E> StationSpec<E> {
         }
     }
 
-    /// Returns a station visitation pass.
+    /// Returns the unique identifier of the station.
+    pub fn id(&self) -> &StationId {
+        &self.id
+    }
+
+    /// Returns the human readable name of the station.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the short description of the station's purpose.
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+
+    /// Returns the steps to run when this station is visited.
     pub fn visit_fn(&self) -> VisitFn<E> {
         self.visit_fn.clone()
     }
