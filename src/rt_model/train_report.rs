@@ -1,24 +1,22 @@
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use indexmap::IndexMap;
 
 /// Record of what happened during a train's drive.
 #[derive(Debug, PartialEq)]
-pub struct TrainReport {
-    /// Stations successfully visited.
-    pub stations_successful: Vec<NodeIndex<DefaultIx>>,
+pub struct TrainReport<E> {
     /// Stations that were visited but failed to work.
-    pub stations_failed: Vec<NodeIndex<DefaultIx>>,
+    pub errors: IndexMap<NodeIndex<DefaultIx>, E>,
 }
 
-impl Default for TrainReport {
+impl<E> Default for TrainReport<E> {
     fn default() -> Self {
         Self {
-            stations_successful: Default::default(),
-            stations_failed: Default::default(),
+            errors: Default::default(),
         }
     }
 }
 
-impl TrainReport {
+impl<E> TrainReport<E> {
     /// Returns a new TrainReport.
     pub fn new() -> Self {
         Self::default()

@@ -9,7 +9,7 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport {
+    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E> {
         let train_report = TrainReport::new();
         IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
             Box::pin(async move {
@@ -17,12 +17,11 @@ impl Train {
                 // `visit_status` while the `visit()` is `await`ed.
                 station.visit_status = VisitStatus::InProgress;
 
-                if let Err(_e) = station.visit().await {
+                if let Err(e) = station.visit().await {
                     station.visit_status = VisitStatus::VisitFail;
-                    train_report.stations_failed.push(node_id);
+                    train_report.errors.insert(node_id, e);
                 } else {
                     station.visit_status = VisitStatus::VisitSuccess;
-                    train_report.stations_successful.push(node_id);
                 }
                 train_report
             })
@@ -33,6 +32,8 @@ impl Train {
 
 #[cfg(test)]
 mod tests {
+    use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+    use indexmap::IndexMap;
     use tokio::runtime;
 
     use super::Train;
@@ -48,7 +49,7 @@ mod tests {
 
         let train_report = rt.block_on(Train::reach(&mut dest));
 
-        assert!(train_report.stations_successful.is_empty());
+        assert!(train_report.errors.is_empty());
         Ok(())
     }
 
@@ -63,7 +64,7 @@ mod tests {
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
-        assert_eq!(2, train_report.stations_successful.len());
+        assert!(train_report.errors.is_empty());
         assert!(
             dest.stations
                 .iter()
@@ -76,24 +77,29 @@ mod tests {
     #[test]
     fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
-        let mut dest = {
+        let (mut dest, station_a, station_b) = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued, Ok(()))?;
-            add_station(&mut stations, "b", VisitStatus::Queued, Err(()))?;
-            Destination { stations }
+            let station_a = add_station(&mut stations, "a", VisitStatus::Queued, Ok(()))?;
+            let station_b = add_station(&mut stations, "b", VisitStatus::Queued, Err(()))?;
+            let dest = Destination { stations };
+
+            (dest, station_a, station_b)
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
-        let frozen = dest.stations.frozen();
-        assert_eq!(1, train_report.stations_successful.len());
         assert_eq!(
             VisitStatus::VisitSuccess,
-            frozen[train_report.stations_successful[0]].visit_status
+            dest.stations[station_a].visit_status
         );
-        assert_eq!(1, train_report.stations_failed.len());
+        let errors_expected = {
+            let mut errors = IndexMap::new();
+            errors.insert(station_b, ());
+            errors
+        };
+        assert_eq!(&errors_expected, &train_report.errors);
         assert_eq!(
             VisitStatus::VisitFail,
-            frozen[train_report.stations_failed[0]].visit_status
+            dest.stations[station_b].visit_status
         );
 
         Ok(())
@@ -104,7 +110,7 @@ mod tests {
         station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(), ()>,
-    ) -> Result<(), StationIdInvalidFmt<'static>> {
+    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let visit_fn = if visit_result.is_ok() {
@@ -114,7 +120,6 @@ mod tests {
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
-        stations.add_node(station);
-        Ok(())
+        Ok(stations.add_node(station))
     }
 }
