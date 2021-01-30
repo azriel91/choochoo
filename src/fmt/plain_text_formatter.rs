@@ -6,7 +6,7 @@ use std::{
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{Destination, Station, VisitStatus};
+use crate::rt_model::{Destination, Station, TrainReport, VisitStatus};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -34,9 +34,15 @@ where
     }
 }
 
-macro_rules! write_b {
+macro_rules! b_writeln {
+    ($writer_and_buffer:ident) => {
+        writeln!($writer_and_buffer.buffer)?;
+        AsyncWriteExt::write(&mut $writer_and_buffer.writer, &$writer_and_buffer.buffer).await?;
+        $writer_and_buffer.buffer.clear();
+    };
+
     ($writer_and_buffer:ident, $fmt_str:expr, $($fmt_args:tt)*) => {
-        write!($writer_and_buffer.buffer, $fmt_str, $($fmt_args)*)?;
+        writeln!($writer_and_buffer.buffer, $fmt_str, $($fmt_args)*)?;
         AsyncWriteExt::write(&mut $writer_and_buffer.writer, &$writer_and_buffer.buffer).await?;
         $writer_and_buffer.buffer.clear();
     };
@@ -45,9 +51,14 @@ macro_rules! write_b {
 impl<W, E> PlainTextFormatter<W, E>
 where
     W: AsyncWrite + Unpin,
+    E: std::fmt::Debug,
 {
     /// Formats the value using the given formatter.
-    pub async fn fmt(w: &mut W, dest: &Destination<E>) -> Result<(), io::Error> {
+    pub async fn fmt(
+        w: &mut W,
+        dest: &Destination<E>,
+        train_report: &TrainReport<E>,
+    ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = stream::iter(dest.stations.iter())
             .map(Result::<&Station<E>, io::Error>::Ok)
@@ -62,14 +73,29 @@ where
                     VisitStatus::VisitFail => "❌",
                 };
 
-                write_b!(
+                b_writeln!(
                     write_buf,
-                    "{status} {name}: {desc}\n",
+                    "{status} {name}: {desc}",
                     status = icon,
                     name = station_spec.name(),
                     desc = station_spec.description()
                 );
+                Ok(write_buf)
+            })
+            .await?;
 
+        write_buf = stream::iter(train_report.errors.values())
+            .map(Result::<&E, io::Error>::Ok)
+            .try_fold(write_buf, |mut write_buf, error| async move {
+                // `E` should either:
+                //
+                // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
+                //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
+                //   (maybe in `TrainReport`, or in the `Station` somehow), or
+                //
+                // * It should store its own `SimpleFile`, and we call `term::emit` with that
+                //   (and we retrieve `files` from E itself).
+                b_writeln!(write_buf, "{error:?}", error = error);
                 Ok(write_buf)
             })
             .await?;
@@ -86,7 +112,7 @@ mod tests {
     use super::PlainTextFormatter;
     use crate::{
         cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
-        rt_model::{Destination, Station, Stations, VisitStatus},
+        rt_model::{Destination, Station, Stations, TrainReport, VisitStatus},
     };
 
     #[test]
@@ -103,8 +129,9 @@ mod tests {
             add_station(&mut stations, "f", "F", "f_desc", VisitStatus::VisitFail)?;
             Destination { stations }
         };
+        let train_report = TrainReport::new();
 
-        rt.block_on(PlainTextFormatter::fmt(&mut output, &dest))?;
+        rt.block_on(PlainTextFormatter::fmt(&mut output, &dest, &train_report))?;
 
         assert_eq!(
             "\
