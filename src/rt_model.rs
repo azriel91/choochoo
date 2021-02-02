@@ -10,6 +10,8 @@ pub use self::{
     visit_status::VisitStatus,
 };
 
+pub mod error;
+
 mod destination;
 mod station;
 mod stations;
