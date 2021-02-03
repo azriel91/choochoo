@@ -9,7 +9,7 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E> {
+    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<'_, E> {
         let train_report = TrainReport::new();
         IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
             Box::pin(async move {
@@ -87,16 +87,16 @@ mod tests {
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
-        assert_eq!(
-            VisitStatus::VisitSuccess,
-            dest.stations[station_a].visit_status
-        );
         let errors_expected = {
             let mut errors = IndexMap::new();
             errors.insert(station_b, ());
             errors
         };
         assert_eq!(&errors_expected, &train_report.errors);
+        assert_eq!(
+            VisitStatus::VisitSuccess,
+            dest.stations[station_a].visit_status
+        );
         assert_eq!(
             VisitStatus::VisitFail,
             dest.stations[station_b].visit_status

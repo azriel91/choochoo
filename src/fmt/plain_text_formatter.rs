@@ -1,12 +1,14 @@
 use std::{
+    borrow::Cow,
     io::{self, Write},
     marker::PhantomData,
 };
 
 use futures::{stream, StreamExt, TryStreamExt};
+use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{Destination, Station, TrainReport, VisitStatus};
+use crate::rt_model::{error::AsDiagnostic, Destination, Station, TrainReport, VisitStatus};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -34,6 +36,14 @@ where
     }
 }
 
+macro_rules! b_write_bytes {
+    ($writer_and_buffer:ident, $byte_slice:expr) => {
+        std::io::Write::write_all(&mut $writer_and_buffer.buffer, $byte_slice)?;
+        AsyncWriteExt::write(&mut $writer_and_buffer.writer, &$writer_and_buffer.buffer).await?;
+        $writer_and_buffer.buffer.clear();
+    };
+}
+
 macro_rules! b_writeln {
     ($writer_and_buffer:ident) => {
         writeln!($writer_and_buffer.buffer)?;
@@ -48,16 +58,16 @@ macro_rules! b_writeln {
     };
 }
 
-impl<W, E> PlainTextFormatter<W, E>
+impl<'files, W, E> PlainTextFormatter<W, E>
 where
     W: AsyncWrite + Unpin,
-    E: std::fmt::Debug,
+    E: AsDiagnostic<'files, Files = codespan::Files<Cow<'files, str>>>,
 {
     /// Formats the value using the given formatter.
     pub async fn fmt(
-        w: &mut W,
-        dest: &Destination<E>,
-        train_report: &TrainReport<E>,
+        w: &'files mut W,
+        dest: &'files Destination<E>,
+        train_report: &'files TrainReport<'files, E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = stream::iter(dest.stations.iter())
@@ -84,20 +94,33 @@ where
             })
             .await?;
 
-        write_buf = stream::iter(train_report.errors.values())
+        // `E` should either:
+        //
+        // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
+        //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
+        //   (maybe in `TrainReport`, or in the `Station` somehow), or
+        //
+        // * It should store its own `SimpleFile`, and we call `term::emit` with that
+        //   (and we retrieve `files` from E itself).
+        let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
+        let config = term::Config::default();
+        let config = &config;
+        let files = &train_report.files;
+
+        let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)
-            .try_fold(write_buf, |mut write_buf, error| async move {
-                // `E` should either:
-                //
-                // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
-                //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
-                //   (maybe in `TrainReport`, or in the `Station` somehow), or
-                //
-                // * It should store its own `SimpleFile`, and we call `term::emit` with that
-                //   (and we retrieve `files` from E itself).
-                b_writeln!(write_buf, "{error:?}", error = error);
-                Ok(write_buf)
-            })
+            .try_fold(
+                (write_buf, writer),
+                |(mut write_buf, mut writer), error| async move {
+                    let diagnostic = error.as_diagnostic(files);
+
+                    term::emit(&mut writer, config, files, &diagnostic)
+                        .expect("TODO: Handle codespan_reporting::files::Error");
+                    b_write_bytes!(write_buf, writer.as_slice());
+
+                    Ok((write_buf, writer))
+                },
+            )
             .await?;
 
         write_buf.writer.flush().await
