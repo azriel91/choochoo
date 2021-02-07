@@ -8,6 +8,7 @@ use choochoo::{
 };
 use codespan::{FileId, Files, Span};
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+
 use srcerr::{codespan_reporting::diagnostic::Severity, SourceError};
 use tokio::{fs, runtime};
 
@@ -19,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let mut files = Files::<Cow<'_, str>>::new();
 
-    rt.spawn(async move {
+    rt.block_on(async move {
         let file_id = read_simple_toml(&mut files)
             .await
             .expect("Failed to read simple.toml");
@@ -32,8 +33,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (dest, station_a, station_b)
         };
+        let mut train_report = Train::reach(&mut dest).await;
+        // Hack: We need the station to have access to `Files`.
+        train_report.files = files;
+
         let mut stdout = tokio::io::stdout();
-        let train_report = Train::reach(&mut dest).await;
 
         PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
             .await
@@ -90,7 +94,7 @@ fn station_b(
         stations,
         "b",
         "Station B",
-        "Reads `simple.toml` and report error.",
+        "Reads `simple.toml` and reports error.",
         VisitStatus::Queued,
         visit_fn,
     )
