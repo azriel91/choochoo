@@ -64,7 +64,7 @@ impl<E> IntegrityStrat<E> {
             R,
             NodeIndex<DefaultIx>,
             &'a mut Station<E>,
-        ) -> Pin<Box<dyn Future<Output = R> + 'a>>,
+        ) -> Pin<Box<dyn Future<Output = R> + Send + Sync + 'a>>,
     {
         let node_ids = dest
             .stations

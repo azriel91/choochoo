@@ -65,9 +65,9 @@ where
 {
     /// Formats the value using the given formatter.
     pub async fn fmt(
-        w: &'files mut W,
-        dest: &'files Destination<E>,
-        train_report: &'files TrainReport<'files, E>,
+        w: &mut W,
+        dest: &Destination<E>,
+        train_report: &TrainReport<'files, E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = stream::iter(dest.stations.iter())

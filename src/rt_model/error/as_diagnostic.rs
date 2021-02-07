@@ -17,7 +17,7 @@ pub trait AsDiagnostic<'files> {
     /// [`term::emit`]: srcerr::codespan_reporting::term::emit
     fn as_diagnostic(
         &self,
-        files: &'files Self::Files,
+        files: &Self::Files,
     ) -> Diagnostic<<Self::Files as Files<'files>>::FileId>;
 }
 
@@ -26,7 +26,7 @@ impl<'a> AsDiagnostic<'a> for () {
 
     fn as_diagnostic(
         &self,
-        _files: &'a Self::Files,
+        _files: &Self::Files,
     ) -> Diagnostic<<Self::Files as Files<'a>>::FileId> {
         Diagnostic::error()
     }
@@ -42,7 +42,7 @@ where
 
     fn as_diagnostic(
         &self,
-        files: &'files Self::Files,
+        files: &Self::Files,
     ) -> Diagnostic<<Self::Files as Files<'files>>::FileId> {
         SourceError::as_diagnostic(self, files)
     }
