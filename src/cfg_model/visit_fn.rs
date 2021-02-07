@@ -2,16 +2,16 @@ use std::{
     fmt::{self, Debug},
     future::Future,
     pin::Pin,
-    rc::Rc,
+    sync::Arc,
 };
 
 use crate::rt_model::Station;
 
 /// Return type of the `VisitFn`.
-pub type VisitFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<(), E>> + 'f>>;
+pub type VisitFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<(), E>> + Send + Sync + 'f>>;
 
 /// Steps to run when a station is visited.
-pub struct VisitFn<E>(pub Rc<dyn Fn(&'_ mut Station<E>) -> VisitFnReturn<'_, E>>);
+pub struct VisitFn<E>(pub Arc<dyn Fn(&'_ mut Station<E>) -> VisitFnReturn<'_, E> + Send + Sync>);
 
 impl<E> VisitFn<E> {
     /// Returns a new `VisitFn`.
@@ -21,9 +21,9 @@ impl<E> VisitFn<E> {
     /// * `f`: Logic to run when a station is visited..
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(&'_ mut Station<E>) -> VisitFnReturn<'_, E> + 'static,
+        F: Fn(&'_ mut Station<E>) -> VisitFnReturn<'_, E> + Send + Sync + 'static,
     {
-        Self(Rc::new(f))
+        Self(Arc::new(f))
     }
 }
 
@@ -31,7 +31,7 @@ impl<E> VisitFn<E> {
 #[cfg(not(tarpaulin_include))]
 impl<E> Clone for VisitFn<E> {
     fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
+        Self(Arc::clone(&self.0))
     }
 }
 

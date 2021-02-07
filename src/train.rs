@@ -9,7 +9,7 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<'_, E> {
+    pub async fn reach<'files, E>(dest: &mut Destination<E>) -> TrainReport<'files, E> {
         let train_report = TrainReport::new();
         IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
             Box::pin(async move {
