@@ -59,7 +59,7 @@ impl<E> Destination<E> {
 mod tests {
     use super::Destination;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
         rt_model::{Station, Stations, VisitStatus},
     };
 
@@ -108,7 +108,7 @@ mod tests {
     ) -> Result<(), StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let visit_fn = StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);

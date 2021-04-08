@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{
-    cfg_model::{StationSpec, VisitFnReturn},
+    cfg_model::{StationFnReturn, StationSpec},
     rt_model::VisitStatus,
 };
 
@@ -32,7 +32,7 @@ impl<E> Station<E> {
     }
 
     /// Returns a station visitation pass.
-    pub fn visit(&mut self) -> VisitFnReturn<'_, E> {
+    pub fn visit(&mut self) -> StationFnReturn<'_, E> {
         (self.station_spec.visit_fn().0)(self)
     }
 }
@@ -49,7 +49,7 @@ impl<E> fmt::Display for Station<E> {
 mod tests {
     use super::Station;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
         rt_model::VisitStatus,
     };
 
@@ -58,7 +58,7 @@ mod tests {
         let station_id = StationId::new("station_id")?;
         let name = String::from("Station Name");
         let description = String::from("One liner.");
-        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let visit_fn = StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
         let station_spec = StationSpec::new(station_id, name, description, visit_fn);
         let station = Station::new(station_spec, VisitStatus::InProgress);
 

@@ -41,7 +41,7 @@ mod tests {
 
     use super::Train;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -117,9 +117,9 @@ mod tests {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let visit_fn = if visit_result.is_ok() {
-            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+            StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
         } else {
-            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+            StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
         let station = Station::new(station_spec, visit_status);

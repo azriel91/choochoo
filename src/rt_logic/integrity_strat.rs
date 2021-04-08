@@ -110,7 +110,7 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -169,14 +169,14 @@ mod tests {
         visit_result: Result<(Sender<u8>, u8), ()>,
     ) -> Result<(), StationIdInvalidFmt<'static>> {
         let visit_fn = match visit_result {
-            Ok((tx, n)) => VisitFn::new(move |station| {
+            Ok((tx, n)) => StationFn::new(move |station| {
                 let tx = tx.clone();
                 Box::pin(async move {
                     station.visit_status = VisitStatus::VisitSuccess;
                     tx.send(n).await.map_err(|_| ())
                 })
             }),
-            _ => VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
+            _ => StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
         };
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;

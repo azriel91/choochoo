@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
     fmt::PlainTextFormatter,
     rt_model::{Destination, Station, Stations, VisitStatus},
     Train,
@@ -63,7 +63,7 @@ async fn read_simple_toml<'files>(
 fn station_a(
     stations: &mut Stations<ExampleError<'_>>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = VisitFn::new(|station| {
+    let visit_fn = StationFn::new(|station| {
         Box::pin(async move {
             eprintln!("Visiting {}.", station.station_spec.name());
             Result::<(), ExampleError<'_>>::Ok(())
@@ -83,7 +83,7 @@ fn station_b(
     stations: &mut Stations<ExampleError<'_>>,
     file_id: FileId,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = VisitFn::new(move |station| {
+    let visit_fn = StationFn::new(move |station| {
         Box::pin(async move {
             eprintln!("Visiting {}.", station.station_spec.name());
             let error = value_out_of_range(file_id);
@@ -121,7 +121,7 @@ fn add_station<'files>(
     station_name: &'static str,
     station_description: &'static str,
     visit_status: VisitStatus,
-    visit_fn: VisitFn<ExampleError<'files>>,
+    visit_fn: StationFn<ExampleError<'files>>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);

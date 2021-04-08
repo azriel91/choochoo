@@ -69,7 +69,7 @@ mod tests {
 
     use super::Stations;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
         rt_model::{Station, VisitStatus},
     };
 
@@ -110,7 +110,7 @@ mod tests {
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let visit_fn = VisitFn::new(|station| {
+        let visit_fn = StationFn::new(|station| {
             Box::pin(async move {
                 station.visit_status = VisitStatus::VisitSuccess;
                 Result::<(), ()>::Ok(())
