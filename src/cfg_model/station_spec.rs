@@ -77,7 +77,7 @@ mod tests {
         let description = String::from("One liner.");
         let station_spec_fns = {
             let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
-            StationSpecFns { visit_fn }
+            StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
 

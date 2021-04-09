@@ -117,7 +117,7 @@ mod tests {
                     Result::<(), ()>::Ok(())
                 })
             });
-            StationSpecFns { visit_fn }
+            StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, VisitStatus::Queued);

@@ -126,7 +126,7 @@ fn add_station<'files>(
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let station_spec_fns = StationSpecFns { visit_fn };
+    let station_spec_fns = StationSpecFns::new(visit_fn);
     let station_spec = StationSpec::new(
         station_id,
         station_name,

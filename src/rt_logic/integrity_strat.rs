@@ -179,7 +179,7 @@ mod tests {
                 }),
                 Err(_) => StationFn::new(|_| Box::pin(async { Err(()) })),
             };
-            StationSpecFns { visit_fn }
+            StationSpecFns::new(visit_fn)
         };
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;

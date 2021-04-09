@@ -122,7 +122,7 @@ mod tests {
             } else {
                 StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
             };
-            StationSpecFns { visit_fn }
+            StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, visit_status);
