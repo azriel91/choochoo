@@ -1,7 +1,7 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
+    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
     fmt::PlainTextFormatter,
     rt_model::{Destination, Station, Stations, VisitStatus},
     Train,
@@ -121,12 +121,18 @@ fn add_station<'files>(
     station_name: &'static str,
     station_description: &'static str,
     visit_status: VisitStatus,
-    visit_fn: StationFn<ExampleError<'files>>,
+    visit_fn: StationFn<(), ExampleError<'files>>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let station_spec = StationSpec::new(station_id, station_name, station_description, visit_fn);
+    let station_spec_fns = StationSpecFns { visit_fn };
+    let station_spec = StationSpec::new(
+        station_id,
+        station_name,
+        station_description,
+        station_spec_fns,
+    );
     let station = Station::new(station_spec, visit_status);
     Ok(stations.add_node(station))
 }

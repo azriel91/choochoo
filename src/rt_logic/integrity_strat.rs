@@ -64,7 +64,7 @@ impl<E> IntegrityStrat<E> {
             R,
             NodeIndex<DefaultIx>,
             &'a mut Station<E>,
-        ) -> Pin<Box<dyn Future<Output = R> + Send + Sync + 'a>>,
+        ) -> Pin<Box<dyn Future<Output = R> + 'a>>,
     {
         let node_ids = dest
             .stations
@@ -110,7 +110,7 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -168,19 +168,22 @@ mod tests {
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,
     ) -> Result<(), StationIdInvalidFmt<'static>> {
-        let visit_fn = match visit_result {
-            Ok((tx, n)) => StationFn::new(move |station| {
-                let tx = tx.clone();
-                Box::pin(async move {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                    tx.send(n).await.map_err(|_| ())
-                })
-            }),
-            _ => StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
+        let station_spec_fns = {
+            let visit_fn = match visit_result {
+                Ok((tx, n)) => StationFn::new(move |station| {
+                    let tx = tx.clone();
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        tx.send(n).await.map_err(|_| ())
+                    })
+                }),
+                Err(_) => StationFn::new(|_| Box::pin(async { Err(()) })),
+            };
+            StationSpecFns { visit_fn }
         };
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
+        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
         Ok(())

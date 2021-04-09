@@ -134,7 +134,7 @@ mod tests {
 
     use super::PlainTextFormatter;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, TrainReport, VisitStatus},
     };
 
@@ -179,12 +179,15 @@ mod tests {
         visit_status: VisitStatus,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new(station_id)?;
-        let visit_fn = StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let station_spec_fns = {
+            let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            StationSpecFns { visit_fn }
+        };
         let station_spec = StationSpec::new(
             station_id,
             String::from(station_name),
             String::from(station_desc),
-            visit_fn,
+            station_spec_fns,
         );
         let station = Station::new(station_spec, visit_status);
         Ok(stations.add_node(station))

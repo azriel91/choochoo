@@ -41,7 +41,7 @@ mod tests {
 
     use super::Train;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -116,12 +116,15 @@ mod tests {
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let visit_fn = if visit_result.is_ok() {
-            StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
-        } else {
-            StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+        let station_spec_fns = {
+            let visit_fn = if visit_result.is_ok() {
+                StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+            } else {
+                StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+            };
+            StationSpecFns { visit_fn }
         };
-        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
+        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, visit_status);
         Ok(stations.add_node(station))
     }

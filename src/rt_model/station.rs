@@ -1,9 +1,8 @@
 use std::fmt;
 
-use crate::{
-    cfg_model::{StationFnReturn, StationSpec},
-    rt_model::VisitStatus,
-};
+use futures::Future;
+
+use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
 
 /// A state along the way to the destination.
 ///
@@ -32,8 +31,9 @@ impl<E> Station<E> {
     }
 
     /// Returns a station visitation pass.
-    pub fn visit(&mut self) -> StationFnReturn<'_, E> {
-        (self.station_spec.visit_fn().0)(self)
+    pub fn visit(&mut self) -> impl Future<Output = Result<(), E>> + '_ {
+        let visit_fn = self.station_spec.station_spec_fns().visit_fn.clone();
+        visit_fn.0(self)
     }
 }
 
@@ -49,7 +49,7 @@ impl<E> fmt::Display for Station<E> {
 mod tests {
     use super::Station;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::VisitStatus,
     };
 
@@ -58,8 +58,11 @@ mod tests {
         let station_id = StationId::new("station_id")?;
         let name = String::from("Station Name");
         let description = String::from("One liner.");
-        let visit_fn = StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
-        let station_spec = StationSpec::new(station_id, name, description, visit_fn);
+        let station_spec_fns = {
+            let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            StationSpecFns { visit_fn }
+        };
+        let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
         let station = Station::new(station_spec, VisitStatus::InProgress);
 
         assert_eq!("[InProgress] Station Name: One liner.", station.to_string());
