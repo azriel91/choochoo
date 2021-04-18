@@ -3,6 +3,7 @@
 //! Types in this module are analogous to source artifacts.
 
 pub use self::{
+    check_status::CheckStatus,
     station_fn::{StationFn, StationFnReturn},
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
@@ -11,6 +12,7 @@ pub use self::{
     workload::Workload,
 };
 
+mod check_status;
 mod station_fn;
 mod station_id;
 mod station_id_invalid_fmt;

@@ -1,4 +1,4 @@
-use crate::cfg_model::StationFn;
+use crate::cfg_model::{CheckStatus, StationFn};
 
 /// Grouping of a station's behaviours.
 #[derive(Debug, Clone, PartialEq)]
@@ -6,7 +6,7 @@ pub struct StationSpecFns<E> {
     /// Checks whether a station needs to be visited.
     ///
     /// This is run before and after `visit_fn` is executed.
-    pub check_fn: Option<StationFn<bool, E>>,
+    pub check_fn: Option<StationFn<CheckStatus, E>>,
     /// Steps to execute when visiting a station.
     pub visit_fn: StationFn<(), E>,
 }
@@ -21,7 +21,7 @@ impl<E> StationSpecFns<E> {
     }
 
     /// Sets the `check_fn` for this `StationSpecFns`.
-    pub fn with_check_fn(mut self, check_fn: StationFn<bool, E>) -> Self {
+    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
         self.check_fn = Some(check_fn);
         self
     }
