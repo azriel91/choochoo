@@ -111,7 +111,7 @@ mod tests {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
-            let visit_fn = StationFn::new(|station| {
+            let visit_fn = StationFn::new(|station, _| {
                 Box::pin(async move {
                     station.visit_status = VisitStatus::VisitSuccess;
                     Result::<(), ()>::Ok(())

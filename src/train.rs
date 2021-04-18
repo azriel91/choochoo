@@ -1,3 +1,5 @@
+use resman::Resources;
+
 use crate::{
     rt_logic::IntegrityStrat,
     rt_model::{Destination, TrainReport, VisitStatus},
@@ -14,22 +16,28 @@ impl Train {
         E: Send + Sync,
     {
         let train_report = TrainReport::new();
-        IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
-            Box::pin(async move {
-                // Because this is in an async block, concurrent tasks may access this station's
-                // `visit_status` while the `visit()` is `await`ed.
-                station.visit_status = VisitStatus::InProgress;
+        let (train_report, _resources) = IntegrityStrat::iter(
+            dest,
+            (train_report, Resources::default()),
+            |(mut train_report, resources), node_id, station| {
+                Box::pin(async move {
+                    // Because this is in an async block, concurrent tasks may access this station's
+                    // `visit_status` while the `visit()` is `await`ed.
+                    station.visit_status = VisitStatus::InProgress;
 
-                if let Err(e) = station.visit().await {
-                    station.visit_status = VisitStatus::VisitFail;
-                    train_report.errors.insert(node_id, e);
-                } else {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                }
-                train_report
-            })
-        })
-        .await
+                    if let Err(e) = station.visit(&resources).await {
+                        station.visit_status = VisitStatus::VisitFail;
+                        train_report.errors.insert(node_id, e);
+                    } else {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                    }
+                    (train_report, resources)
+                })
+            },
+        )
+        .await;
+
+        train_report
     }
 }
 
@@ -118,9 +126,9 @@ mod tests {
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
             let visit_fn = if visit_result.is_ok() {
-                StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+                StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Ok(()) }))
             } else {
-                StationFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+                StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Err(()) }))
             };
             StationSpecFns::new(visit_fn)
         };

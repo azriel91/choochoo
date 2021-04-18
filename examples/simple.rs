@@ -63,7 +63,7 @@ async fn read_simple_toml<'files>(
 fn station_a(
     stations: &mut Stations<ExampleError<'_>>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(|station| {
+    let visit_fn = StationFn::new(|station, _| {
         Box::pin(async move {
             eprintln!("Visiting {}.", station.station_spec.name());
             Result::<(), ExampleError<'_>>::Ok(())
@@ -83,7 +83,7 @@ fn station_b(
     stations: &mut Stations<ExampleError<'_>>,
     file_id: FileId,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |station| {
+    let visit_fn = StationFn::new(move |station, _| {
         Box::pin(async move {
             eprintln!("Visiting {}.", station.station_spec.name());
             let error = value_out_of_range(file_id);

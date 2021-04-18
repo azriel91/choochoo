@@ -180,7 +180,7 @@ mod tests {
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
-            let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(

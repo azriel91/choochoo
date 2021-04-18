@@ -5,6 +5,8 @@ use std::{
     sync::Arc,
 };
 
+use resman::Resources;
+
 use crate::rt_model::Station;
 
 /// Return type of the `StationFn`.
@@ -12,7 +14,11 @@ pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> +
 
 /// Steps to run for this part of the station's logic.
 pub struct StationFn<R, E>(
-    pub Arc<dyn Fn(&'_ mut Station<E>) -> StationFnReturn<'_, R, E> + Send + Sync>,
+    pub  Arc<
+        dyn for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>
+            + Send
+            + Sync,
+    >,
 );
 
 impl<R, E> StationFn<R, E> {
@@ -23,7 +29,10 @@ impl<R, E> StationFn<R, E> {
     /// * `f`: Logic to run.
     pub fn new<F>(f: F) -> Self
     where
-        F: Fn(&'_ mut Station<E>) -> StationFnReturn<'_, R, E> + Send + Sync + 'static,
+        F: for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>
+            + Send
+            + Sync
+            + 'static,
     {
         Self(Arc::new(f))
     }
@@ -55,7 +64,7 @@ mod tests {
 
     #[test]
     fn debug_impl_includes_all_fields() {
-        let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+        let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
 
         assert_eq!(
             "StationFn(fn(&'_ mut Station<R, E>) -> StationFnReturn<'_, E>)",
@@ -65,15 +74,15 @@ mod tests {
 
     #[test]
     fn partial_eq_returns_true_for_same_instance() {
-        let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+        let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
 
         assert_eq!(&visit_fn, &visit_fn);
     }
 
     #[test]
     fn partial_eq_returns_false_for_different_instance() {
-        let visit_fn_0 = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
-        let visit_fn_1 = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+        let visit_fn_0 = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
+        let visit_fn_1 = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
 
         assert_ne!(&visit_fn_0, &visit_fn_1);
     }

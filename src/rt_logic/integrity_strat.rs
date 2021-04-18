@@ -103,6 +103,7 @@ impl<E> IntegrityStrat<E> {
 
 #[cfg(test)]
 mod tests {
+    use resman::Resources;
     use tokio::{
         runtime,
         sync::mpsc::{self, Receiver, Sender},
@@ -170,14 +171,14 @@ mod tests {
     ) -> Result<(), StationIdInvalidFmt<'static>> {
         let station_spec_fns = {
             let visit_fn = match visit_result {
-                Ok((tx, n)) => StationFn::new(move |station| {
+                Ok((tx, n)) => StationFn::new(move |station, _| {
                     let tx = tx.clone();
                     Box::pin(async move {
                         station.visit_status = VisitStatus::VisitSuccess;
                         tx.send(n).await.map_err(|_| ())
                     })
                 }),
-                Err(_) => StationFn::new(|_| Box::pin(async { Err(()) })),
+                Err(_) => StationFn::new(|_, _| Box::pin(async { Err(()) })),
             };
             StationSpecFns::new(visit_fn)
         };
@@ -197,7 +198,10 @@ mod tests {
         let call_count_and_values = rt.block_on(async {
             let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, _, station| {
                 Box::pin(async move {
-                    station.visit().await.expect("Failed to visit station.");
+                    station
+                        .visit(&Resources::default())
+                        .await
+                        .expect("Failed to visit station.");
 
                     call_count + 1
                 })

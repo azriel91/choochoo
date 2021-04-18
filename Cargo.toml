@@ -15,6 +15,7 @@ codespan = { git = "https://github.com/brendanzab/codespan.git" }
 daggy = { version = "0.7.0", default-features = false }
 futures = "0.3.12"
 indexmap = "1.6.1"
+resman = "0.1.0"
 srcerr = "0.2.0"
 tokio = { version = "1.1.0", features = ["io-util"] }
 

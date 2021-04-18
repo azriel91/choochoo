@@ -1,6 +1,7 @@
 use std::fmt;
 
 use futures::Future;
+use resman::Resources;
 
 use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
 
@@ -31,9 +32,12 @@ impl<E> Station<E> {
     }
 
     /// Returns a station visitation pass.
-    pub fn visit(&mut self) -> impl Future<Output = Result<(), E>> + '_ {
+    pub fn visit<'f>(
+        &'f mut self,
+        resources: &'f Resources,
+    ) -> impl Future<Output = Result<(), E>> + 'f {
         let visit_fn = self.station_spec.station_spec_fns().visit_fn.clone();
-        visit_fn.0(self)
+        visit_fn.0(self, resources)
     }
 }
 
@@ -59,7 +63,7 @@ mod tests {
         let name = String::from("Station Name");
         let description = String::from("One liner.");
         let station_spec_fns = {
-            let visit_fn = StationFn::new(|_| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
