@@ -1,5 +1,3 @@
-use resman::Resources;
-
 use crate::{
     rt_logic::IntegrityStrat,
     rt_model::{Destination, TrainReport, VisitStatus},
@@ -11,31 +9,30 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<'files, E>(dest: &mut Destination<E>) -> TrainReport<'files, E>
+    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E>
     where
-        E: Send + Sync,
+        E: Send,
     {
         let train_report = TrainReport::new();
-        let (train_report, _resources) = IntegrityStrat::iter(
-            dest,
-            (train_report, Resources::default()),
-            |(mut train_report, resources), node_id, station| {
+        let train_report =
+            IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
                 Box::pin(async move {
                     // Because this is in an async block, concurrent tasks may access this station's
                     // `visit_status` while the `visit()` is `await`ed.
                     station.visit_status = VisitStatus::InProgress;
 
+                    let TrainReport { errors, resources } = &mut train_report;
+
                     if let Err(e) = station.visit(&resources).await {
                         station.visit_status = VisitStatus::VisitFail;
-                        train_report.errors.insert(node_id, e);
+                        errors.insert(node_id, e);
                     } else {
                         station.visit_status = VisitStatus::VisitSuccess;
                     }
-                    (train_report, resources)
+                    train_report
                 })
-            },
-        )
-        .await;
+            })
+            .await;
 
         train_report
     }

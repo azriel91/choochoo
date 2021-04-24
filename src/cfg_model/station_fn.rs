@@ -10,15 +10,11 @@ use resman::Resources;
 use crate::rt_model::Station;
 
 /// Return type of the `StationFn`.
-pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + Send + Sync + 'f>>;
+pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;
 
 /// Steps to run for this part of the station's logic.
 pub struct StationFn<R, E>(
-    pub  Arc<
-        dyn for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>
-            + Send
-            + Sync,
-    >,
+    pub Arc<dyn for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>>,
 );
 
 impl<R, E> StationFn<R, E> {
@@ -29,10 +25,7 @@ impl<R, E> StationFn<R, E> {
     /// * `f`: Logic to run.
     pub fn new<F>(f: F) -> Self
     where
-        F: for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>
-            + Send
-            + Sync
-            + 'static,
+        F: for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E> + 'static,
     {
         Self(Arc::new(f))
     }

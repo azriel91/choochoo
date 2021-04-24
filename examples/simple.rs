@@ -33,9 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (dest, station_a, station_b)
         };
-        let mut train_report = Train::reach(&mut dest).await;
-        // Hack: We need the station to have access to `Files`.
-        train_report.files = files;
+        let train_report = Train::reach(&mut dest).await;
 
         let mut stdout = tokio::io::stdout();
 
