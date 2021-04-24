@@ -14,7 +14,7 @@ use tokio::runtime;
 
 use crate::{
     error::{ErrorCode, ErrorDetail},
-    station_a::station_a,
+    station_a::StationA,
 };
 
 #[path = "demo/error.rs"]
@@ -34,12 +34,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.block_on(async move {
         let (mut dest, _station_a, _station_b) = {
             let mut stations = Stations::new();
-            let station_a = station_a(&mut stations);
-            let station_b = station_b(&mut stations);
+            let station_a = StationA::build(&mut stations)?;
+            let station_b = station_b(&mut stations)?;
             let dest = Destination { stations };
 
-            (dest, station_a, station_b)
-        };
+            Result::<_, Box<dyn std::error::Error>>::Ok((dest, station_a, station_b))
+        }?;
         let train_report = Train::reach(&mut dest).await;
 
         let mut stdout = tokio::io::stdout();
@@ -47,7 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
             .await
             .expect("Failed to format train report.");
-    });
+
+        Result::<_, Box<dyn std::error::Error>>::Ok(())
+    })?;
 
     Ok(())
 }
