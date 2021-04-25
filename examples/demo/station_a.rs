@@ -5,6 +5,7 @@ use choochoo::{
     rt_model::Stations,
 };
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use reqwest::multipart::{Form, Part};
 use srcerr::{
     codespan::{FileId, Span},
     codespan_reporting::diagnostic::Severity,
@@ -21,7 +22,7 @@ use crate::{
 pub struct StationA;
 
 impl StationA {
-    /// Returns a station that uploads "app.zip" to a server.
+    /// Returns a station that uploads `app.zip` to a server.
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
@@ -36,9 +37,14 @@ impl StationA {
                 let address_file_id = files.add("artifact_server_address", address);
                 let address = files.source(address_file_id);
 
+                let form = Form::new().part(
+                    "files",
+                    Part::stream(reqwest::Body::wrap_stream(app_zip_byte_stream))
+                        .file_name(APP_ZIP_NAME),
+                );
                 let response = client
                     .post(&**address)
-                    .body(reqwest::Body::wrap_stream(app_zip_byte_stream))
+                    .multipart(form)
                     .send()
                     .await
                     .map_err(|error| {
@@ -50,15 +56,14 @@ impl StationA {
                     Result::<(), DemoError>::Ok(())
                 } else {
                     let address_span = Span::from_str(address);
-                    let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(APP_ZIP_PATH));
+                    let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_PATH));
                     let app_zip_path = files.source(app_zip_path_file_id);
                     let app_zip_path_span = Span::from_str(app_zip_path);
                     let server_message = if let Ok(server_message) = response.text().await {
                         Some(server_message)
                     } else {
                         // Failed to receive response text.
-                        // Ignore why that sub-operation failed, but we still
-                        // report the upload reject.
+                        // Ignore why the sub-operation failed, but still report the upload reject.
                         None
                     };
 
@@ -85,7 +90,7 @@ impl StationA {
 
     async fn app_zip_read(files: &mut Files) -> Result<FramedRead<File, BytesCodec>, DemoError> {
         let app_zip_read = File::open(APP_ZIP_PATH).await.map_err(|error| {
-            let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(APP_ZIP_PATH));
+            let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_PATH));
             let app_zip_path = files.source(app_zip_path_file_id);
             let app_zip_path_span = Span::from_str(app_zip_path);
 
@@ -133,6 +138,7 @@ impl StationA {
     }
 }
 
+const APP_ZIP_NAME: &'static str = "app.zip";
 const APP_ZIP_PATH: &'static str = "/tmp/build_agent/app.zip";
 
 pub struct ServerParams {

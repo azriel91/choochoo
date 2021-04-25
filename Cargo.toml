@@ -19,6 +19,6 @@ srcerr = { version = "0.4.0", features = ["codespan"] }
 tokio = { version = "1.5.0", features = ["io-util"] }
 
 [dev-dependencies]
-reqwest = { version = "0.11.3", features = ["stream"] }
+reqwest = { version = "0.11.3", features = ["multipart", "stream"] }
 tokio = { version = "1.5.0", features = ["fs", "rt", "sync", "io-std"] }
 tokio-util = { version = "0.6.6", features = ["codec"] }
