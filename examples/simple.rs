@@ -6,10 +6,12 @@ use choochoo::{
     rt_model::{Destination, Station, Stations, VisitStatus},
     Train,
 };
-use codespan::{FileId, Files, Span};
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
-
-use srcerr::{codespan_reporting::diagnostic::Severity, SourceError};
+use srcerr::{
+    codespan::{FileId, Files, Span},
+    codespan_reporting::diagnostic::Severity,
+    SourceError,
+};
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
@@ -138,8 +140,11 @@ fn add_station<'files>(
 mod error {
     use std::{borrow::Cow, ops::RangeInclusive};
 
-    use codespan::{FileId, Files, Span};
-    use srcerr::{codespan_reporting::diagnostic::Label, fmt::Note};
+    use srcerr::{
+        codespan::{FileId, Files, Span},
+        codespan_reporting::diagnostic::Label,
+        fmt::Note,
+    };
 
     /// Error codes for simple example.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]

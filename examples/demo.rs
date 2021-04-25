@@ -22,8 +22,8 @@ mod error;
 #[path = "demo/station_a.rs"]
 mod station_a;
 
-type ExampleError<'f> = SourceError<'f, ErrorCode, ErrorDetail, Files>;
-type Files = codespan::Files<Cow<'static, str>>;
+type DemoError = SourceError<'static, ErrorCode, ErrorDetail, Files>;
+type Files = srcerr::codespan::Files<Cow<'static, str>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread()
@@ -43,10 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let train_report = Train::reach(&mut dest).await;
 
         let mut stdout = tokio::io::stdout();
-
-        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
-            .await
-            .expect("Failed to format train report.");
+        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
 
         Result::<_, Box<dyn std::error::Error>>::Ok(())
     })?;
@@ -55,12 +52,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn station_b(
-    stations: &mut Stations<ExampleError<'_>>,
+    stations: &mut Stations<DemoError>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
     let visit_fn = StationFn::new(move |_station, _| {
         Box::pin(async move {
             // TODO: Create DB.
-            Result::<(), ExampleError<'_>>::Ok(())
+            Result::<(), DemoError>::Ok(())
         })
     });
     add_station(
@@ -73,11 +70,11 @@ fn station_b(
 }
 
 fn add_station<'files>(
-    stations: &mut Stations<ExampleError<'files>>,
+    stations: &mut Stations<DemoError>,
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    visit_fn: StationFn<(), ExampleError<'files>>,
+    visit_fn: StationFn<(), DemoError>,
 ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);

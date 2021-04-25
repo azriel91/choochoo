@@ -22,7 +22,7 @@ pub trait AsDiagnostic<'files> {
 }
 
 impl<'a> AsDiagnostic<'a> for () {
-    type Files = codespan::Files<Cow<'a, str>>;
+    type Files = srcerr::codespan::Files<Cow<'a, str>>;
 
     fn as_diagnostic(
         &self,

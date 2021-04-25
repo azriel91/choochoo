@@ -4,14 +4,18 @@ use choochoo::{
     cfg_model::{StationFn, StationIdInvalidFmt},
     rt_model::Stations,
 };
-use codespan::{FileId, Span};
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
-use srcerr::codespan_reporting::diagnostic::Severity;
+use srcerr::{
+    codespan::{FileId, Span},
+    codespan_reporting::diagnostic::Severity,
+};
+use tokio::fs::File;
+use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
     add_station,
     error::{ErrorCode, ErrorDetail},
-    ExampleError, Files,
+    DemoError, Files,
 };
 
 pub struct StationA;
@@ -19,38 +23,65 @@ pub struct StationA;
 impl StationA {
     /// Returns a station that uploads "app.zip" to a server.
     pub fn build(
-        stations: &mut Stations<ExampleError<'_>>,
+        stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let visit_fn = StationFn::new(|_station, resources| {
+            let client = reqwest::Client::new();
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();
+
+                let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
 
                 let address = Cow::Owned(SERVER_PARAMS.address());
                 let address_file_id = files.add("artifact_server_address", address);
                 let address = files.source(address_file_id);
 
-                reqwest::get(&**address).await.map_err(|error| {
-                    Self::error(&SERVER_PARAMS, address, address_file_id, error)
-                })?;
+                client
+                    .post(&**address)
+                    .body(reqwest::Body::wrap_stream(app_zip_byte_stream))
+                    .send()
+                    .await
+                    .map_err(|error| {
+                        Self::post_error(&SERVER_PARAMS, address, address_file_id, error)
+                    })?;
 
-                Result::<(), ExampleError<'_>>::Ok(())
+                Result::<(), DemoError>::Ok(())
             })
         });
         add_station(
             stations,
             "a",
             "Upload App",
-            "Uploads web application to S3.",
+            "Uploads web application to artifact server.",
             visit_fn,
         )
     }
 
-    fn error(
+    async fn app_zip_read(files: &mut Files) -> Result<FramedRead<File, BytesCodec>, DemoError> {
+        let app_zip_path = "/tmp/build_agent/app.zip";
+        let app_zip_read = File::open(app_zip_path).await.map_err(|error| {
+            let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(app_zip_path));
+            let app_zip_path = files.source(app_zip_path_file_id);
+            let app_zip_path_span = Span::from_str(app_zip_path);
+
+            let code = ErrorCode::AppZipOpen;
+            let detail = ErrorDetail::AppZipOpen {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                error,
+            };
+
+            DemoError::new(code, detail, Severity::Error)
+        })?;
+        Ok(FramedRead::new(app_zip_read, BytesCodec::new()))
+    }
+
+    fn post_error(
         server_params: &ServerParams,
         address: &str,
         address_file_id: FileId,
         error: reqwest::Error,
-    ) -> ExampleError<'static> {
+    ) -> DemoError {
         let ServerParams {
             protocol,
             host,
@@ -73,7 +104,7 @@ impl StationA {
             port_span,
             error,
         };
-        ExampleError::new(code, detail, Severity::Error)
+        DemoError::new(code, detail, Severity::Error)
     }
 }
 

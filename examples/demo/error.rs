@@ -1,12 +1,16 @@
 use std::borrow::Cow;
 
-use codespan::{FileId, Files, Span};
-use srcerr::codespan_reporting::diagnostic::Label;
+use srcerr::{
+    codespan::{FileId, Files, Span},
+    codespan_reporting::diagnostic::Label,
+};
 
 /// Error codes for simple example.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrorCode {
-    /// Error when a value is out of range.
+    /// Error when Opening "app.zip".
+    AppZipOpen,
+    /// Error when connecting to the artifact server.
     ArtifactServerConnect,
 }
 
@@ -16,21 +20,32 @@ impl srcerr::ErrorCode for ErrorCode {
 
     fn code(self) -> usize {
         match self {
-            Self::ArtifactServerConnect => 1,
+            Self::AppZipOpen => 1,
+            Self::ArtifactServerConnect => 2,
         }
     }
 
     fn description(self) -> &'static str {
         match self {
+            Self::AppZipOpen => "Failed to open `app.zip` to upload.",
             Self::ArtifactServerConnect => "Failed to connect to server to upload app.zip.",
         }
     }
 }
 
-/// Error detail for simple example.
+/// Error detail for demo.
 #[derive(Debug)]
 pub enum ErrorDetail {
-    /// Error when a value is out of range.
+    /// Error when connecting to the artifact server.
+    AppZipOpen {
+        /// `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Error when connecting to the artifact server.
     ArtifactServerConnect {
         /// Artifact server address file ID.
         address_file_id: FileId,
@@ -40,7 +55,7 @@ pub enum ErrorDetail {
         host_span: Span,
         /// Span of the port.
         port_span: Span,
-        /// Underlying IO error.
+        /// Underlying `reqwest` error.
         error: reqwest::Error,
     },
 }
@@ -50,6 +65,16 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
 
     fn labels(&self) -> Vec<Label<FileId>> {
         match self {
+            Self::AppZipOpen {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                vec![
+                    Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
+                        .with_message("failed to open file"),
+                ]
+            }
             Self::ArtifactServerConnect {
                 address_file_id,
                 address_span,
@@ -65,6 +90,19 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
 
     fn notes(&self, files: &Self::Files) -> Vec<String> {
         match self {
+            Self::AppZipOpen {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                vec![format!(
+                    "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
+                    app_zip_path = app_zip_path
+                )]
+            }
             Self::ArtifactServerConnect {
                 address_file_id,
                 host_span,
