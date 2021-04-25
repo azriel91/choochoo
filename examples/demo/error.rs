@@ -8,27 +8,31 @@ use srcerr::{
 /// Error codes for simple example.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrorCode {
-    /// Error when Opening "app.zip".
+    /// Error when opening `app.zip`.
     AppZipOpen,
     /// Error when connecting to the artifact server.
     ArtifactServerConnect,
+    /// Artifact server rejected `app.zip`.
+    AppZipReject,
 }
 
 impl srcerr::ErrorCode for ErrorCode {
-    const ERROR_CODE_MAX: usize = 2;
+    const ERROR_CODE_MAX: usize = 10;
     const PREFIX: &'static str = "E";
 
     fn code(self) -> usize {
         match self {
             Self::AppZipOpen => 1,
             Self::ArtifactServerConnect => 2,
+            Self::AppZipReject => 3,
         }
     }
 
     fn description(self) -> &'static str {
         match self {
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
-            Self::ArtifactServerConnect => "Failed to connect to server to upload app.zip.",
+            Self::ArtifactServerConnect => "Failed to connect to server to upload `app.zip`.",
+            Self::AppZipReject => "Artifact server rejected `app.zip`.",
         }
     }
 }
@@ -58,6 +62,19 @@ pub enum ErrorDetail {
         /// Underlying `reqwest` error.
         error: reqwest::Error,
     },
+    /// Error when the artifact server has rejected app.zip.
+    AppZipReject {
+        /// `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
+        /// Artifact server address file ID.
+        address_file_id: FileId,
+        /// Span of the full socket address.
+        address_span: Span,
+        /// Reason provided by the server.
+        server_message: Option<String>,
+    },
 }
 
 impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
@@ -83,6 +100,20 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 vec![
                     Label::primary(*address_file_id, *address_span)
                         .with_message("failed to connect to server"),
+                ]
+            }
+            Self::AppZipReject {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                address_file_id,
+                address_span,
+                ..
+            } => {
+                vec![
+                    Label::secondary(*address_file_id, *address_span)
+                        .with_message("server address"),
+                    Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
+                        .with_message("file exists here"),
                 ]
             }
         }
@@ -120,6 +151,27 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                     host = host,
                     port = port
                 )]
+            }
+            Self::AppZipReject {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                server_message,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                let zip_valid_hint = format!(
+                    "Check that `{app_zip_path}` is a valid zip file.",
+                    app_zip_path = app_zip_path
+                );
+
+                if let Some(server_message) = server_message.as_deref() {
+                    let server_message_hint = format!("Message from server:\n{}", server_message);
+                    vec![zip_valid_hint, server_message_hint]
+                } else {
+                    vec![zip_valid_hint]
+                }
             }
         }
     }

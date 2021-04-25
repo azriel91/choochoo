@@ -36,7 +36,7 @@ impl StationA {
                 let address_file_id = files.add("artifact_server_address", address);
                 let address = files.source(address_file_id);
 
-                client
+                let response = client
                     .post(&**address)
                     .body(reqwest::Body::wrap_stream(app_zip_byte_stream))
                     .send()
@@ -45,7 +45,33 @@ impl StationA {
                         Self::post_error(&SERVER_PARAMS, address, address_file_id, error)
                     })?;
 
-                Result::<(), DemoError>::Ok(())
+                let status_code = response.status();
+                if status_code.is_success() {
+                    Result::<(), DemoError>::Ok(())
+                } else {
+                    let address_span = Span::from_str(address);
+                    let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(APP_ZIP_PATH));
+                    let app_zip_path = files.source(app_zip_path_file_id);
+                    let app_zip_path_span = Span::from_str(app_zip_path);
+                    let server_message = if let Ok(server_message) = response.text().await {
+                        Some(server_message)
+                    } else {
+                        // Failed to receive response text.
+                        // Ignore why that sub-operation failed, but we still
+                        // report the upload reject.
+                        None
+                    };
+
+                    let code = ErrorCode::AppZipReject;
+                    let detail = ErrorDetail::AppZipReject {
+                        app_zip_path_file_id,
+                        app_zip_path_span,
+                        address_file_id,
+                        address_span,
+                        server_message,
+                    };
+                    Err(DemoError::new(code, detail, Severity::Error))
+                }
             })
         });
         add_station(
@@ -58,9 +84,8 @@ impl StationA {
     }
 
     async fn app_zip_read(files: &mut Files) -> Result<FramedRead<File, BytesCodec>, DemoError> {
-        let app_zip_path = "/tmp/build_agent/app.zip";
-        let app_zip_read = File::open(app_zip_path).await.map_err(|error| {
-            let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(app_zip_path));
+        let app_zip_read = File::open(APP_ZIP_PATH).await.map_err(|error| {
+            let app_zip_path_file_id = files.add("app.zip", Cow::Borrowed(APP_ZIP_PATH));
             let app_zip_path = files.source(app_zip_path_file_id);
             let app_zip_path_span = Span::from_str(app_zip_path);
 
@@ -107,6 +132,8 @@ impl StationA {
         DemoError::new(code, detail, Severity::Error)
     }
 }
+
+const APP_ZIP_PATH: &'static str = "/tmp/build_agent/app.zip";
 
 pub struct ServerParams {
     protocol: &'static str,
