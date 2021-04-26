@@ -15,10 +15,13 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
     add_station,
+    app_zip::{APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
     error::{ErrorCode, ErrorDetail},
+    server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError, Files,
 };
 
+/// Download App
 pub struct StationA;
 
 impl StationA {
@@ -33,7 +36,7 @@ impl StationA {
 
                 let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
 
-                let address = Cow::Owned(SERVER_PARAMS.address());
+                let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
                 let address_file_id = files.add("artifact_server_address", address);
                 let address = files.source(address_file_id);
 
@@ -48,7 +51,7 @@ impl StationA {
                     .send()
                     .await
                     .map_err(|error| {
-                        Self::post_error(&SERVER_PARAMS, address, address_file_id, error)
+                        Self::post_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
                     })?;
 
                 let status_code = response.status();
@@ -56,7 +59,8 @@ impl StationA {
                     Result::<(), DemoError>::Ok(())
                 } else {
                     let address_span = Span::from_str(address);
-                    let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_PATH));
+                    let app_zip_path_file_id =
+                        files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
                     let app_zip_path = files.source(app_zip_path_file_id);
                     let app_zip_path_span = Span::from_str(app_zip_path);
                     let server_message = if let Ok(server_message) = response.text().await {
@@ -89,20 +93,23 @@ impl StationA {
     }
 
     async fn app_zip_read(files: &mut Files) -> Result<FramedRead<File, BytesCodec>, DemoError> {
-        let app_zip_read = File::open(APP_ZIP_PATH).await.map_err(|error| {
-            let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_PATH));
-            let app_zip_path = files.source(app_zip_path_file_id);
-            let app_zip_path_span = Span::from_str(app_zip_path);
+        let app_zip_read = File::open(APP_ZIP_BUILD_AGENT_PATH)
+            .await
+            .map_err(|error| {
+                let app_zip_path_file_id =
+                    files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+                let app_zip_path = files.source(app_zip_path_file_id);
+                let app_zip_path_span = Span::from_str(app_zip_path);
 
-            let code = ErrorCode::AppZipOpen;
-            let detail = ErrorDetail::AppZipOpen {
-                app_zip_path_file_id,
-                app_zip_path_span,
-                error,
-            };
+                let code = ErrorCode::AppZipOpen;
+                let detail = ErrorDetail::AppZipOpen {
+                    app_zip_path_file_id,
+                    app_zip_path_span,
+                    error,
+                };
 
-            DemoError::new(code, detail, Severity::Error)
-        })?;
+                DemoError::new(code, detail, Severity::Error)
+            })?;
         Ok(FramedRead::new(app_zip_read, BytesCodec::new()))
     }
 
@@ -135,31 +142,5 @@ impl StationA {
             error,
         };
         DemoError::new(code, detail, Severity::Error)
-    }
-}
-
-const APP_ZIP_NAME: &'static str = "app.zip";
-const APP_ZIP_PATH: &'static str = "/tmp/build_agent/app.zip";
-
-pub struct ServerParams {
-    protocol: &'static str,
-    host: &'static str,
-    port: &'static str,
-}
-
-const SERVER_PARAMS: ServerParams = ServerParams {
-    protocol: "http://",
-    host: "127.0.0.1",
-    port: "8000",
-};
-
-impl ServerParams {
-    pub fn address(&self) -> String {
-        format!(
-            "{protocol}{host}:{port}",
-            protocol = self.protocol,
-            host = self.host,
-            port = self.port
-        )
     }
 }

@@ -10,6 +10,7 @@ use tokio::time::Duration;
 
 use crate::{add_station, DemoError, ErrorCode, ErrorDetail};
 
+/// Create DB
 pub struct StationB;
 
 impl StationB {

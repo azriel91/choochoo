@@ -1,21 +1,28 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 use srcerr::{
     codespan::{FileId, Files, Span},
     codespan_reporting::diagnostic::Label,
+    ErrorCode as _,
 };
 
 /// Error codes for simple example.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrorCode {
-    /// Error when opening `app.zip`.
+    /// Failed to open `app.zip` to upload.
     AppZipOpen,
-    /// Error when connecting to the artifact server.
+    /// Failed to connect to artifact server.
     ArtifactServerConnect,
     /// Artifact server rejected `app.zip`.
     AppZipReject,
     /// Failed to create application database.
     DatabaseCreate,
+    /// Application server failed to get `app.zip`.
+    AppZipDownload,
+    /// `app.zip` download connection broke.
+    AppZipStream,
+    /// Web server failed to write `app.zip` to disk.
+    AppZipWrite,
 }
 
 impl srcerr::ErrorCode for ErrorCode {
@@ -28,15 +35,21 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::ArtifactServerConnect => 2,
             Self::AppZipReject => 3,
             Self::DatabaseCreate => 4,
+            Self::AppZipDownload => 5,
+            Self::AppZipStream => 6,
+            Self::AppZipWrite => 7,
         }
     }
 
     fn description(self) -> &'static str {
         match self {
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
-            Self::ArtifactServerConnect => "Failed to connect to server to upload `app.zip`.",
+            Self::ArtifactServerConnect => "Failed to connect to artifact server.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
             Self::DatabaseCreate => "Failed to create application database.",
+            Self::AppZipDownload => "Application server failed to get `app.zip`.",
+            Self::AppZipStream => "`app.zip` download connection broke.",
+            Self::AppZipWrite => "Web server failed to write `app.zip` to disk.",
         }
     }
 }
@@ -44,7 +57,7 @@ impl srcerr::ErrorCode for ErrorCode {
 /// Error detail for demo.
 #[derive(Debug)]
 pub enum ErrorDetail {
-    /// Error when connecting to the artifact server.
+    /// Failed to open `app.zip` to upload.
     AppZipOpen {
         /// `app.zip` path file ID.
         app_zip_path_file_id: FileId,
@@ -53,7 +66,7 @@ pub enum ErrorDetail {
         /// Underlying IO error.
         error: std::io::Error,
     },
-    /// Error when connecting to the artifact server.
+    /// Failed to connect to artifact server.
     ArtifactServerConnect {
         /// Artifact server address file ID.
         address_file_id: FileId,
@@ -63,10 +76,10 @@ pub enum ErrorDetail {
         host_span: Span,
         /// Span of the port.
         port_span: Span,
-        /// Underlying `reqwest` error.
+        /// Underlying [`reqwest::Error`].
         error: reqwest::Error,
     },
-    /// Error when the artifact server has rejected app.zip.
+    /// Artifact server rejected `app.zip`.
     AppZipReject {
         /// `app.zip` path file ID.
         app_zip_path_file_id: FileId,
@@ -85,6 +98,33 @@ pub enum ErrorDetail {
         db_name_file_id: FileId,
         /// Span of the database name.
         db_name_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Application server failed to get `app.zip`.
+    AppZipDownload {
+        /// `app.zip` URL file ID.
+        app_zip_url_file_id: FileId,
+        /// Span of the full URL.
+        app_zip_url_span: Span,
+        /// Reason provided by the server.
+        server_message: Option<String>,
+    },
+    /// `app.zip` download connection broke.
+    AppZipStream {
+        /// `app.zip` URL file ID.
+        app_zip_url_file_id: FileId,
+        /// Span of the full URL.
+        app_zip_url_span: Span,
+        /// Underlying [`reqwest::Error`].
+        error: reqwest::Error,
+    },
+    /// Web server failed to write `app.zip` to disk.
+    AppZipWrite {
+        /// `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
         /// Underlying IO error.
         error: std::io::Error,
     },
@@ -137,6 +177,36 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 vec![
                     Label::primary(*db_name_file_id, *db_name_span)
                         .with_message("failed to create database"),
+                ]
+            }
+            Self::AppZipDownload {
+                app_zip_url_file_id,
+                app_zip_url_span,
+                ..
+            } => {
+                vec![
+                    Label::primary(*app_zip_url_file_id, *app_zip_url_span)
+                        .with_message("application server failed to get `app.zip`"),
+                ]
+            }
+            Self::AppZipStream {
+                app_zip_url_file_id,
+                app_zip_url_span,
+                ..
+            } => {
+                vec![
+                    Label::primary(*app_zip_url_file_id, *app_zip_url_span)
+                        .with_message("`app.zip` download connection failed"),
+                ]
+            }
+            Self::AppZipWrite {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                vec![
+                    Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
+                        .with_message("failed to write to file"),
                 ]
             }
         }
@@ -199,6 +269,49 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
             Self::DatabaseCreate { .. } => {
                 vec![]
             }
+            Self::AppZipDownload { server_message, .. } => {
+                let ensure_hint = String::from("Ensure the file exists on the server.");
+                if let Some(server_message) = server_message.as_deref() {
+                    let server_message_hint = format!("Message from server:\n{}", server_message);
+                    vec![ensure_hint, server_message_hint]
+                } else {
+                    vec![ensure_hint]
+                }
+            }
+            Self::AppZipStream { error, .. } => {
+                vec![format!("Underlying error:\n{}", error)]
+            }
+            Self::AppZipWrite {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                vec![format!(
+                    "Ensure all parent directories of `{app_zip_path}` are accessible by the current user.",
+                    app_zip_path = app_zip_path
+                )]
+            }
         }
     }
 }
+
+impl fmt::Display for ErrorDetail {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::AppZipOpen { .. } => write!(f, "{}", ErrorCode::AppZipOpen.description()),
+            Self::ArtifactServerConnect { .. } => {
+                write!(f, "{}", ErrorCode::ArtifactServerConnect.description())
+            }
+            Self::AppZipReject { .. } => write!(f, "{}", ErrorCode::AppZipReject.description()),
+            Self::DatabaseCreate { .. } => write!(f, "{}", ErrorCode::DatabaseCreate.description()),
+            Self::AppZipDownload { .. } => write!(f, "{}", ErrorCode::AppZipDownload.description()),
+            Self::AppZipStream { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
+            Self::AppZipWrite { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
+        }
+    }
+}
+
+impl std::error::Error for ErrorDetail {}
