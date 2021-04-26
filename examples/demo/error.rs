@@ -14,6 +14,8 @@ pub enum ErrorCode {
     ArtifactServerConnect,
     /// Artifact server rejected `app.zip`.
     AppZipReject,
+    /// Failed to create application database.
+    DatabaseCreate,
 }
 
 impl srcerr::ErrorCode for ErrorCode {
@@ -25,6 +27,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipOpen => 1,
             Self::ArtifactServerConnect => 2,
             Self::AppZipReject => 3,
+            Self::DatabaseCreate => 4,
         }
     }
 
@@ -33,6 +36,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
             Self::ArtifactServerConnect => "Failed to connect to server to upload `app.zip`.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
+            Self::DatabaseCreate => "Failed to create application database.",
         }
     }
 }
@@ -75,6 +79,15 @@ pub enum ErrorDetail {
         /// Reason provided by the server.
         server_message: Option<String>,
     },
+    /// Failed to create application database.
+    DatabaseCreate {
+        /// Database name file ID.
+        db_name_file_id: FileId,
+        /// Span of the database name.
+        db_name_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
 }
 
 impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
@@ -114,6 +127,16 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                         .with_message("server address"),
                     Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
                         .with_message("file exists here"),
+                ]
+            }
+            Self::DatabaseCreate {
+                db_name_file_id,
+                db_name_span,
+                ..
+            } => {
+                vec![
+                    Label::primary(*db_name_file_id, *db_name_span)
+                        .with_message("failed to create database"),
                 ]
             }
         }
@@ -172,6 +195,9 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 } else {
                     vec![zip_valid_hint]
                 }
+            }
+            Self::DatabaseCreate { .. } => {
+                vec![]
             }
         }
     }

@@ -8,19 +8,21 @@ use choochoo::{
 };
 
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
-
 use srcerr::SourceError;
 use tokio::runtime;
 
 use crate::{
     error::{ErrorCode, ErrorDetail},
     station_a::StationA,
+    station_b::StationB,
 };
 
 #[path = "demo/error.rs"]
 mod error;
 #[path = "demo/station_a.rs"]
 mod station_a;
+#[path = "demo/station_b.rs"]
+mod station_b;
 
 type DemoError = SourceError<'static, ErrorCode, ErrorDetail, Files>;
 type Files = srcerr::codespan::Files<Cow<'static, str>>;
@@ -35,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let (mut dest, _station_a, _station_b) = {
             let mut stations = Stations::new();
             let station_a = StationA::build(&mut stations)?;
-            let station_b = station_b(&mut stations)?;
+            let station_b = StationB::build(&mut stations)?;
             let dest = Destination { stations };
 
             Result::<_, Box<dyn std::error::Error>>::Ok((dest, station_a, station_b))
@@ -49,24 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     Ok(())
-}
-
-fn station_b(
-    stations: &mut Stations<DemoError>,
-) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |_station, _| {
-        Box::pin(async move {
-            // TODO: Create DB.
-            Result::<(), DemoError>::Ok(())
-        })
-    });
-    add_station(
-        stations,
-        "b",
-        "Create DB",
-        "Creates the database for the web application.",
-        visit_fn,
-    )
 }
 
 fn add_station<'files>(
