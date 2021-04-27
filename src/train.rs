@@ -1,5 +1,5 @@
 use crate::{
-    rt_logic::IntegrityStrat,
+    rt_logic::strategy::IntegrityStrat,
     rt_model::{Destination, TrainReport, VisitStatus},
 };
 

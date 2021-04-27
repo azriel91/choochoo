@@ -1,6 +1,7 @@
 //! Logic to update runtime data.
 
-pub use self::{integrity_strat::IntegrityStrat, visit_status_updater::VisitStatusUpdater};
+pub use self::visit_status_updater::VisitStatusUpdater;
 
-mod integrity_strat;
+pub mod strategy;
+
 mod visit_status_updater;
