@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use bytes::Bytes;
 use choochoo::{
-    cfg_model::{StationFn, StationIdInvalidFmt},
+    cfg_model::{StationFn, StationIdInvalidFmt, StationSpecFns},
     rt_model::Stations,
 };
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
@@ -32,7 +32,18 @@ impl StationC {
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-        let visit_fn = StationFn::new(|_station, resources| {
+        let station_spec_fns = StationSpecFns::new(Self::visit_fn());
+        add_station(
+            stations,
+            "c",
+            "Download App",
+            "Downloads web application onto web server.",
+            station_spec_fns,
+        )
+    }
+
+    fn visit_fn() -> StationFn<(), DemoError> {
+        StationFn::new(|_station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();
@@ -76,14 +87,7 @@ impl StationC {
                     Err(DemoError::new(code, detail, Severity::Error))
                 }
             })
-        });
-        add_station(
-            stations,
-            "c",
-            "Download App",
-            "Downloads web application onto web server.",
-            visit_fn,
-        )
+        })
     }
 
     async fn app_zip_write(

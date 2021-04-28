@@ -1,7 +1,7 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationFn, StationIdInvalidFmt},
+    cfg_model::{CheckStatus, StationFn, StationIdInvalidFmt, StationSpecFns},
     rt_model::{Files, Stations},
 };
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
@@ -18,7 +18,32 @@ impl StationB {
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-        let visit_fn = StationFn::new(move |_station, resources| {
+        let station_spec_fns =
+            StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
+        add_station(
+            stations,
+            "b",
+            "Create DB",
+            "Creates the database for the web application.",
+            station_spec_fns,
+        )
+    }
+
+    fn check_fn() -> StationFn<CheckStatus, DemoError> {
+        StationFn::new(move |_station, _resources| {
+            Box::pin(async move {
+                let check_status = if Path::new(CREATE_DB_PATH).exists() {
+                    CheckStatus::VisitNotRequired
+                } else {
+                    CheckStatus::VisitRequired
+                };
+                Result::<CheckStatus, DemoError>::Ok(check_status)
+            })
+        })
+    }
+
+    fn visit_fn() -> StationFn<(), DemoError> {
+        StationFn::new(move |_station, resources| {
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();
 
@@ -34,14 +59,7 @@ impl StationB {
 
                 Result::<(), DemoError>::Ok(())
             })
-        });
-        add_station(
-            stations,
-            "b",
-            "Create DB",
-            "Creates the database for the web application.",
-            visit_fn,
-        )
+        })
     }
 
     fn db_error(files: &mut Files, error: std::io::Error) -> DemoError {
