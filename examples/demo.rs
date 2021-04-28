@@ -3,12 +3,15 @@ use std::borrow::Cow;
 use choochoo::{
     cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload},
     fmt::PlainTextFormatter,
-    rt_model::{Destination, Station, Stations, VisitStatus},
+    rt_model::{error::StationSpecError, Destination, Station, Stations, VisitStatus},
     Train,
 };
 
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
-use srcerr::SourceError;
+use srcerr::{
+    codespan_reporting::diagnostic::{Diagnostic, Severity},
+    SourceError,
+};
 use tokio::runtime;
 
 use crate::{
@@ -31,7 +34,35 @@ mod station_b;
 #[path = "demo/station_c.rs"]
 mod station_c;
 
-type DemoError = SourceError<'static, ErrorCode, ErrorDetail, Files>;
+pub struct DemoError(pub SourceError<'static, ErrorCode, ErrorDetail, Files>);
+
+impl DemoError {
+    pub fn new(code: ErrorCode, detail: ErrorDetail, severity: Severity) -> Self {
+        Self(SourceError::new(code, detail, severity))
+    }
+}
+
+impl choochoo::rt_model::error::AsDiagnostic<'static> for DemoError {
+    type Files = Files;
+
+    fn as_diagnostic(
+        &self,
+        files: &Self::Files,
+    ) -> Diagnostic<<Self::Files as srcerr::codespan_reporting::files::Files<'static>>::FileId>
+    {
+        SourceError::as_diagnostic(&self.0, files)
+    }
+}
+
+impl From<StationSpecError> for DemoError {
+    fn from(error: StationSpecError) -> DemoError {
+        let code = ErrorCode::StationSpecError;
+        let detail = ErrorDetail::StationSpecError(error);
+
+        DemoError::new(code, detail, Severity::Bug)
+    }
+}
+
 type Files = srcerr::codespan::Files<Cow<'static, str>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -1,6 +1,6 @@
 use crate::{
-    rt_logic::strategy::IntegrityStrat,
-    rt_model::{Destination, TrainReport, VisitStatus},
+    rt_logic::{strategy::IntegrityStrat, Driver},
+    rt_model::{error::StationSpecError, Destination, TrainReport, VisitStatus},
 };
 
 /// Ensures all carriages are at the destination.
@@ -11,7 +11,7 @@ impl Train {
     /// Ensures the given destination is reached.
     pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E>
     where
-        E: Send,
+        E: From<StationSpecError>,
     {
         let train_report = TrainReport::new();
         let train_report =
@@ -21,11 +21,9 @@ impl Train {
                     // `visit_status` while the `visit()` is `await`ed.
                     station.visit_status = VisitStatus::InProgress;
 
-                    let TrainReport { errors, resources } = &mut train_report;
-
-                    if let Err(e) = station.visit(&resources).await {
+                    if let Err(e) = Driver::ensure(&mut train_report, node_id, station).await {
                         station.visit_status = VisitStatus::VisitFail;
-                        errors.insert(node_id, e);
+                        train_report.errors.insert(node_id, e);
                     } else {
                         station.visit_status = VisitStatus::VisitSuccess;
                     }

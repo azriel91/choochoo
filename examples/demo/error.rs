@@ -1,5 +1,6 @@
 use std::{borrow::Cow, fmt};
 
+use choochoo::rt_model::error::StationSpecError;
 use srcerr::{
     codespan::{FileId, Files, Span},
     codespan_reporting::diagnostic::Label,
@@ -9,6 +10,8 @@ use srcerr::{
 /// Error codes for simple example.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ErrorCode {
+    /// There is a bug with the station specification.
+    StationSpecError,
     /// Failed to open `app.zip` to upload.
     AppZipOpen,
     /// Failed to connect to artifact server.
@@ -31,18 +34,20 @@ impl srcerr::ErrorCode for ErrorCode {
 
     fn code(self) -> usize {
         match self {
-            Self::AppZipOpen => 1,
-            Self::ArtifactServerConnect => 2,
-            Self::AppZipReject => 3,
-            Self::DatabaseCreate => 4,
-            Self::AppZipDownload => 5,
-            Self::AppZipStream => 6,
-            Self::AppZipWrite => 7,
+            Self::StationSpecError => 1,
+            Self::AppZipOpen => 2,
+            Self::ArtifactServerConnect => 3,
+            Self::AppZipReject => 4,
+            Self::DatabaseCreate => 5,
+            Self::AppZipDownload => 6,
+            Self::AppZipStream => 7,
+            Self::AppZipWrite => 8,
         }
     }
 
     fn description(self) -> &'static str {
         match self {
+            Self::StationSpecError => "There is a bug with the station specification.",
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
             Self::ArtifactServerConnect => "Failed to connect to artifact server.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
@@ -57,6 +62,8 @@ impl srcerr::ErrorCode for ErrorCode {
 /// Error detail for demo.
 #[derive(Debug)]
 pub enum ErrorDetail {
+    /// There is a bug with the station specification.
+    StationSpecError(StationSpecError),
     /// Failed to open `app.zip` to upload.
     AppZipOpen {
         /// `app.zip` path file ID.
@@ -135,6 +142,7 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
 
     fn labels(&self) -> Vec<Label<FileId>> {
         match self {
+            Self::StationSpecError(_error) => vec![],
             Self::AppZipOpen {
                 app_zip_path_file_id,
                 app_zip_path_span,
@@ -214,6 +222,10 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
 
     fn notes(&self, files: &Self::Files) -> Vec<String> {
         match self {
+            Self::StationSpecError(error) => vec![
+                String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
+                error.to_string(),
+            ],
             Self::AppZipOpen {
                 app_zip_path_file_id,
                 app_zip_path_span,
@@ -301,6 +313,7 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
 impl fmt::Display for ErrorDetail {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Self::StationSpecError(error) => error.fmt(f),
             Self::AppZipOpen { .. } => write!(f, "{}", ErrorCode::AppZipOpen.description()),
             Self::ArtifactServerConnect { .. } => {
                 write!(f, "{}", ErrorCode::ArtifactServerConnect.description())

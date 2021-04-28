@@ -1,9 +1,11 @@
 use std::fmt;
 
-use futures::Future;
 use resman::Resources;
 
-use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
+use crate::{
+    cfg_model::{CheckStatus, StationFnReturn, StationSpec},
+    rt_model::VisitStatus,
+};
 
 /// A state along the way to the destination.
 ///
@@ -31,11 +33,20 @@ impl<E> Station<E> {
         }
     }
 
-    /// Returns a station visitation pass.
-    pub fn visit<'f>(
+    /// Checks if the station needs to be visited.
+    pub fn check<'f>(
         &'f mut self,
         resources: &'f Resources,
-    ) -> impl Future<Output = Result<(), E>> + 'f {
+    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
+        self.station_spec
+            .station_spec_fns()
+            .check_fn
+            .clone()
+            .map(move |check_fn| check_fn.0(self, resources))
+    }
+
+    /// Returns a task to visit the station.
+    pub fn visit<'f>(&'f mut self, resources: &'f Resources) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec.station_spec_fns().visit_fn.clone();
         visit_fn.0(self, resources)
     }

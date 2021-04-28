@@ -11,7 +11,7 @@
 ///
 /// [`Resources`]: resman::Resources
 /// [`StationSpecFns`]: crate::cfg_model::StationSpecFns
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CheckStatus {
     /// Station is not in desired state.
     VisitRequired,
