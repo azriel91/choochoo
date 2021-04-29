@@ -1,6 +1,6 @@
 use crate::{
-    rt_logic::IntegrityStrat,
-    rt_model::{Destination, TrainReport, VisitStatus},
+    rt_logic::{strategy::IntegrityStrat, Driver},
+    rt_model::{error::StationSpecError, Destination, TrainReport, VisitStatus},
 };
 
 /// Ensures all carriages are at the destination.
@@ -9,27 +9,30 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<'files, E>(dest: &mut Destination<E>) -> TrainReport<'files, E>
+    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E>
     where
-        E: Send + Sync,
+        E: From<StationSpecError>,
     {
         let train_report = TrainReport::new();
-        IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
-            Box::pin(async move {
-                // Because this is in an async block, concurrent tasks may access this station's
-                // `visit_status` while the `visit()` is `await`ed.
-                station.visit_status = VisitStatus::InProgress;
+        let train_report =
+            IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
+                Box::pin(async move {
+                    // Because this is in an async block, concurrent tasks may access this station's
+                    // `visit_status` while the `visit()` is `await`ed.
+                    station.visit_status = VisitStatus::InProgress;
 
-                if let Err(e) = station.visit().await {
-                    station.visit_status = VisitStatus::VisitFail;
-                    train_report.errors.insert(node_id, e);
-                } else {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                }
-                train_report
+                    if let Err(e) = Driver::ensure(&mut train_report, node_id, station).await {
+                        station.visit_status = VisitStatus::VisitFail;
+                        train_report.errors.insert(node_id, e);
+                    } else {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                    }
+                    train_report
+                })
             })
-        })
-        .await
+            .await;
+
+        train_report
     }
 }
 
@@ -41,7 +44,7 @@ mod tests {
 
     use super::Train;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -116,12 +119,15 @@ mod tests {
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let visit_fn = if visit_result.is_ok() {
-            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }))
-        } else {
-            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) }))
+        let station_spec_fns = {
+            let visit_fn = if visit_result.is_ok() {
+                StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Ok(()) }))
+            } else {
+                StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Err(()) }))
+            };
+            StationSpecFns::new(visit_fn)
         };
-        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
+        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, visit_status);
         Ok(stations.add_node(station))
     }

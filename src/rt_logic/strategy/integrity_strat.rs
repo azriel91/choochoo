@@ -64,7 +64,7 @@ impl<E> IntegrityStrat<E> {
             R,
             NodeIndex<DefaultIx>,
             &'a mut Station<E>,
-        ) -> Pin<Box<dyn Future<Output = R> + Send + Sync + 'a>>,
+        ) -> Pin<Box<dyn Future<Output = R> + 'a>>,
     {
         let node_ids = dest
             .stations
@@ -103,6 +103,7 @@ impl<E> IntegrityStrat<E> {
 
 #[cfg(test)]
 mod tests {
+    use resman::Resources;
     use tokio::{
         runtime,
         sync::mpsc::{self, Receiver, Sender},
@@ -110,7 +111,7 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, VisitStatus},
     };
 
@@ -168,19 +169,22 @@ mod tests {
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,
     ) -> Result<(), StationIdInvalidFmt<'static>> {
-        let visit_fn = match visit_result {
-            Ok((tx, n)) => VisitFn::new(move |station| {
-                let tx = tx.clone();
-                Box::pin(async move {
-                    station.visit_status = VisitStatus::VisitSuccess;
-                    tx.send(n).await.map_err(|_| ())
-                })
-            }),
-            _ => VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Err(()) })),
+        let station_spec_fns = {
+            let visit_fn = match visit_result {
+                Ok((tx, n)) => StationFn::new(move |station, _| {
+                    let tx = tx.clone();
+                    Box::pin(async move {
+                        station.visit_status = VisitStatus::VisitSuccess;
+                        tx.send(n).await.map_err(|_| ())
+                    })
+                }),
+                Err(_) => StationFn::new(|_, _| Box::pin(async { Err(()) })),
+            };
+            StationSpecFns::new(visit_fn)
         };
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let station_spec = StationSpec::new(station_id, name, String::from(""), visit_fn);
+        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station = Station::new(station_spec, visit_status);
         stations.add_node(station);
         Ok(())
@@ -194,7 +198,10 @@ mod tests {
         let call_count_and_values = rt.block_on(async {
             let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, _, station| {
                 Box::pin(async move {
-                    station.visit().await.expect("Failed to visit station.");
+                    station
+                        .visit(&Resources::default())
+                        .await
+                        .expect("Failed to visit station.");
 
                     call_count + 1
                 })

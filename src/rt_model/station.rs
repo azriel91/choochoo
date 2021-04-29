@@ -1,7 +1,9 @@
 use std::fmt;
 
+use resman::Resources;
+
 use crate::{
-    cfg_model::{StationSpec, VisitFnReturn},
+    cfg_model::{CheckStatus, StationFnReturn, StationSpec},
     rt_model::VisitStatus,
 };
 
@@ -31,9 +33,22 @@ impl<E> Station<E> {
         }
     }
 
-    /// Returns a station visitation pass.
-    pub fn visit(&mut self) -> VisitFnReturn<'_, E> {
-        (self.station_spec.visit_fn().0)(self)
+    /// Checks if the station needs to be visited.
+    pub fn check<'f>(
+        &'f mut self,
+        resources: &'f Resources,
+    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
+        self.station_spec
+            .station_spec_fns()
+            .check_fn
+            .clone()
+            .map(move |check_fn| check_fn.0(self, resources))
+    }
+
+    /// Returns a task to visit the station.
+    pub fn visit<'f>(&'f mut self, resources: &'f Resources) -> StationFnReturn<'f, (), E> {
+        let visit_fn = self.station_spec.station_spec_fns().visit_fn.clone();
+        visit_fn.0(self, resources)
     }
 }
 
@@ -49,7 +64,7 @@ impl<E> fmt::Display for Station<E> {
 mod tests {
     use super::Station;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::VisitStatus,
     };
 
@@ -58,8 +73,11 @@ mod tests {
         let station_id = StationId::new("station_id")?;
         let name = String::from("Station Name");
         let description = String::from("One liner.");
-        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
-        let station_spec = StationSpec::new(station_id, name, description, visit_fn);
+        let station_spec_fns = {
+            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            StationSpecFns::new(visit_fn)
+        };
+        let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
         let station = Station::new(station_spec, VisitStatus::InProgress);
 
         assert_eq!("[InProgress] Station Name: One liner.", station.to_string());

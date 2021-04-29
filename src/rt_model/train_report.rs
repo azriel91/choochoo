@@ -1,30 +1,46 @@
-use std::borrow::Cow;
+use std::fmt;
 
-use codespan::Files;
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use indexmap::IndexMap;
+use resman::Resources;
+
+use crate::rt_model::Files;
 
 /// Record of what happened during a train's drive.
-#[derive(Debug)]
-pub struct TrainReport<'files, E> {
+pub struct TrainReport<E> {
     /// Stations that were visited but failed to work.
     pub errors: IndexMap<NodeIndex<DefaultIx>, E>,
-    /// Content of files / data referenced in errors.
-    pub files: Files<Cow<'files, str>>,
+    /// Resources used during execution.
+    pub resources: Resources,
 }
 
-impl<'files, E> Default for TrainReport<'files, E> {
-    fn default() -> Self {
-        Self {
-            errors: Default::default(),
-            files: Default::default(),
-        }
-    }
-}
-
-impl<'files, E> TrainReport<'files, E> {
+impl<E> TrainReport<E> {
     /// Returns a new TrainReport.
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+impl<E> fmt::Debug for TrainReport<E>
+where
+    E: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("TrainReport")
+            .field("errors", &self.errors)
+            .field("resources", &"resman::Resources { .. }")
+            .finish()
+    }
+}
+
+impl<E> Default for TrainReport<E> {
+    fn default() -> Self {
+        let mut resources = Resources::default();
+        resources.insert(Files::new());
+
+        Self {
+            errors: Default::default(),
+            resources,
+        }
     }
 }

@@ -121,7 +121,9 @@ impl<E> VisitStatusUpdater<E> {
 mod tests {
     use super::VisitStatusUpdater;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn, Workload},
+        cfg_model::{
+            StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
+        },
         rt_model::{Station, Stations, VisitStatus},
     };
 
@@ -358,12 +360,11 @@ mod tests {
     ) -> Result<Station<()>, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
-        let station_spec = StationSpec::new(
-            station_id,
-            name,
-            String::from(""),
-            VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) })),
-        );
+        let station_spec_fns = {
+            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            StationSpecFns::new(visit_fn)
+        };
+        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         Ok(Station::new(station_spec, visit_status))
     }
 }

@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     io::{self, Write},
     marker::PhantomData,
 };
@@ -8,7 +7,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{error::AsDiagnostic, Destination, Station, TrainReport, VisitStatus};
+use crate::rt_model::{error::AsDiagnostic, Destination, Files, Station, TrainReport, VisitStatus};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -58,16 +57,16 @@ macro_rules! b_writeln {
     };
 }
 
-impl<'files, W, E> PlainTextFormatter<W, E>
+impl<W, E> PlainTextFormatter<W, E>
 where
     W: AsyncWrite + Unpin,
-    E: AsDiagnostic<'files, Files = codespan::Files<Cow<'files, str>>>,
+    E: AsDiagnostic<'static, Files = Files>,
 {
     /// Formats the value using the given formatter.
     pub async fn fmt(
         w: &mut W,
         dest: &Destination<E>,
-        train_report: &TrainReport<'files, E>,
+        train_report: &TrainReport<E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = stream::iter(dest.stations.iter())
@@ -105,7 +104,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &train_report.files;
+        let files = &*train_report.resources.borrow::<Files>();
 
         let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -134,7 +133,7 @@ mod tests {
 
     use super::PlainTextFormatter;
     use crate::{
-        cfg_model::{StationId, StationIdInvalidFmt, StationSpec, VisitFn},
+        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::{Destination, Station, Stations, TrainReport, VisitStatus},
     };
 
@@ -179,12 +178,15 @@ mod tests {
         visit_status: VisitStatus,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new(station_id)?;
-        let visit_fn = VisitFn::new(|_station| Box::pin(async move { Result::<(), ()>::Ok(()) }));
+        let station_spec_fns = {
+            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
+            StationSpecFns::new(visit_fn)
+        };
         let station_spec = StationSpec::new(
             station_id,
             String::from(station_name),
             String::from(station_desc),
-            visit_fn,
+            station_spec_fns,
         );
         let station = Station::new(station_spec, visit_status);
         Ok(stations.add_node(station))
