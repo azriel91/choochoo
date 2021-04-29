@@ -20,6 +20,7 @@ use crate::{
     station_b::StationB,
     station_c::StationC,
     station_d::StationD,
+    station_e::StationE,
 };
 
 #[path = "demo/app_zip.rs"]
@@ -36,6 +37,8 @@ mod station_b;
 mod station_c;
 #[path = "demo/station_d.rs"]
 mod station_d;
+#[path = "demo/station_e.rs"]
+mod station_e;
 
 pub struct DemoError(pub SourceError<'static, ErrorCode, ErrorDetail, Files>);
 
@@ -81,10 +84,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let station_b = StationB::build(&mut stations)?;
             let station_c = StationC::build(&mut stations)?;
             let station_d = StationD::build(&mut stations)?;
+            let station_e = StationE::build(&mut stations)?;
 
             stations.add_edge(station_a, station_b, Workload::default())?;
             stations.add_edge(station_b, station_c, Workload::default())?;
             stations.add_edge(station_c, station_d, Workload::default())?;
+            stations.add_edge(station_d, station_e, Workload::default())?;
 
             let dest = Destination { stations };
 
