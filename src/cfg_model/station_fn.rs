@@ -13,6 +13,7 @@ use crate::rt_model::Station;
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;
 
 /// Steps to run for this part of the station's logic.
+#[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct StationFn<R, E>(
     pub Arc<dyn for<'f> Fn(&'f mut Station<E>, &'f Resources) -> StationFnReturn<'f, R, E>>,
 );
