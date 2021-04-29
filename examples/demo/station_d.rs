@@ -63,14 +63,15 @@ impl StationD {
     }
 
     fn db_error(files: &mut Files, error: std::io::Error) -> DemoError {
-        let db_name_file_id = files.add(LINK_APP_TO_DB_NAME, Cow::Borrowed(LINK_APP_TO_DB_PATH));
-        let db_name = files.source(db_name_file_id);
-        let db_name_span = Span::from_str(db_name);
+        let app_db_link_name_file_id =
+            files.add(LINK_APP_TO_DB_NAME, Cow::Borrowed(LINK_APP_TO_DB_PATH));
+        let app_db_link_name = files.source(app_db_link_name_file_id);
+        let app_db_link_name_span = Span::from_str(app_db_link_name);
 
-        let code = ErrorCode::DatabaseCreate;
-        let detail = ErrorDetail::DatabaseCreate {
-            db_name_file_id,
-            db_name_span,
+        let code = ErrorCode::ApplicationDatabaseLink;
+        let detail = ErrorDetail::ApplicationDatabaseLink {
+            app_db_link_name_file_id,
+            app_db_link_name_span,
             error,
         };
 

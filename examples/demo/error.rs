@@ -30,6 +30,8 @@ pub enum ErrorCode {
     AppZipStream,
     /// Web server failed to write `app.zip` to disk.
     AppZipWrite,
+    /// Failed to link application to database.
+    ApplicationDatabaseLink,
 }
 
 impl srcerr::ErrorCode for ErrorCode {
@@ -48,6 +50,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipDownload => 8,
             Self::AppZipStream => 9,
             Self::AppZipWrite => 10,
+            Self::ApplicationDatabaseLink => 11,
         }
     }
 
@@ -63,6 +66,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipDownload => "Application server failed to get `app.zip`.",
             Self::AppZipStream => "`app.zip` download connection broke.",
             Self::AppZipWrite => "Web server failed to write `app.zip` to disk.",
+            Self::ApplicationDatabaseLink => "Failed to link application to database.",
         }
     }
 }
@@ -158,6 +162,15 @@ pub enum ErrorDetail {
         app_zip_path_file_id: FileId,
         /// Span of the app.zip path.
         app_zip_path_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Failed to link application to database.
+    ApplicationDatabaseLink {
+        /// Application database link name file ID.
+        app_db_link_name_file_id: FileId,
+        /// Span of the file name.
+        app_db_link_name_span: Span,
         /// Underlying IO error.
         error: std::io::Error,
     },
@@ -261,6 +274,16 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 vec![
                     Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
                         .with_message("failed to write to file"),
+                ]
+            }
+            Self::ApplicationDatabaseLink {
+                app_db_link_name_file_id,
+                app_db_link_name_span,
+                ..
+            } => {
+                vec![
+                    Label::primary(*app_db_link_name_file_id, *app_db_link_name_span)
+                        .with_message("failed to link application to database"),
                 ]
             }
         }
@@ -378,6 +401,9 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                     app_zip_path = app_zip_path
                 )]
             }
+            Self::ApplicationDatabaseLink { .. } => {
+                vec![]
+            }
         }
     }
 }
@@ -401,6 +427,9 @@ impl fmt::Display for ErrorDetail {
             Self::AppZipDownload { .. } => write!(f, "{}", ErrorCode::AppZipDownload.description()),
             Self::AppZipStream { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
             Self::AppZipWrite { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
+            Self::ApplicationDatabaseLink { .. } => {
+                write!(f, "{}", ErrorCode::ApplicationDatabaseLink.description())
+            }
         }
     }
 }
