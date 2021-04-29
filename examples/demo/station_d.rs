@@ -14,7 +14,7 @@ use crate::{add_station, DemoError, ErrorCode, ErrorDetail};
 pub struct StationD;
 
 impl StationD {
-    /// Returns a station that uploads `app.zip` to a server.
+    /// Links the web application to the database.
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
@@ -22,7 +22,7 @@ impl StationD {
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
         add_station(
             stations,
-            "b",
+            "d",
             "Link App to DB",
             "Links the web application to the database.",
             station_spec_fns,

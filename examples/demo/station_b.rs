@@ -14,7 +14,7 @@ use crate::{add_station, DemoError, ErrorCode, ErrorDetail};
 pub struct StationB;
 
 impl StationB {
-    /// Returns a station that uploads `app.zip` to a server.
+    /// Creates the database for the web application.
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
