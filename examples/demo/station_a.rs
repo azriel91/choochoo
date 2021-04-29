@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::{StationFn, StationIdInvalidFmt, StationSpecFns},
+    cfg_model::{CheckStatus, StationFn, StationIdInvalidFmt, StationSpecFns},
     rt_model::Stations,
 };
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
@@ -29,7 +29,8 @@ impl StationA {
     pub fn build(
         stations: &mut Stations<DemoError>,
     ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-        let station_spec_fns = StationSpecFns::new(Self::visit_fn());
+        let station_spec_fns =
+            StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
         add_station(
             stations,
             "a",
@@ -37,6 +38,61 @@ impl StationA {
             "Uploads web application to artifact server.",
             station_spec_fns,
         )
+    }
+
+    fn check_fn() -> StationFn<CheckStatus, DemoError> {
+        StationFn::new(|_station, resources| {
+            let client = reqwest::Client::new();
+            Box::pin(async move {
+                let mut files = resources.borrow_mut::<Files>();
+
+                // TODO: Hash the file and compare with server file hash.
+                // Currently we only compare file size
+                let local_file_length = {
+                    let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
+                        .await
+                        .map_err(|error| Self::file_open_error(&mut files, error))?;
+                    let metadata = app_zip
+                        .metadata()
+                        .await
+                        .map_err(|error| Self::file_metadata_error(&mut files, error))?;
+                    metadata.len()
+                };
+
+                let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
+
+                let mut app_zip_url = address.to_string();
+                app_zip_url.push('/');
+                app_zip_url.push_str(APP_ZIP_NAME);
+
+                let address_file_id = files.add("artifact_server_address", address);
+                let address = files.source(address_file_id);
+
+                let response = client.get(&app_zip_url).send().await.map_err(|error| {
+                    Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                })?;
+
+                let status_code = response.status();
+                let check_status = if status_code.is_success() {
+                    // We only care about the content length here, so we ignore the response body.
+                    if let Some(remote_file_length) = response.content_length() {
+                        if local_file_length == remote_file_length {
+                            CheckStatus::VisitNotRequired
+                        } else {
+                            CheckStatus::VisitRequired
+                        }
+                    } else {
+                        // Not sure of file length, so we download it.
+                        CheckStatus::VisitRequired
+                    }
+                } else {
+                    // Failed to check. We don't report an error, but maybe we should.
+                    CheckStatus::VisitRequired
+                };
+
+                Result::<CheckStatus, DemoError>::Ok(check_status)
+            })
+        })
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
@@ -62,7 +118,7 @@ impl StationA {
                     .send()
                     .await
                     .map_err(|error| {
-                        Self::post_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                        Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
                     })?;
 
                 let status_code = response.status();
@@ -117,7 +173,37 @@ impl StationA {
         Ok(FramedRead::new(app_zip_read, BytesCodec::new()))
     }
 
-    fn post_error(
+    fn file_open_error(files: &mut Files, error: std::io::Error) -> DemoError {
+        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+        let app_zip_path = files.source(app_zip_path_file_id);
+        let app_zip_path_span = Span::from_str(app_zip_path);
+
+        let code = ErrorCode::WebServerAppZipOpen;
+        let detail = ErrorDetail::WebServerAppZipOpen {
+            app_zip_path_file_id,
+            app_zip_path_span,
+            error,
+        };
+
+        DemoError::new(code, detail, Severity::Error)
+    }
+
+    fn file_metadata_error(files: &mut Files, error: std::io::Error) -> DemoError {
+        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+        let app_zip_path = files.source(app_zip_path_file_id);
+        let app_zip_path_span = Span::from_str(app_zip_path);
+
+        let code = ErrorCode::WebServerAppZipMetadata;
+        let detail = ErrorDetail::WebServerAppZipMetadata {
+            app_zip_path_file_id,
+            app_zip_path_span,
+            error,
+        };
+
+        DemoError::new(code, detail, Severity::Error)
+    }
+
+    fn connect_error(
         server_params: &ServerParams,
         address: &str,
         address_file_id: FileId,

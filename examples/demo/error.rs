@@ -20,6 +20,10 @@ pub enum ErrorCode {
     AppZipReject,
     /// Failed to create application database.
     DatabaseCreate,
+    /// Failed to open `app.zip` to check state.
+    WebServerAppZipOpen,
+    /// Failed to read `app.zip` metadata.
+    WebServerAppZipMetadata,
     /// Application server failed to get `app.zip`.
     AppZipDownload,
     /// `app.zip` download connection broke.
@@ -39,9 +43,11 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::ArtifactServerConnect => 3,
             Self::AppZipReject => 4,
             Self::DatabaseCreate => 5,
-            Self::AppZipDownload => 6,
-            Self::AppZipStream => 7,
-            Self::AppZipWrite => 8,
+            Self::WebServerAppZipOpen => 6,
+            Self::WebServerAppZipMetadata => 7,
+            Self::AppZipDownload => 8,
+            Self::AppZipStream => 9,
+            Self::AppZipWrite => 10,
         }
     }
 
@@ -52,6 +58,8 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::ArtifactServerConnect => "Failed to connect to artifact server.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
             Self::DatabaseCreate => "Failed to create application database.",
+            Self::WebServerAppZipOpen => "Failed to open `app.zip` to check state.",
+            Self::WebServerAppZipMetadata => "Failed to read `app.zip` metadata.",
             Self::AppZipDownload => "Application server failed to get `app.zip`.",
             Self::AppZipStream => "`app.zip` download connection broke.",
             Self::AppZipWrite => "Web server failed to write `app.zip` to disk.",
@@ -105,6 +113,24 @@ pub enum ErrorDetail {
         db_name_file_id: FileId,
         /// Span of the database name.
         db_name_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Failed to open `app.zip` to check state.
+    WebServerAppZipOpen {
+        /// `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Failed to read `app.zip` metadata.
+    WebServerAppZipMetadata {
+        /// `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
         /// Underlying IO error.
         error: std::io::Error,
     },
@@ -185,6 +211,26 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 vec![
                     Label::primary(*db_name_file_id, *db_name_span)
                         .with_message("failed to create database"),
+                ]
+            }
+            Self::WebServerAppZipOpen {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                vec![
+                    Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
+                        .with_message("failed to open file"),
+                ]
+            }
+            Self::WebServerAppZipMetadata {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                vec![
+                    Label::secondary(*app_zip_path_file_id, *app_zip_path_span)
+                        .with_message("failed to read file metadata"),
                 ]
             }
             Self::AppZipDownload {
@@ -281,6 +327,32 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
             Self::DatabaseCreate { .. } => {
                 vec![]
             }
+            Self::WebServerAppZipOpen {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                vec![format!(
+                    "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
+                    app_zip_path = app_zip_path
+                )]
+            }
+            Self::WebServerAppZipMetadata {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                vec![format!(
+                    "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
+                    app_zip_path = app_zip_path
+                )]
+            }
             Self::AppZipDownload { server_message, .. } => {
                 let ensure_hint = String::from("Ensure the file exists on the server.");
                 if let Some(server_message) = server_message.as_deref() {
@@ -320,6 +392,12 @@ impl fmt::Display for ErrorDetail {
             }
             Self::AppZipReject { .. } => write!(f, "{}", ErrorCode::AppZipReject.description()),
             Self::DatabaseCreate { .. } => write!(f, "{}", ErrorCode::DatabaseCreate.description()),
+            Self::WebServerAppZipOpen { .. } => {
+                write!(f, "{}", ErrorCode::WebServerAppZipOpen.description())
+            }
+            Self::WebServerAppZipMetadata { .. } => {
+                write!(f, "{}", ErrorCode::WebServerAppZipMetadata.description())
+            }
             Self::AppZipDownload { .. } => write!(f, "{}", ErrorCode::AppZipDownload.description()),
             Self::AppZipStream { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
             Self::AppZipWrite { .. } => write!(f, "{}", ErrorCode::AppZipStream.description()),
