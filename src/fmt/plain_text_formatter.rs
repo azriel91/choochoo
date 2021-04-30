@@ -141,6 +141,8 @@ where
         write_buf.writer.flush().await
     }
 
+    // clippy warns on this, but if we elide the lifetime, it doesn't compile.
+    #[allow(clippy::needless_lifetimes)]
     async fn write_station_statuses<'w>(
         stations: &Stations<E>,
         write_buf: WriterAndBuffer<'w, W>,
