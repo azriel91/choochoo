@@ -12,6 +12,8 @@ use srcerr::{
 pub enum ErrorCode {
     /// There is a bug with the station specification.
     StationSpecError,
+    /// Failed to build `reqwest::Client`.
+    ReqwestClientBuild,
     /// Failed to open `app.zip` to upload.
     AppZipOpen,
     /// Failed to connect to artifact server.
@@ -35,28 +37,30 @@ pub enum ErrorCode {
 }
 
 impl srcerr::ErrorCode for ErrorCode {
-    const ERROR_CODE_MAX: usize = 10;
+    const ERROR_CODE_MAX: usize = 20;
     const PREFIX: &'static str = "E";
 
     fn code(self) -> usize {
         match self {
             Self::StationSpecError => 1,
-            Self::AppZipOpen => 2,
-            Self::ArtifactServerConnect => 3,
-            Self::AppZipReject => 4,
-            Self::DatabaseCreate => 5,
-            Self::WebServerAppZipOpen => 6,
-            Self::WebServerAppZipMetadata => 7,
-            Self::AppZipDownload => 8,
-            Self::AppZipStream => 9,
-            Self::AppZipWrite => 10,
-            Self::ApplicationDatabaseLink => 11,
+            Self::ReqwestClientBuild => 2,
+            Self::AppZipOpen => 3,
+            Self::ArtifactServerConnect => 4,
+            Self::AppZipReject => 5,
+            Self::DatabaseCreate => 6,
+            Self::WebServerAppZipOpen => 7,
+            Self::WebServerAppZipMetadata => 8,
+            Self::AppZipDownload => 9,
+            Self::AppZipStream => 10,
+            Self::AppZipWrite => 11,
+            Self::ApplicationDatabaseLink => 12,
         }
     }
 
     fn description(self) -> &'static str {
         match self {
             Self::StationSpecError => "There is a bug with the station specification.",
+            Self::ReqwestClientBuild => "Failed to build `reqwest::Client`.",
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
             Self::ArtifactServerConnect => "Failed to connect to artifact server.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
@@ -76,6 +80,8 @@ impl srcerr::ErrorCode for ErrorCode {
 pub enum ErrorDetail {
     /// There is a bug with the station specification.
     StationSpecError(StationSpecError),
+    /// Failed to build `reqwest::Client`.
+    ReqwestClientBuild(reqwest::Error),
     /// Failed to open `app.zip` to upload.
     AppZipOpen {
         /// `app.zip` path file ID.
@@ -182,6 +188,7 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
     fn labels(&self) -> Vec<Label<FileId>> {
         match self {
             Self::StationSpecError(_error) => vec![],
+            Self::ReqwestClientBuild(_error) => vec![],
             Self::AppZipOpen {
                 app_zip_path_file_id,
                 app_zip_path_span,
@@ -295,6 +302,10 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
                 error.to_string(),
             ],
+            Self::ReqwestClientBuild(error) => vec![
+                String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
+                error.to_string(),
+            ],
             Self::AppZipOpen {
                 app_zip_path_file_id,
                 app_zip_path_span,
@@ -339,12 +350,15 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                     "Check that `{app_zip_path}` is a valid zip file.",
                     app_zip_path = app_zip_path
                 );
+                let server_upload_hint = String::from(
+                    "Check that the server is accepting uploads. Did you pass `-u` to simple-http-server?",
+                );
 
                 if let Some(server_message) = server_message.as_deref() {
                     let server_message_hint = format!("Message from server:\n{}", server_message);
-                    vec![zip_valid_hint, server_message_hint]
+                    vec![zip_valid_hint, server_upload_hint, server_message_hint]
                 } else {
-                    vec![zip_valid_hint]
+                    vec![zip_valid_hint, server_upload_hint]
                 }
             }
             Self::DatabaseCreate { .. } => {
@@ -412,6 +426,7 @@ impl fmt::Display for ErrorDetail {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::StationSpecError(error) => error.fmt(f),
+            Self::ReqwestClientBuild(error) => error.fmt(f),
             Self::AppZipOpen { .. } => write!(f, "{}", ErrorCode::AppZipOpen.description()),
             Self::ArtifactServerConnect { .. } => {
                 write!(f, "{}", ErrorCode::ArtifactServerConnect.description())
@@ -434,4 +449,21 @@ impl fmt::Display for ErrorDetail {
     }
 }
 
-impl std::error::Error for ErrorDetail {}
+impl std::error::Error for ErrorDetail {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::StationSpecError(error) => Some(error),
+            Self::ReqwestClientBuild(error) => Some(error),
+            Self::AppZipOpen { error, .. } => Some(error),
+            Self::ArtifactServerConnect { error, .. } => Some(error),
+            Self::AppZipReject { .. } => None,
+            Self::DatabaseCreate { error, .. } => Some(error),
+            Self::WebServerAppZipOpen { error, .. } => Some(error),
+            Self::WebServerAppZipMetadata { error, .. } => Some(error),
+            Self::AppZipDownload { .. } => None,
+            Self::AppZipStream { error, .. } => Some(error),
+            Self::AppZipWrite { error, .. } => Some(error),
+            Self::ApplicationDatabaseLink { error, .. } => Some(error),
+        }
+    }
+}

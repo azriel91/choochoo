@@ -7,7 +7,10 @@ use choochoo::{
     rt_model::{Station, VisitStatus},
 };
 use indicatif::ProgressStyle;
-use reqwest::multipart::{Form, Part};
+use reqwest::{
+    multipart::{Form, Part},
+    redirect::Policy,
+};
 use srcerr::{
     codespan::{FileId, Span},
     codespan_reporting::diagnostic::Severity,
@@ -112,8 +115,12 @@ impl StationA {
         StationFn::new(|station, resources| {
             station.progress_bar.reset();
             station.progress_bar.tick();
-            let client = reqwest::Client::new();
             Box::pin(async move {
+                let client = reqwest::Client::builder()
+                    .redirect(Policy::none())
+                    .build()
+                    .map_err(|error| Self::client_build_error(error))?;
+
                 let mut files = resources.borrow_mut::<Files>();
 
                 let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
@@ -137,7 +144,7 @@ impl StationA {
                     })?;
 
                 let status_code = response.status();
-                if status_code.is_success() {
+                if status_code.as_u16() == 302 {
                     Result::<(), DemoError>::Ok(())
                 } else {
                     let address_span = Span::from_str(address);
@@ -186,6 +193,13 @@ impl StationA {
                 DemoError::new(code, detail, Severity::Error)
             })?;
         Ok(FramedRead::new(app_zip_read, BytesCodec::new()))
+    }
+
+    fn client_build_error(error: reqwest::Error) -> DemoError {
+        let code = ErrorCode::ReqwestClientBuild;
+        let detail = ErrorDetail::ReqwestClientBuild(error);
+
+        DemoError::new(code, detail, Severity::Bug)
     }
 
     fn file_open_error(files: &mut Files, error: std::io::Error) -> DemoError {
