@@ -1,3 +1,5 @@
+use indicatif::MultiProgress;
+
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
     rt_model::{error::StationSpecError, Destination, TrainReport, VisitStatus},
@@ -13,6 +15,14 @@ impl Train {
     where
         E: From<StationSpecError>,
     {
+        let multi_progress = MultiProgress::new();
+        dest.stations.iter().for_each(|station| {
+            multi_progress.add(station.progress_bar.clone());
+        });
+
+        let multi_progress_fut =
+            tokio::task::spawn_blocking(move || multi_progress.join().unwrap());
+
         let train_report = TrainReport::new();
         let train_report =
             IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
@@ -31,6 +41,8 @@ impl Train {
                 })
             })
             .await;
+
+        multi_progress_fut.await.unwrap();
 
         train_report
     }

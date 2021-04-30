@@ -14,6 +14,7 @@ license = "MIT OR Apache-2.0"
 daggy = { version = "0.7.0", default-features = false }
 futures = "0.3.12"
 indexmap = "1.6.1"
+indicatif = "0.16.0"
 resman = "0.1.0"
 srcerr = { version = "0.4.0", features = ["codespan"] }
 tokio = { version = "1.5.0", features = ["io-util"] }

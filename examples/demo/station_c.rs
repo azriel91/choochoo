@@ -2,10 +2,12 @@ use std::{borrow::Cow, path::Path};
 
 use bytes::Bytes;
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationIdInvalidFmt, StationSpecFns},
-    rt_model::Stations,
+    cfg_model::{
+        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    },
+    rt_model::{Files, Station, VisitStatus},
 };
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+
 use futures::{Stream, StreamExt, TryStreamExt};
 use srcerr::{
     codespan::{FileId, Span},
@@ -17,11 +19,10 @@ use tokio::{
 };
 
 use crate::{
-    add_station,
     app_zip::{APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_NAME},
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
-    DemoError, Files,
+    DemoError,
 };
 
 /// Download App
@@ -29,18 +30,20 @@ pub struct StationC;
 
 impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
-    pub fn build(
-        stations: &mut Stations<DemoError>,
-    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
-        add_station(
-            stations,
-            "c",
-            "Download App",
-            "Downloads web application onto web server.",
+        let station_id = StationId::new("c")?;
+        let station_name = String::from("Download App");
+        let station_description = String::from("Downloads web application onto web server.");
+        let station_spec = StationSpec::new(
+            station_id,
+            station_name,
+            station_description,
             station_spec_fns,
-        )
+        );
+        let station = Station::new(station_spec, VisitStatus::NotReady);
+        Ok(station)
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
