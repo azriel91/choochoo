@@ -77,10 +77,11 @@ impl<E> VisitStatusUpdater<E> {
     ) -> Option<VisitStatus> {
         match station.visit_status {
             VisitStatus::NotReady => Self::transition_not_ready(stations, node_index),
-            VisitStatus::Queued
+            VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
             | VisitStatus::InProgress
             | VisitStatus::ParentFail
             | VisitStatus::VisitSuccess
+            | VisitStatus::VisitUnnecessary
             | VisitStatus::VisitFail => None,
         }
     }
@@ -95,8 +96,8 @@ impl<E> VisitStatusUpdater<E> {
             .filter_map(|(_, parent_node_index)| stations.node_weight(parent_node_index))
             .try_fold(Some(VisitStatus::Queued), |visit_status, parent_station| {
                 match parent_station.visit_status {
-                    // If parent is on `VisitSuccess`, we keep going.
-                    VisitStatus::VisitSuccess => {}
+                    // If parent is already done, we keep going.
+                    VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
 
                     // Short circuits:
 
@@ -231,6 +232,33 @@ mod tests {
         let mut stations = Stations::new();
         let station_a = station("a", VisitStatus::VisitSuccess)?;
         let station_b = station("b", VisitStatus::VisitSuccess)?;
+        let station_c = station("c", VisitStatus::NotReady)?;
+        let node_index_a = stations.add_node(station_a);
+        let node_index_b = stations.add_node(station_b);
+        let node_index_c = stations.add_node(station_c);
+        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
+        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+
+        let station_c = stations
+            .node_weight(node_index_c)
+            .expect("Expected station to exist.");
+
+        let visit_status_next =
+            VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+
+        assert_eq!(Some(VisitStatus::Queued), visit_status_next);
+        Ok(())
+    }
+
+    #[test]
+    fn updates_not_ready_to_queued_when_all_parents_visit_success_or_unnecessary()
+    -> Result<(), Box<dyn std::error::Error>> {
+        // a -> c
+        //      ^
+        // b --/
+        let mut stations = Stations::new();
+        let station_a = station("a", VisitStatus::VisitSuccess)?;
+        let station_b = station("b", VisitStatus::VisitUnnecessary)?;
         let station_c = station("c", VisitStatus::NotReady)?;
         let node_index_a = stations.add_node(station_a);
         let node_index_b = stations.add_node(station_b);

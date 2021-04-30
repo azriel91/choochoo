@@ -1,13 +1,11 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload},
+    cfg_model::Workload,
     fmt::PlainTextFormatter,
-    rt_model::{error::StationSpecError, Destination, Station, Stations, VisitStatus},
+    rt_model::{error::StationSpecError, Destination, Stations},
     Train,
 };
-
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use srcerr::{
     codespan_reporting::diagnostic::{Diagnostic, Severity},
     SourceError,
@@ -80,11 +78,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.block_on(async move {
         let mut dest = {
             let mut stations = Stations::new();
-            let station_a = StationA::build(&mut stations)?;
-            let station_b = StationB::build(&mut stations)?;
-            let station_c = StationC::build(&mut stations)?;
-            let station_d = StationD::build(&mut stations)?;
-            let station_e = StationE::build(&mut stations)?;
+            let station_a = stations.add_node(StationA::build()?);
+            let station_b = stations.add_node(StationB::build()?);
+            let station_c = stations.add_node(StationC::build()?);
+            let station_d = stations.add_node(StationD::build()?);
+            let station_e = stations.add_node(StationE::build()?);
 
             stations.add_edge(station_a, station_b, Workload::default())?;
             stations.add_edge(station_b, station_c, Workload::default())?;
@@ -98,30 +96,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let train_report = Train::reach(&mut dest).await;
 
         let mut stdout = tokio::io::stdout();
-        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
+        PlainTextFormatter::fmt_errors(&mut stdout, &train_report).await?;
 
         Result::<_, Box<dyn std::error::Error>>::Ok(())
     })?;
 
     Ok(())
-}
-
-fn add_station<'files>(
-    stations: &mut Stations<DemoError>,
-    station_id: &'static str,
-    station_name: &'static str,
-    station_description: &'static str,
-    station_spec_fns: StationSpecFns<DemoError>,
-) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let station_id = StationId::new(station_id)?;
-    let station_name = String::from(station_name);
-    let station_description = String::from(station_description);
-    let station_spec = StationSpec::new(
-        station_id,
-        station_name,
-        station_description,
-        station_spec_fns,
-    );
-    let station = Station::new(station_spec, VisitStatus::Queued);
-    Ok(stations.add_node(station))
 }

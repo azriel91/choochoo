@@ -1,6 +1,8 @@
+use indicatif::MultiProgress;
+
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
-    rt_model::{error::StationSpecError, Destination, TrainReport, VisitStatus},
+    rt_model::{error::StationSpecError, Destination, EnsureOutcome, TrainReport, VisitStatus},
 };
 
 /// Ensures all carriages are at the destination.
@@ -13,6 +15,19 @@ impl Train {
     where
         E: From<StationSpecError>,
     {
+        let multi_progress = MultiProgress::new();
+        dest.stations.iter().for_each(|station| {
+            let progress_bar = station.progress_bar.clone();
+            let progress_bar_for_tick = station.progress_bar.clone();
+            multi_progress.add(progress_bar);
+
+            // Needed to render all progress bars.
+            progress_bar_for_tick.tick();
+        });
+
+        let multi_progress_fut =
+            tokio::task::spawn_blocking(move || multi_progress.join().unwrap());
+
         let train_report = TrainReport::new();
         let train_report =
             IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
@@ -21,16 +36,24 @@ impl Train {
                     // `visit_status` while the `visit()` is `await`ed.
                     station.visit_status = VisitStatus::InProgress;
 
-                    if let Err(e) = Driver::ensure(&mut train_report, node_id, station).await {
-                        station.visit_status = VisitStatus::VisitFail;
-                        train_report.errors.insert(node_id, e);
-                    } else {
-                        station.visit_status = VisitStatus::VisitSuccess;
+                    match Driver::ensure(&mut train_report, node_id, station).await {
+                        Ok(EnsureOutcome::Changed) => {
+                            station.visit_status = VisitStatus::VisitSuccess
+                        }
+                        Ok(EnsureOutcome::Unchanged) => {
+                            station.visit_status = VisitStatus::VisitUnnecessary
+                        }
+                        Err(e) => {
+                            station.visit_status = VisitStatus::VisitFail;
+                            train_report.errors.insert(node_id, e);
+                        }
                     }
                     train_report
                 })
             })
             .await;
+
+        multi_progress_fut.await.unwrap();
 
         train_report
     }

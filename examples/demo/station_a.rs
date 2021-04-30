@@ -1,10 +1,12 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationIdInvalidFmt, StationSpecFns},
-    rt_model::Stations,
+    cfg_model::{
+        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    },
+    rt_model::{Station, VisitStatus},
 };
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use indicatif::ProgressStyle;
 use reqwest::multipart::{Form, Part};
 use srcerr::{
     codespan::{FileId, Span},
@@ -14,7 +16,6 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
-    add_station,
     app_zip::{APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
@@ -26,28 +27,37 @@ pub struct StationA;
 
 impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
-    pub fn build(
-        stations: &mut Stations<DemoError>,
-    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
-        add_station(
-            stations,
-            "a",
-            "Upload App",
-            "Uploads web application to artifact server.",
+
+        let station_id = StationId::new("a")?;
+        let station_name = String::from("Upload App");
+        let station_description = String::from("Uploads web application to artifact server.");
+        let station_spec = StationSpec::new(
+            station_id,
+            station_name,
+            station_description,
             station_spec_fns,
-        )
+        );
+        let station = Station::new(station_spec, VisitStatus::Queued).with_progress_style(
+            ProgressStyle::default_bar()
+                .template(Station::<DemoError>::STYLE_IN_PROGRESS_BYTES)
+                .progress_chars("█▉▊▋▌▍▎▏  "),
+        );
+        Ok(station)
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(|_station, resources| {
+        StationFn::new(|station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
+                station.progress_bar.reset();
                 let mut files = resources.borrow_mut::<Files>();
 
                 // TODO: Hash the file and compare with server file hash.
                 // Currently we only compare file size
+                station.progress_bar.tick();
                 let local_file_length = {
                     let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
                         .await
@@ -58,9 +68,11 @@ impl StationA {
                         .map_err(|error| Self::file_metadata_error(&mut files, error))?;
                     metadata.len()
                 };
+                station.progress_bar.set_length(local_file_length);
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
+                station.progress_bar.tick();
                 let mut app_zip_url = address.to_string();
                 app_zip_url.push('/');
                 app_zip_url.push_str(APP_ZIP_NAME);
@@ -72,6 +84,7 @@ impl StationA {
                     Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
                 })?;
 
+                station.progress_bar.tick();
                 let status_code = response.status();
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
@@ -96,7 +109,9 @@ impl StationA {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|_station, resources| {
+        StationFn::new(|station, resources| {
+            station.progress_bar.reset();
+            station.progress_bar.tick();
             let client = reqwest::Client::new();
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();

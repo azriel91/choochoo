@@ -1,37 +1,43 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationIdInvalidFmt, StationSpecFns},
-    rt_model::{Files, Stations},
+    cfg_model::{
+        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    },
+    rt_model::{Files, Station, VisitStatus},
 };
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use futures::{stream, stream::StreamExt};
 use srcerr::{codespan::Span, codespan_reporting::diagnostic::Severity};
 use tokio::time::Duration;
 
-use crate::{add_station, DemoError, ErrorCode, ErrorDetail};
+use crate::{DemoError, ErrorCode, ErrorDetail};
 
 /// Run App
 pub struct StationE;
 
 impl StationE {
     /// Starts the web application service.
-    pub fn build(
-        stations: &mut Stations<DemoError>,
-    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
-        add_station(
-            stations,
-            "e",
-            "Run App",
-            "Starts the web application service.",
+        let station_id = StationId::new("e")?;
+        let station_name = String::from("Run App");
+        let station_description = String::from("Starts the web application service.");
+        let station_spec = StationSpec::new(
+            station_id,
+            station_name,
+            station_description,
             station_spec_fns,
-        )
+        );
+        let station = Station::new(station_spec, VisitStatus::NotReady);
+        Ok(station)
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |_station, _resources| {
+        StationFn::new(move |station, _resources| {
             Box::pin(async move {
+                station.progress_bar.reset();
+                station.progress_bar.tick();
                 let check_status = if Path::new(RUN_APP_PATH).exists() {
                     CheckStatus::VisitNotRequired
                 } else {
@@ -43,12 +49,18 @@ impl StationE {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(move |_station, resources| {
+        StationFn::new(move |station, resources| {
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();
 
                 // Sleep to simulate starting up the application.
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                station.progress_bar.reset();
+                stream::iter(0..100)
+                    .for_each(|_| async {
+                        station.progress_bar.inc(1);
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    })
+                    .await;
 
                 tokio::fs::create_dir_all(RUN_APP_PARENT)
                     .await

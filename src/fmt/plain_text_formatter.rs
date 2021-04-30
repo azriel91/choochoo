@@ -7,7 +7,9 @@ use futures::{stream, StreamExt, TryStreamExt};
 use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{error::AsDiagnostic, Destination, Files, Station, TrainReport, VisitStatus};
+use crate::rt_model::{
+    error::AsDiagnostic, Destination, Files, Station, Stations, TrainReport, VisitStatus,
+};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -69,29 +71,7 @@ where
         train_report: &TrainReport<E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
-        write_buf = stream::iter(dest.stations.iter())
-            .map(Result::<&Station<E>, io::Error>::Ok)
-            .try_fold(write_buf, |mut write_buf, station| async move {
-                let station_spec = &station.station_spec;
-                let icon = match station.visit_status {
-                    VisitStatus::NotReady => "⏰",
-                    VisitStatus::ParentFail => "☠️",
-                    VisitStatus::Queued => "⏳",
-                    VisitStatus::InProgress => "⏳",
-                    VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::VisitFail => "❌",
-                };
-
-                b_writeln!(
-                    write_buf,
-                    "{status} {name}: {desc}",
-                    status = icon,
-                    name = station_spec.name(),
-                    desc = station_spec.description()
-                );
-                Ok(write_buf)
-            })
-            .await?;
+        write_buf = Self::write_station_statuses(&dest.stations, write_buf).await?;
 
         // `E` should either:
         //
@@ -123,6 +103,73 @@ where
             .await?;
 
         write_buf.writer.flush().await
+    }
+
+    /// Formats the errors using the given formatter.
+    pub async fn fmt_errors(w: &mut W, train_report: &TrainReport<E>) -> Result<(), io::Error> {
+        let write_buf = WriterAndBuffer::new(w);
+
+        // `E` should either:
+        //
+        // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
+        //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
+        //   (maybe in `TrainReport`, or in the `Station` somehow), or
+        //
+        // * It should store its own `SimpleFile`, and we call `term::emit` with that
+        //   (and we retrieve `files` from E itself).
+        let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
+        let config = term::Config::default();
+        let config = &config;
+        let files = &*train_report.resources.borrow::<Files>();
+
+        let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
+            .map(Result::<&E, io::Error>::Ok)
+            .try_fold(
+                (write_buf, writer),
+                |(mut write_buf, mut writer), error| async move {
+                    let diagnostic = error.as_diagnostic(files);
+
+                    term::emit(&mut writer, config, files, &diagnostic)
+                        .expect("TODO: Handle codespan_reporting::files::Error");
+                    b_write_bytes!(write_buf, writer.as_slice());
+
+                    Ok((write_buf, writer))
+                },
+            )
+            .await?;
+
+        write_buf.writer.flush().await
+    }
+
+    // clippy warns on this, but if we elide the lifetime, it doesn't compile.
+    #[allow(clippy::needless_lifetimes)]
+    async fn write_station_statuses<'w>(
+        stations: &Stations<E>,
+        write_buf: WriterAndBuffer<'w, W>,
+    ) -> Result<WriterAndBuffer<'w, W>, io::Error> {
+        stream::iter(stations.iter())
+            .map(Result::<&Station<E>, io::Error>::Ok)
+            .try_fold(write_buf, |mut write_buf, station| async move {
+                let station_spec = &station.station_spec;
+                let icon = match station.visit_status {
+                    VisitStatus::NotReady => "⏰",
+                    VisitStatus::ParentFail => "☠️",
+                    VisitStatus::Queued => "⏳",
+                    VisitStatus::InProgress => "⏳",
+                    VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
+                    VisitStatus::VisitFail => "❌",
+                };
+
+                b_writeln!(
+                    write_buf,
+                    "{status} {name}: {desc}",
+                    status = icon,
+                    name = station_spec.name(),
+                    desc = station_spec.description()
+                );
+                Ok(write_buf)
+            })
+            .await
     }
 }
 

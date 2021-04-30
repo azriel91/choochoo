@@ -4,6 +4,7 @@ use daggy::{
     petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
     NodeIndex,
 };
+use indicatif::ProgressStyle;
 
 use crate::{
     rt_logic::VisitStatusUpdater,
@@ -77,6 +78,50 @@ impl<E> IntegrityStrat<E> {
             let mut frozen = dest.stations.frozen();
             node_ids.iter().for_each(|node_id| {
                 let station = &frozen[*node_id];
+                if !station.progress_bar.is_finished() {
+                    match station.visit_status {
+                        VisitStatus::NotReady => {}
+                        VisitStatus::ParentFail => {
+                            let progress_style = ProgressStyle::default_bar()
+                                .template(Station::<E>::STYLE_PARENT_FAILED);
+                            station.progress_bar.set_style(progress_style);
+                            station.progress_bar.abandon();
+                        }
+                        VisitStatus::Queued => {}
+                        VisitStatus::InProgress => {}
+                        VisitStatus::VisitSuccess => {
+                            let progress_style = ProgressStyle::default_bar()
+                                .template(Station::<E>::STYLE_SUCCESS_BYTES);
+                            station.progress_bar.set_style(progress_style);
+                            station.progress_bar.finish();
+                        }
+                        VisitStatus::VisitUnnecessary => {
+                            let progress_style = ProgressStyle::default_bar()
+                                .template(Station::<E>::STYLE_UNCHANGED_BYTES);
+                            station.progress_bar.set_style(progress_style);
+                            station.progress_bar.finish();
+                        }
+                        VisitStatus::VisitFail => {
+                            let progress_style =
+                                ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
+                            station.progress_bar.set_style(progress_style);
+                            station.progress_bar.abandon();
+                        }
+                    }
+                } else {
+                    match station.visit_status {
+                        VisitStatus::NotReady | VisitStatus::Queued => {
+                            let progress_style =
+                                ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
+                            station.progress_bar.set_style(progress_style);
+                        }
+                        VisitStatus::InProgress
+                        | VisitStatus::ParentFail
+                        | VisitStatus::VisitSuccess
+                        | VisitStatus::VisitUnnecessary
+                        | VisitStatus::VisitFail => {}
+                    }
+                }
                 if station.visit_status == VisitStatus::Queued {
                     node_ids_queued.push(*node_id);
                 }
@@ -86,6 +131,11 @@ impl<E> IntegrityStrat<E> {
                 for node_id in node_ids_queued.iter() {
                     let node_id = *node_id;
                     let station = &mut frozen[node_id];
+
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_IN_PROGRESS);
+                    station.progress_bar.set_style(progress_style);
+
                     seed = visit_logic(seed, node_id, station).await;
                 }
             } else {
