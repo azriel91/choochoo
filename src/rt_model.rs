@@ -4,6 +4,7 @@
 
 pub use self::{
     destination::{Destination, StationsQueuedIter},
+    ensure_outcome::EnsureOutcome,
     files::Files,
     station::Station,
     stations::{Stations, StationsFrozen},
@@ -14,6 +15,7 @@ pub use self::{
 pub mod error;
 
 mod destination;
+mod ensure_outcome;
 mod files;
 mod station;
 mod stations;

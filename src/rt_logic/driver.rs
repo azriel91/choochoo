@@ -4,7 +4,7 @@ use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 
 use crate::{
     cfg_model::CheckStatus,
-    rt_model::{error::StationSpecError, Station, TrainReport},
+    rt_model::{error::StationSpecError, EnsureOutcome, Station, TrainReport},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -38,7 +38,7 @@ impl<E> Driver<E> {
         train_report: &mut TrainReport<E>,
         node_id: NodeIndex<DefaultIx>,
         station: &mut Station<E>,
-    ) -> Result<(), E>
+    ) -> Result<EnsureOutcome, E>
     where
         E: From<StationSpecError>,
     {
@@ -72,8 +72,10 @@ impl<E> Driver<E> {
 
                 errors.insert(node_id, E::from(station_spec_error));
             }
-        }
 
-        Ok(())
+            Ok(EnsureOutcome::Changed)
+        } else {
+            Ok(EnsureOutcome::Unchanged)
+        }
     }
 }

@@ -2,7 +2,7 @@ use indicatif::MultiProgress;
 
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
-    rt_model::{error::StationSpecError, Destination, TrainReport, VisitStatus},
+    rt_model::{error::StationSpecError, Destination, EnsureOutcome, TrainReport, VisitStatus},
 };
 
 /// Ensures all carriages are at the destination.
@@ -21,6 +21,7 @@ impl Train {
             let progress_bar_for_tick = station.progress_bar.clone();
             multi_progress.add(progress_bar);
 
+            // Needed to render all progress bars.
             progress_bar_for_tick.tick();
         });
 
@@ -35,11 +36,17 @@ impl Train {
                     // `visit_status` while the `visit()` is `await`ed.
                     station.visit_status = VisitStatus::InProgress;
 
-                    if let Err(e) = Driver::ensure(&mut train_report, node_id, station).await {
-                        station.visit_status = VisitStatus::VisitFail;
-                        train_report.errors.insert(node_id, e);
-                    } else {
-                        station.visit_status = VisitStatus::VisitSuccess;
+                    match Driver::ensure(&mut train_report, node_id, station).await {
+                        Ok(EnsureOutcome::Changed) => {
+                            station.visit_status = VisitStatus::VisitSuccess
+                        }
+                        Ok(EnsureOutcome::Unchanged) => {
+                            station.visit_status = VisitStatus::VisitUnnecessary
+                        }
+                        Err(e) => {
+                            station.visit_status = VisitStatus::VisitFail;
+                            train_report.errors.insert(node_id, e);
+                        }
                     }
                     train_report
                 })

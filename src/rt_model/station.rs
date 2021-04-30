@@ -25,7 +25,7 @@ pub struct Station<E> {
 impl<E> Station<E> {
     /// ProgressStyle template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
-        "❌ {msg:15.bold} [{bar:40.black.bright/red}] {pos}/{len} ({elapsed:.yellow})";
+        "❌ {msg:15.bold} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
     /// ProgressStyle template to apply when the station visit is in progress.
     pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
     /// ProgressStyle template to apply when the station visit is in progress.
@@ -42,6 +42,10 @@ impl<E> Station<E> {
     /// ProgressStyle template to apply when the station visit is successful.
     pub const STYLE_SUCCESS_BYTES: &'static str =
         "✅ {msg:15.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
+    /// ProgressStyle template to apply when the station was not necessary to
+    /// visit.
+    pub const STYLE_UNCHANGED_BYTES: &'static str =
+        "✅ {msg:15.bold} [{bar:40.green.dim/green}] {pos}/{len} ({elapsed:.yellow} Unchanged)";
 
     /// Returns a new [`Station`].
     ///

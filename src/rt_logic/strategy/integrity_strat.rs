@@ -95,6 +95,12 @@ impl<E> IntegrityStrat<E> {
                             station.progress_bar.set_style(progress_style);
                             station.progress_bar.finish();
                         }
+                        VisitStatus::VisitUnnecessary => {
+                            let progress_style = ProgressStyle::default_bar()
+                                .template(Station::<E>::STYLE_UNCHANGED_BYTES);
+                            station.progress_bar.set_style(progress_style);
+                            station.progress_bar.finish();
+                        }
                         VisitStatus::VisitFail => {
                             let progress_style =
                                 ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
@@ -112,6 +118,7 @@ impl<E> IntegrityStrat<E> {
                         VisitStatus::InProgress
                         | VisitStatus::ParentFail
                         | VisitStatus::VisitSuccess
+                        | VisitStatus::VisitUnnecessary
                         | VisitStatus::VisitFail => {}
                     }
                 }

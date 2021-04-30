@@ -13,6 +13,8 @@ pub enum VisitStatus {
     ///
     /// There is a train at this station.
     InProgress,
+    /// This station was not necessary to visit.
+    VisitUnnecessary,
     /// This station has been successfully visited.
     VisitSuccess,
     /// This station has been visited, but the visit failed.

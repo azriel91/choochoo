@@ -154,7 +154,7 @@ where
                     VisitStatus::ParentFail => "☠️",
                     VisitStatus::Queued => "⏳",
                     VisitStatus::InProgress => "⏳",
-                    VisitStatus::VisitSuccess => "✅",
+                    VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
                     VisitStatus::VisitFail => "❌",
                 };
 
