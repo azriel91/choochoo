@@ -28,6 +28,8 @@ impl<E> Station<E> {
         "❌ {msg:15.bold} [{bar:40.black.bright/red}] {pos}/{len} ({elapsed:.yellow})";
     /// ProgressStyle template to apply when the station visit is in progress.
     pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
+    /// ProgressStyle template to apply when the station visit is in progress.
+    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
     /// ProgressStyle template to apply when a parent station has failed.
     pub const STYLE_PARENT_FAILED: &'static str =
         "☠️  {msg:15.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
@@ -37,6 +39,9 @@ impl<E> Station<E> {
     /// ProgressStyle template to apply when the station visit is successful.
     pub const STYLE_SUCCESS: &'static str =
         "✅ {msg:15.bold} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
+    /// ProgressStyle template to apply when the station visit is successful.
+    pub const STYLE_SUCCESS_BYTES: &'static str =
+        "✅ {msg:15.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
 
     /// Returns a new [`Station`].
     ///

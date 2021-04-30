@@ -7,6 +7,7 @@ use choochoo::{
     },
     rt_model::{Files, Station, VisitStatus},
 };
+use indicatif::ProgressStyle;
 
 use futures::{Stream, StreamExt, TryStreamExt};
 use srcerr::{
@@ -42,12 +43,16 @@ impl StationC {
             station_description,
             station_spec_fns,
         );
-        let station = Station::new(station_spec, VisitStatus::NotReady);
+        let station = Station::new(station_spec, VisitStatus::NotReady).with_progress_style(
+            ProgressStyle::default_bar()
+                .template(Station::<DemoError>::STYLE_IN_PROGRESS_BYTES)
+                .progress_chars("█▉▊▋▌▍▎▏  "),
+        );
         Ok(station)
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |_station, resources| {
+        StationFn::new(move |station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 // Short circuit in case the file doesn't exist locally.
@@ -87,6 +92,7 @@ impl StationC {
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
                     if let Some(remote_file_length) = response.content_length() {
+                        station.progress_bar.set_length(remote_file_length);
                         if local_file_length == remote_file_length {
                             CheckStatus::VisitNotRequired
                         } else {
@@ -106,9 +112,10 @@ impl StationC {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|_station, resources| {
+        StationFn::new(|station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
+                station.progress_bar.reset();
                 let mut files = resources.borrow_mut::<Files>();
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
@@ -126,7 +133,8 @@ impl StationC {
 
                 let status_code = response.status();
                 if status_code.is_success() {
-                    Self::app_zip_write(&mut files, app_zip_url, response.bytes_stream()).await?;
+                    Self::app_zip_write(&station, &mut files, app_zip_url, response.bytes_stream())
+                        .await?;
                     Result::<(), DemoError>::Ok(())
                 } else {
                     let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
@@ -154,6 +162,7 @@ impl StationC {
     }
 
     async fn app_zip_write(
+        station: &Station<DemoError>,
         files: &mut Files,
         app_zip_url: String,
         byte_stream: impl Stream<Item = reqwest::Result<Bytes>>,
@@ -186,6 +195,7 @@ impl StationC {
                 })
             })
             .try_fold(buffer, |mut buffer, bytes| async move {
+                station.progress_bar.inc(bytes.len() as u64);
                 buffer.write_all(&bytes).await.map_err(|error| {
                     Self::write_error(app_zip_path_file_id, app_zip_path, error)
                 })?;

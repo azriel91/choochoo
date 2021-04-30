@@ -90,8 +90,8 @@ impl<E> IntegrityStrat<E> {
                         VisitStatus::Queued => {}
                         VisitStatus::InProgress => {}
                         VisitStatus::VisitSuccess => {
-                            let progress_style =
-                                ProgressStyle::default_bar().template(Station::<E>::STYLE_SUCCESS);
+                            let progress_style = ProgressStyle::default_bar()
+                                .template(Station::<E>::STYLE_SUCCESS_BYTES);
                             station.progress_bar.set_style(progress_style);
                             station.progress_bar.finish();
                         }

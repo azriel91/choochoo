@@ -17,7 +17,11 @@ impl Train {
     {
         let multi_progress = MultiProgress::new();
         dest.stations.iter().for_each(|station| {
-            multi_progress.add(station.progress_bar.clone());
+            let progress_bar = station.progress_bar.clone();
+            let progress_bar_for_tick = station.progress_bar.clone();
+            multi_progress.add(progress_bar);
+
+            progress_bar_for_tick.tick();
         });
 
         let multi_progress_fut =

@@ -6,6 +6,7 @@ use choochoo::{
     },
     rt_model::{Station, VisitStatus},
 };
+use indicatif::ProgressStyle;
 use reqwest::multipart::{Form, Part};
 use srcerr::{
     codespan::{FileId, Span},
@@ -39,7 +40,11 @@ impl StationA {
             station_description,
             station_spec_fns,
         );
-        let station = Station::new(station_spec, VisitStatus::Queued);
+        let station = Station::new(station_spec, VisitStatus::Queued).with_progress_style(
+            ProgressStyle::default_bar()
+                .template(Station::<DemoError>::STYLE_IN_PROGRESS_BYTES)
+                .progress_chars("█▉▊▋▌▍▎▏  "),
+        );
         Ok(station)
     }
 
@@ -47,7 +52,7 @@ impl StationA {
         StationFn::new(|station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station.progress_bar.tick();
+                station.progress_bar.reset();
                 let mut files = resources.borrow_mut::<Files>();
 
                 // TODO: Hash the file and compare with server file hash.
@@ -63,6 +68,7 @@ impl StationA {
                         .map_err(|error| Self::file_metadata_error(&mut files, error))?;
                     metadata.len()
                 };
+                station.progress_bar.set_length(local_file_length);
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
@@ -103,7 +109,9 @@ impl StationA {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|_station, resources| {
+        StationFn::new(|station, resources| {
+            station.progress_bar.reset();
+            station.progress_bar.tick();
             let client = reqwest::Client::new();
             Box::pin(async move {
                 let mut files = resources.borrow_mut::<Files>();
