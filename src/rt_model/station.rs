@@ -27,11 +27,10 @@ impl<E> Station<E> {
     pub const STYLE_FAILED: &'static str =
         "❌ {msg:15.bold} [{bar:40.black.bright/red}] {pos}/{len} ({elapsed:.yellow})";
     /// ProgressStyle template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS: &'static str =
-        "{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
+    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
     /// ProgressStyle template to apply when a parent station has failed.
     pub const STYLE_PARENT_FAILED: &'static str =
-        "☠️ {msg:15.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
+        "☠️  {msg:15.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
     /// ProgressStyle template to apply when the station is still queued.
     pub const STYLE_QUEUED: &'static str =
         "⏳ {msg:15.bold} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";

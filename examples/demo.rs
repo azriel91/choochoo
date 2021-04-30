@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::Workload,
+    fmt::PlainTextFormatter,
     rt_model::{error::StationSpecError, Destination, Stations},
     Train,
 };
@@ -92,10 +93,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
-        let _train_report = Train::reach(&mut dest).await;
+        let train_report = Train::reach(&mut dest).await;
 
-        // let mut stdout = tokio::io::stdout();
-        // PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
+        let mut stdout = tokio::io::stdout();
+        PlainTextFormatter::fmt_errors(&mut stdout, &train_report).await?;
 
         Result::<_, Box<dyn std::error::Error>>::Ok(())
     })?;
