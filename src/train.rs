@@ -51,11 +51,11 @@ impl Train {
                         station.visit_status = VisitStatus::VisitUnnecessary
                     }
                     Err(EnsureOutcomeErr::CheckFail(e)) => {
-                        station.error.insert(e);
+                        station.error = Some(e);
                         station.visit_status = VisitStatus::CheckFail;
                     }
                     Err(EnsureOutcomeErr::VisitFail(e)) => {
-                        station.error.insert(e);
+                        station.error = Some(e);
                         station.visit_status = VisitStatus::VisitFail;
                     }
                 }

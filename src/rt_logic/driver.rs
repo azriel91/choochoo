@@ -71,7 +71,7 @@ impl<E> Driver<E> {
                 let name = station.station_spec.name().to_string();
                 let station_spec_error = StationSpecError::VisitRequiredAfterVisit { id, name };
 
-                station.error.insert(E::from(station_spec_error));
+                station.error = Some(E::from(station_spec_error));
             }
 
             Ok(EnsureOutcomeOk::Changed)
