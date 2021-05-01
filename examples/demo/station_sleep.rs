@@ -13,7 +13,7 @@ use tokio::time::Duration;
 
 use crate::{DemoError, ErrorCode, ErrorDetail};
 
-const PROGRESS_LENGTH: u64 = 200;
+const PROGRESS_LENGTH: u64 = 100;
 
 /// Sleeps to simulate a process
 pub struct StationSleep;
