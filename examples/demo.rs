@@ -19,6 +19,9 @@ use crate::{
     station_c::StationC,
     station_d::StationD,
     station_e::StationE,
+    station_f::StationF,
+    station_g::StationG,
+    station_h::StationH,
 };
 
 #[path = "demo/app_zip.rs"]
@@ -37,6 +40,12 @@ mod station_c;
 mod station_d;
 #[path = "demo/station_e.rs"]
 mod station_e;
+#[path = "demo/station_f.rs"]
+mod station_f;
+#[path = "demo/station_g.rs"]
+mod station_g;
+#[path = "demo/station_h.rs"]
+mod station_h;
 #[path = "demo/station_sleep.rs"]
 mod station_sleep;
 
@@ -86,17 +95,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let station_c = stations.add_node(StationC::build()?);
             let station_d = stations.add_node(StationD::build()?);
             let station_e = stations.add_node(StationE::build()?);
+            let station_f = stations.add_node(StationF::build()?);
+            let station_g = stations.add_node(StationG::build()?);
+            let station_h = stations.add_node(StationH::build()?);
 
             // stations.add_edge(station_a, station_b, Workload::default())?;
             // stations.add_edge(station_b, station_c, Workload::default())?;
             // stations.add_edge(station_c, station_d, Workload::default())?;
             // stations.add_edge(station_d, station_e, Workload::default())?;
+            // stations.add_edge(station_e, station_f, Workload::default())?;
+            // stations.add_edge(station_f, station_g, Workload::default())?;
+            // stations.add_edge(station_g, station_h, Workload::default())?;
 
             stations.add_edge(station_a, station_b, Workload::default())?;
             stations.add_edge(station_a, station_c, Workload::default())?;
             stations.add_edge(station_b, station_e, Workload::default())?;
             stations.add_edge(station_c, station_d, Workload::default())?;
             stations.add_edge(station_d, station_e, Workload::default())?;
+            stations.add_edge(station_e, station_g, Workload::default())?;
+            stations.add_edge(station_f, station_g, Workload::default())?;
+            stations.add_edge(station_g, station_h, Workload::default())?;
 
             let dest = Destination { stations };
 

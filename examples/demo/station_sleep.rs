@@ -13,6 +13,8 @@ use tokio::time::Duration;
 
 use crate::{DemoError, ErrorCode, ErrorDetail};
 
+const PROGRESS_LENGTH: u64 = 200;
+
 /// Sleeps to simulate a process
 pub struct StationSleep;
 
@@ -33,7 +35,10 @@ impl StationSleep {
             station_description,
             station_spec_fns,
         );
-        Station::new(station_spec, VisitStatus::NotReady)
+        let station = Station::new(station_spec, VisitStatus::NotReady);
+        station.progress_bar.set_length(PROGRESS_LENGTH);
+
+        station
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
@@ -59,7 +64,7 @@ impl StationSleep {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
                 station.progress_bar.reset();
-                stream::iter(0..100)
+                stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
                         station.progress_bar.inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -80,7 +85,7 @@ impl StationSleep {
                             Ok(e) | Err(e) => e,
                         }
                     })?;
-                tokio::fs::write(station_file_path, b"Application started!\n")
+                tokio::fs::write(station_file_path, b"Station visited!\n")
                     .await
                     .map_err(|error| {
                         match Self::write_error(&mut files, station_file_path, error, error_fn) {
