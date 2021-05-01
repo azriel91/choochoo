@@ -70,7 +70,8 @@ impl From<StationSpecError> for DemoError {
 type Files = srcerr::codespan::Files<Cow<'static, str>>;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rt = runtime::Builder::new_current_thread()
+    let rt = runtime::Builder::new_multi_thread()
+        .thread_name("choochoo-demo")
         .enable_io()
         .enable_time()
         .build()?;
@@ -84,8 +85,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let station_d = stations.add_node(StationD::build()?);
             let station_e = stations.add_node(StationE::build()?);
 
+            // stations.add_edge(station_a, station_b, Workload::default())?;
+            // stations.add_edge(station_b, station_c, Workload::default())?;
+            // stations.add_edge(station_c, station_d, Workload::default())?;
+            // stations.add_edge(station_d, station_e, Workload::default())?;
+
             stations.add_edge(station_a, station_b, Workload::default())?;
-            stations.add_edge(station_b, station_c, Workload::default())?;
+            stations.add_edge(station_a, station_c, Workload::default())?;
+            stations.add_edge(station_b, station_e, Workload::default())?;
             stations.add_edge(station_c, station_d, Workload::default())?;
             stations.add_edge(station_d, station_e, Workload::default())?;
 

@@ -18,6 +18,8 @@ pub struct Station<E> {
     pub station_spec: StationSpec<E>,
     /// Progress bar to display this station's state and progress.
     pub progress_bar: ProgressBar,
+    /// Error returned by this station.
+    pub error: Option<E>,
     /// Whether this station has been visited.
     pub visit_status: VisitStatus,
 }
@@ -66,6 +68,7 @@ impl<E> Station<E> {
         Self {
             station_spec,
             progress_bar,
+            error: None,
             visit_status,
         }
     }

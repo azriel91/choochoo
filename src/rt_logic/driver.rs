@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use resman::Resources;
 
 use crate::{
     cfg_model::CheckStatus,
-    rt_model::{error::StationSpecError, EnsureOutcome, Station, TrainReport},
+    rt_model::{error::StationSpecError, EnsureOutcome, Station},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -34,16 +34,10 @@ impl<E> Driver<E> {
     /// * Recording the timestamps / duration of each step.
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
-    pub async fn ensure(
-        train_report: &mut TrainReport<E>,
-        node_id: NodeIndex<DefaultIx>,
-        station: &mut Station<E>,
-    ) -> Result<EnsureOutcome, E>
+    pub async fn ensure(resources: &Resources, station: &mut Station<E>) -> Result<EnsureOutcome, E>
     where
         E: From<StationSpecError>,
     {
-        let TrainReport { errors, resources } = train_report;
-
         let visit_required = if let Some(check_status) = station.check(resources) {
             check_status.await? == CheckStatus::VisitRequired
         } else {
@@ -70,7 +64,7 @@ impl<E> Driver<E> {
                 let name = station.station_spec.name().to_string();
                 let station_spec_error = StationSpecError::VisitRequiredAfterVisit { id, name };
 
-                errors.insert(node_id, E::from(station_spec_error));
+                station.error.insert(E::from(station_spec_error));
             }
 
             Ok(EnsureOutcome::Changed)

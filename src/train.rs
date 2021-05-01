@@ -1,8 +1,15 @@
+use daggy::{
+    petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
+    NodeIndex,
+};
 use indicatif::MultiProgress;
+use resman::Resources;
 
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
-    rt_model::{error::StationSpecError, Destination, EnsureOutcome, TrainReport, VisitStatus},
+    rt_model::{
+        error::StationSpecError, Destination, EnsureOutcome, Files, TrainReport, VisitStatus,
+    },
 };
 
 /// Ensures all carriages are at the destination.
@@ -28,30 +35,45 @@ impl Train {
         let multi_progress_fut =
             tokio::task::spawn_blocking(move || multi_progress.join().unwrap());
 
-        let train_report = TrainReport::new();
-        let train_report =
-            IntegrityStrat::iter(dest, train_report, |mut train_report, node_id, station| {
-                Box::pin(async move {
-                    // Because this is in an async block, concurrent tasks may access this station's
-                    // `visit_status` while the `visit()` is `await`ed.
-                    station.visit_status = VisitStatus::InProgress;
+        let mut train_report = TrainReport::new();
+        let mut resources = Resources::default();
+        resources.insert(Files::new());
+        let resources = IntegrityStrat::iter(dest, resources, |resources, station| {
+            Box::pin(async move {
+                // Because this is in an async block, concurrent tasks may access this station's
+                // `visit_status` while the `visit()` is `await`ed.
+                station.visit_status = VisitStatus::InProgress;
 
-                    match Driver::ensure(&mut train_report, node_id, station).await {
-                        Ok(EnsureOutcome::Changed) => {
-                            station.visit_status = VisitStatus::VisitSuccess
-                        }
-                        Ok(EnsureOutcome::Unchanged) => {
-                            station.visit_status = VisitStatus::VisitUnnecessary
-                        }
-                        Err(e) => {
-                            station.visit_status = VisitStatus::VisitFail;
-                            train_report.errors.insert(node_id, e);
-                        }
+                match Driver::ensure(resources, station).await {
+                    Ok(EnsureOutcome::Changed) => station.visit_status = VisitStatus::VisitSuccess,
+                    Ok(EnsureOutcome::Unchanged) => {
+                        station.visit_status = VisitStatus::VisitUnnecessary
                     }
-                    train_report
-                })
+                    Err(_e) => {
+                        station.visit_status = VisitStatus::VisitFail;
+                    }
+                }
+                resources
             })
-            .await;
+        })
+        .await;
+        train_report.resources = resources;
+
+        let node_ids = dest
+            .stations
+            .node_identifiers()
+            .collect::<Vec<NodeIndex<DefaultIx>>>();
+        let mut frozen = dest.stations.frozen();
+
+        node_ids
+            .into_iter()
+            .filter_map(|node_id| {
+                let station = &mut frozen[node_id];
+                station.error.take().map(|error| (node_id, error))
+            })
+            .for_each(|(node_id, error)| {
+                train_report.errors.insert(node_id, error);
+            });
 
         multi_progress_fut.await.unwrap();
 
