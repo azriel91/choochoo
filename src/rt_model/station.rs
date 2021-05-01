@@ -46,8 +46,7 @@ impl<E> Station<E> {
         "✅ {msg:15.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
     /// ProgressStyle template to apply when the station was not necessary to
     /// visit.
-    pub const STYLE_UNCHANGED_BYTES: &'static str =
-        "✅ {msg:15.bold} [{bar:40.green.dim/green}] {pos}/{len} ({elapsed:.yellow} Unchanged)";
+    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:15.bold} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
 
     /// Returns a new [`Station`].
     ///

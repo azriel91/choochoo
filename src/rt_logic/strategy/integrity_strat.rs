@@ -88,8 +88,8 @@ impl<E> IntegrityStrat<E> {
                         .filter(|station| station.visit_status == VisitStatus::Queued),
                 )
                 .for_each_concurrent(4, |station| async move {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_IN_PROGRESS);
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(Station::<E>::STYLE_IN_PROGRESS_BYTES);
                     station.progress_bar.set_style(progress_style);
                     visit_logic(seed_ref, station).await;
                     Self::station_progress_bar_update(station);
