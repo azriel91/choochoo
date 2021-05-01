@@ -25,28 +25,27 @@ pub struct Station<E> {
 }
 
 impl<E> Station<E> {
-    /// ProgressStyle template to apply when the station visit failed.
+    /// Template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
-        "❌ {msg:15.bold} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
-    /// ProgressStyle template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
-    /// ProgressStyle template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:15.bold} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
-    /// ProgressStyle template to apply when a parent station has failed.
+        "❌ {msg:17.bold} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
+    /// Template to apply when the station visit is in progress.
+    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:17.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
+    /// Template to apply when the station visit is in progress.
+    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:17.bold} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
+    /// Template to apply when a parent station has failed.
     pub const STYLE_PARENT_FAILED: &'static str =
-        "☠️  {msg:15.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
-    /// ProgressStyle template to apply when the station is still queued.
+        "☠️  {msg:17.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
+    /// Template to apply when the station is still queued.
     pub const STYLE_QUEUED: &'static str =
-        "⏳ {msg:15.bold} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
-    /// ProgressStyle template to apply when the station visit is successful.
+        "⏳ {msg:17.bold} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
+    /// Template to apply when the station visit is successful.
     pub const STYLE_SUCCESS: &'static str =
-        "✅ {msg:15.bold} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
-    /// ProgressStyle template to apply when the station visit is successful.
+        "✅ {msg:17.bold} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
+    /// Template to apply when the station visit is successful.
     pub const STYLE_SUCCESS_BYTES: &'static str =
-        "✅ {msg:15.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
-    /// ProgressStyle template to apply when the station was not necessary to
-    /// visit.
-    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:15.bold} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
+        "✅ {msg:17.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
+    /// Template to apply when the station was not necessary to visit.
+    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:17.bold} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
 
     /// Returns a new [`Station`].
     ///

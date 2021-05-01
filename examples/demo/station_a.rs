@@ -55,7 +55,6 @@ impl StationA {
         StationFn::new(|station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station.progress_bar.reset();
                 let files = resources.borrow::<RwFiles>();
                 let mut files = files.write().await;
 

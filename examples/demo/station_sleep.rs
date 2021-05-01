@@ -42,10 +42,8 @@ impl StationSleep {
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |station, _resources| {
+        StationFn::new(move |_station, _resources| {
             Box::pin(async move {
-                station.progress_bar.reset();
-                station.progress_bar.tick();
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
                 } else {
