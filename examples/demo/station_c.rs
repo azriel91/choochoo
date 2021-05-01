@@ -5,7 +5,7 @@ use choochoo::{
     cfg_model::{
         CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
     },
-    rt_model::{Files, Station, VisitStatus},
+    rt_model::{Files, RwFiles, Station, VisitStatus},
 };
 use indicatif::ProgressStyle;
 
@@ -60,7 +60,8 @@ impl StationC {
                     return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
                 }
 
-                let mut files = resources.borrow_mut::<Files>();
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
                 // Currently we only compare file size
@@ -116,7 +117,8 @@ impl StationC {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 station.progress_bar.reset();
-                let mut files = resources.borrow_mut::<Files>();
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 

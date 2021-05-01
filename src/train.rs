@@ -4,11 +4,13 @@ use daggy::{
 };
 use indicatif::MultiProgress;
 use resman::Resources;
+use tokio::sync::RwLock;
 
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
     rt_model::{
-        error::StationSpecError, Destination, EnsureOutcome, Files, TrainReport, VisitStatus,
+        error::StationSpecError, Destination, EnsureOutcome, Files, RwFiles, TrainReport,
+        VisitStatus,
     },
 };
 
@@ -37,7 +39,7 @@ impl Train {
 
         let mut train_report = TrainReport::new();
         let mut resources = Resources::default();
-        resources.insert(Files::new());
+        resources.insert(RwFiles::new(RwLock::new(Files::new())));
         let resources = IntegrityStrat::iter(dest, resources, |resources, station| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's

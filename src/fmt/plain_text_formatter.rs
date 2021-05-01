@@ -8,7 +8,7 @@ use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use crate::rt_model::{
-    error::AsDiagnostic, Destination, Files, Station, Stations, TrainReport, VisitStatus,
+    error::AsDiagnostic, Destination, Files, RwFiles, Station, Stations, TrainReport, VisitStatus,
 };
 
 /// Format trait for plain text.
@@ -84,7 +84,9 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<Files>();
+        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = files.read().await;
+        let files = &*files;
 
         let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -120,7 +122,9 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<Files>();
+        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = files.read().await;
+        let files = &*files;
 
         let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)

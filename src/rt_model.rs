@@ -5,7 +5,7 @@
 pub use self::{
     destination::{Destination, StationsQueuedIter},
     ensure_outcome::EnsureOutcome,
-    files::Files,
+    files::{Files, RwFiles},
     station::Station,
     stations::{Stations, StationsFrozen},
     train_report::TrainReport,

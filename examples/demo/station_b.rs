@@ -4,7 +4,7 @@ use choochoo::{
     cfg_model::{
         CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
     },
-    rt_model::{Files, Station, VisitStatus},
+    rt_model::{Files, RwFiles, Station, VisitStatus},
 };
 use futures::{stream, stream::StreamExt};
 use srcerr::{codespan::Span, codespan_reporting::diagnostic::Severity};
@@ -53,8 +53,6 @@ impl StationB {
     fn visit_fn() -> StationFn<(), DemoError> {
         StationFn::new(move |station, resources| {
             Box::pin(async move {
-                let mut files = resources.borrow_mut::<Files>();
-
                 // Sleep to simulate creating a database.
                 station.progress_bar.reset();
                 stream::iter(0..200)
@@ -64,6 +62,8 @@ impl StationB {
                     })
                     .await;
 
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
                 tokio::fs::create_dir_all(CREATE_DB_PARENT)
                     .await
                     .map_err(|error| Self::db_error(&mut files, error))?;
