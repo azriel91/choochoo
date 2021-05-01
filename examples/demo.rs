@@ -13,6 +13,7 @@ use srcerr::{
 use tokio::runtime;
 
 use crate::{
+    dependency_mode::DependencyMode,
     error::{ErrorCode, ErrorDetail},
     station_a::StationA,
     station_b::StationB,
@@ -26,6 +27,8 @@ use crate::{
 
 #[path = "demo/app_zip.rs"]
 mod app_zip;
+#[path = "demo/dependency_mode.rs"]
+mod dependency_mode;
 #[path = "demo/error.rs"]
 mod error;
 #[path = "demo/server_params.rs"]
@@ -80,7 +83,21 @@ impl From<StationSpecError> for DemoError {
 
 type Files = srcerr::codespan::Files<Cow<'static, str>>;
 
+#[derive(Debug)]
+pub struct Args {
+    /// How task execution should be structured.
+    pub dependency_mode: DependencyMode,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = match parse_args() {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error: {}.", e);
+            std::process::exit(1);
+        }
+    };
+
     let rt = runtime::Builder::new_multi_thread()
         .thread_name("choochoo-demo")
         .enable_io()
@@ -99,22 +116,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let station_g = stations.add_node(StationG::build()?);
             let station_h = stations.add_node(StationH::build()?);
 
-            // stations.add_edge(station_a, station_b, Workload::default())?;
-            // stations.add_edge(station_b, station_c, Workload::default())?;
-            // stations.add_edge(station_c, station_d, Workload::default())?;
-            // stations.add_edge(station_d, station_e, Workload::default())?;
-            // stations.add_edge(station_e, station_f, Workload::default())?;
-            // stations.add_edge(station_f, station_g, Workload::default())?;
-            // stations.add_edge(station_g, station_h, Workload::default())?;
-
-            stations.add_edge(station_a, station_b, Workload::default())?;
-            stations.add_edge(station_a, station_c, Workload::default())?;
-            stations.add_edge(station_b, station_e, Workload::default())?;
-            stations.add_edge(station_c, station_d, Workload::default())?;
-            stations.add_edge(station_d, station_e, Workload::default())?;
-            stations.add_edge(station_e, station_g, Workload::default())?;
-            stations.add_edge(station_f, station_g, Workload::default())?;
-            stations.add_edge(station_g, station_h, Workload::default())?;
+            if args.dependency_mode == DependencyMode::Sequential {
+                stations.add_edge(station_a, station_b, Workload::default())?;
+                stations.add_edge(station_b, station_c, Workload::default())?;
+                stations.add_edge(station_c, station_d, Workload::default())?;
+                stations.add_edge(station_d, station_e, Workload::default())?;
+                stations.add_edge(station_e, station_f, Workload::default())?;
+                stations.add_edge(station_f, station_g, Workload::default())?;
+                stations.add_edge(station_g, station_h, Workload::default())?;
+            } else {
+                stations.add_edge(station_a, station_b, Workload::default())?;
+                stations.add_edge(station_a, station_c, Workload::default())?;
+                stations.add_edge(station_b, station_e, Workload::default())?;
+                stations.add_edge(station_c, station_d, Workload::default())?;
+                stations.add_edge(station_d, station_e, Workload::default())?;
+                stations.add_edge(station_e, station_g, Workload::default())?;
+                stations.add_edge(station_f, station_g, Workload::default())?;
+                stations.add_edge(station_g, station_h, Workload::default())?;
+            }
 
             let dest = Destination { stations };
 
@@ -129,4 +148,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     })?;
 
     Ok(())
+}
+
+fn parse_args() -> Result<Args, pico_args::Error> {
+    let mut pargs = pico_args::Arguments::from_env();
+    let dependency_mode = if pargs.contains(["-c", "--concurrent"]) {
+        DependencyMode::Concurrent
+    } else {
+        DependencyMode::Sequential
+    };
+
+    Ok(Args { dependency_mode })
 }
