@@ -4,6 +4,7 @@ use daggy::{
     petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
     NodeIndex,
 };
+use futures::{stream, stream::StreamExt};
 use indicatif::ProgressStyle;
 
 use crate::{
@@ -59,95 +60,89 @@ impl<E> IntegrityStrat<E> {
     /// * `dest`: `Destination` whose stations to visit.
     /// * `seed`: Initial seed for the return value.
     /// * `visit_logic`: Logic to run to visit a `Station`.
-    pub async fn iter<F, R>(dest: &mut Destination<E>, mut seed: R, mut visit_logic: F) -> R
+    pub async fn iter<F, R>(dest: &mut Destination<E>, seed: R, visit_logic: F) -> R
     where
-        F: for<'a> FnMut(
-            R,
-            NodeIndex<DefaultIx>,
-            &'a mut Station<E>,
-        ) -> Pin<Box<dyn Future<Output = R> + 'a>>,
+        F: for<'a> Fn(&'a R, &'a mut Station<E>) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
-        let node_ids = dest
-            .stations
-            .node_identifiers()
-            .collect::<Vec<NodeIndex<DefaultIx>>>();
-        let mut node_ids_queued = Vec::<NodeIndex<DefaultIx>>::with_capacity(node_ids.len());
-        let visit_logic = &mut visit_logic;
+        let visit_logic = &visit_logic;
+        let seed_ref = &seed;
+        let mut node_ids_queued =
+            Vec::<NodeIndex<DefaultIx>>::with_capacity(dest.stations.graph().node_count());
 
         loop {
-            let mut frozen = dest.stations.frozen();
-            node_ids.iter().for_each(|node_id| {
-                let station = &frozen[*node_id];
-                if !station.progress_bar.is_finished() {
-                    match station.visit_status {
-                        VisitStatus::NotReady => {}
-                        VisitStatus::ParentFail => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_PARENT_FAILED);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.abandon();
-                        }
-                        VisitStatus::Queued => {}
-                        VisitStatus::InProgress => {}
-                        VisitStatus::VisitSuccess => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_SUCCESS_BYTES);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.finish();
-                        }
-                        VisitStatus::VisitUnnecessary => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_UNCHANGED_BYTES);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.finish();
-                        }
-                        VisitStatus::VisitFail => {
-                            let progress_style =
-                                ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.abandon();
-                        }
-                    }
-                } else {
-                    match station.visit_status {
-                        VisitStatus::NotReady | VisitStatus::Queued => {
-                            let progress_style =
-                                ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
-                            station.progress_bar.set_style(progress_style);
-                        }
-                        VisitStatus::InProgress
-                        | VisitStatus::ParentFail
-                        | VisitStatus::VisitSuccess
-                        | VisitStatus::VisitUnnecessary
-                        | VisitStatus::VisitFail => {}
-                    }
-                }
+            let node_ids = dest.stations.node_identifiers();
+            node_ids.for_each(|node_id| {
+                let station = &dest.stations[node_id];
                 if station.visit_status == VisitStatus::Queued {
-                    node_ids_queued.push(*node_id);
+                    node_ids_queued.push(node_id);
                 }
             });
 
             if !node_ids_queued.is_empty() {
-                for node_id in node_ids_queued.iter() {
-                    let node_id = *node_id;
-                    let station = &mut frozen[node_id];
-
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_IN_PROGRESS);
+                stream::iter(
+                    dest.stations
+                        .node_weights_mut()
+                        .filter(|station| station.visit_status == VisitStatus::Queued),
+                )
+                .for_each_concurrent(4, |station| async move {
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(Station::<E>::STYLE_IN_PROGRESS_BYTES);
                     station.progress_bar.set_style(progress_style);
+                    visit_logic(seed_ref, station).await;
 
-                    seed = visit_logic(seed, node_id, station).await;
-                }
+                    Self::station_progress_bar_update(station);
+                })
+                .await;
             } else {
                 break;
             }
 
             VisitStatusUpdater::update(&mut dest.stations);
+            dest.stations
+                .iter()
+                .for_each(Self::station_progress_bar_update);
 
             node_ids_queued.clear();
         }
 
         seed
+    }
+
+    fn station_progress_bar_update(station: &Station<E>) {
+        if !station.progress_bar.is_finished() {
+            match station.visit_status {
+                VisitStatus::NotReady | VisitStatus::Queued => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
+                    station.progress_bar.set_style(progress_style);
+                }
+                VisitStatus::ParentFail => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_PARENT_FAILED);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.abandon();
+                }
+                VisitStatus::InProgress => {}
+                VisitStatus::VisitSuccess => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_SUCCESS_BYTES);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.finish();
+                }
+                VisitStatus::VisitUnnecessary => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_UNCHANGED_BYTES);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.finish();
+                }
+                VisitStatus::CheckFail | VisitStatus::VisitFail => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.abandon();
+                }
+            }
+        }
     }
 }
 
@@ -244,19 +239,24 @@ mod tests {
         mut dest: Destination<()>,
         rx: Option<Receiver<u8>>,
     ) -> Result<(u32, Vec<u8>), Box<dyn std::error::Error>> {
+        let mut resources = Resources::default();
+        resources.insert::<u32>(0);
+
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let call_count = IntegrityStrat::iter(&mut dest, 0, |call_count, _, station| {
+            let resources = IntegrityStrat::iter(&mut dest, resources, |resources, station| {
                 Box::pin(async move {
                     station
                         .visit(&Resources::default())
                         .await
                         .expect("Failed to visit station.");
 
-                    call_count + 1
+                    *resources.borrow_mut::<u32>() += 1;
+                    resources
                 })
             })
             .await;
+            let call_count = *resources.borrow::<u32>();
 
             let mut received_values = Vec::new();
             if let Some(mut rx) = rx {

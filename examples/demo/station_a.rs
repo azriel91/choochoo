@@ -4,7 +4,7 @@ use choochoo::{
     cfg_model::{
         CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
     },
-    rt_model::{Station, VisitStatus},
+    rt_model::{Files, RwFiles, Station, VisitStatus},
 };
 use indicatif::ProgressStyle;
 use reqwest::{
@@ -22,7 +22,7 @@ use crate::{
     app_zip::{APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
-    DemoError, Files,
+    DemoError,
 };
 
 /// Download App
@@ -55,8 +55,8 @@ impl StationA {
         StationFn::new(|station, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station.progress_bar.reset();
-                let mut files = resources.borrow_mut::<Files>();
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
                 // Currently we only compare file size
@@ -121,7 +121,8 @@ impl StationA {
                     .build()
                     .map_err(|error| Self::client_build_error(error))?;
 
-                let mut files = resources.borrow_mut::<Files>();
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
 
                 let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
 

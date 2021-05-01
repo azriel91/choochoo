@@ -11,16 +11,18 @@ keywords = ["automation"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+console = "0.14.1"
 daggy = { version = "0.7.0", default-features = false }
 futures = "0.3.12"
 indexmap = "1.6.1"
 indicatif = "0.16.0"
 resman = "0.1.0"
 srcerr = { version = "0.4.0", features = ["codespan"] }
-tokio = { version = "1.5.0", features = ["io-util"] }
+tokio = { version = "1.5.0", features = ["io-util", "sync"] }
 
 [dev-dependencies]
 bytes = "1.0.1"
+pico-args = "0.4.0"
 reqwest = { version = "0.11.3", features = ["multipart", "stream"] }
-tokio = { version = "1.5.0", features = ["fs", "rt", "sync", "io-std"] }
+tokio = { version = "1.5.0", features = ["fs", "rt", "rt-multi-thread", "sync", "io-std"] }
 tokio-util = { version = "0.6.6", features = ["codec"] }

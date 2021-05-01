@@ -3,8 +3,9 @@ use std::fmt;
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use indexmap::IndexMap;
 use resman::Resources;
+use tokio::sync::RwLock;
 
-use crate::rt_model::Files;
+use crate::rt_model::{Files, RwFiles};
 
 /// Record of what happened during a train's drive.
 pub struct TrainReport<E> {
@@ -36,7 +37,7 @@ where
 impl<E> Default for TrainReport<E> {
     fn default() -> Self {
         let mut resources = Resources::default();
-        resources.insert(Files::new());
+        resources.insert(RwFiles::new(RwLock::new(Files::new())));
 
         Self {
             errors: Default::default(),

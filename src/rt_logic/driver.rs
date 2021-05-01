@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use resman::Resources;
 
 use crate::{
     cfg_model::CheckStatus,
-    rt_model::{error::StationSpecError, EnsureOutcome, Station, TrainReport},
+    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, Station},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -35,30 +35,31 @@ impl<E> Driver<E> {
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
     pub async fn ensure(
-        train_report: &mut TrainReport<E>,
-        node_id: NodeIndex<DefaultIx>,
+        resources: &Resources,
         station: &mut Station<E>,
-    ) -> Result<EnsureOutcome, E>
+    ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
-        let TrainReport { errors, resources } = train_report;
-
         let visit_required = if let Some(check_status) = station.check(resources) {
-            check_status.await? == CheckStatus::VisitRequired
+            check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
         } else {
             // if there is no check function, always visit the station.
             true
         };
 
         if visit_required {
-            station.visit(&resources).await?;
+            station
+                .visit(&resources)
+                .await
+                .map_err(EnsureOutcomeErr::VisitFail)?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
             let spec_has_error = if let Some(check_status) = station.check(resources) {
-                check_status.await? == CheckStatus::VisitRequired
+                check_status.await.map_err(EnsureOutcomeErr::CheckFail)?
+                    == CheckStatus::VisitRequired
             } else {
                 false
             };
@@ -70,12 +71,12 @@ impl<E> Driver<E> {
                 let name = station.station_spec.name().to_string();
                 let station_spec_error = StationSpecError::VisitRequiredAfterVisit { id, name };
 
-                errors.insert(node_id, E::from(station_spec_error));
+                station.error = Some(E::from(station_spec_error));
             }
 
-            Ok(EnsureOutcome::Changed)
+            Ok(EnsureOutcomeOk::Changed)
         } else {
-            Ok(EnsureOutcome::Unchanged)
+            Ok(EnsureOutcomeOk::Unchanged)
         }
     }
 }

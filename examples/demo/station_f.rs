@@ -13,20 +13,20 @@ use srcerr::{
 
 use crate::{DemoError, ErrorCode, ErrorDetail};
 
-/// Create DB
-pub struct StationB;
+/// Allocate Domain
+pub struct StationF;
 
-impl StationB {
-    /// Creates the database for the web application.
+impl StationF {
+    /// Allocates a domain name for the application.
     pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_id = StationId::new("d")?;
-        let station_name = String::from("Create DB");
-        let station_description = String::from("Creates the database for the web application.");
+        let station_id = StationId::new("f")?;
+        let station_name = String::from("Allocate Domain");
+        let station_description = String::from("Allocates a domain name for the application.");
         let station = StationSleep::new(
             station_id,
             station_name,
             station_description,
-            &Path::new("/tmp/choochoo/demo/station_b/create_db"),
+            &Path::new("/tmp/choochoo/demo/station_f/allocate_domain"),
             Self::db_error,
         );
         Ok(station)

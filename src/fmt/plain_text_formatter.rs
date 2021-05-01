@@ -8,7 +8,7 @@ use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use crate::rt_model::{
-    error::AsDiagnostic, Destination, Files, Station, Stations, TrainReport, VisitStatus,
+    error::AsDiagnostic, Destination, Files, RwFiles, Station, Stations, TrainReport, VisitStatus,
 };
 
 /// Format trait for plain text.
@@ -84,7 +84,9 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<Files>();
+        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = files.read().await;
+        let files = &*files;
 
         let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -120,7 +122,9 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<Files>();
+        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = files.read().await;
+        let files = &*files;
 
         let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -157,7 +161,7 @@ where
                     VisitStatus::Queued => "⏳",
                     VisitStatus::InProgress => "⏳",
                     VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::VisitFail => "❌",
+                    VisitStatus::CheckFail | VisitStatus::VisitFail => "❌",
                 };
 
                 b_writeln!(
@@ -195,7 +199,15 @@ mod tests {
             add_station(&mut stations, "c", "C", "c_desc", VisitStatus::Queued)?;
             add_station(&mut stations, "d", "D", "d_desc", VisitStatus::InProgress)?;
             add_station(&mut stations, "e", "E", "e_desc", VisitStatus::VisitSuccess)?;
-            add_station(&mut stations, "f", "F", "f_desc", VisitStatus::VisitFail)?;
+            add_station(
+                &mut stations,
+                "f",
+                "F",
+                "f_desc",
+                VisitStatus::VisitUnnecessary,
+            )?;
+            add_station(&mut stations, "g", "G", "g_desc", VisitStatus::VisitFail)?;
+            add_station(&mut stations, "h", "H", "h_desc", VisitStatus::CheckFail)?;
             Destination { stations }
         };
         let train_report = TrainReport::new();
@@ -209,7 +221,9 @@ mod tests {
             ⏳ C: c_desc\n\
             ⏳ D: d_desc\n\
             ✅ E: e_desc\n\
-            ❌ F: f_desc\n\
+            ✅ F: f_desc\n\
+            ❌ G: g_desc\n\
+            ❌ H: h_desc\n\
             ",
             String::from_utf8(output)?
         );
