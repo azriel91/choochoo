@@ -64,24 +64,21 @@ impl<E> IntegrityStrat<E> {
     where
         F: for<'a> Fn(&'a R, &'a mut Station<E>) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
-        let node_ids = dest
-            .stations
-            .node_identifiers()
-            .collect::<Vec<NodeIndex<DefaultIx>>>();
-        let mut node_ids_queued = Vec::<NodeIndex<DefaultIx>>::with_capacity(node_ids.len());
         let visit_logic = &visit_logic;
+        let seed_ref = &seed;
+        let mut node_ids_queued =
+            Vec::<NodeIndex<DefaultIx>>::with_capacity(dest.stations.graph().node_count());
 
         loop {
-            let frozen = dest.stations.frozen();
-            node_ids.iter().for_each(|node_id| {
-                let station = &frozen[*node_id];
+            let node_ids = dest.stations.node_identifiers();
+            node_ids.for_each(|node_id| {
+                let station = &dest.stations[node_id];
                 if station.visit_status == VisitStatus::Queued {
-                    node_ids_queued.push(*node_id);
+                    node_ids_queued.push(node_id);
                 }
             });
 
             if !node_ids_queued.is_empty() {
-                let seed_ref = &seed;
                 stream::iter(
                     dest.stations
                         .node_weights_mut()

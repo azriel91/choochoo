@@ -1,7 +1,4 @@
-use daggy::{
-    petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
-    NodeIndex,
-};
+use daggy::petgraph::visit::IntoNodeIdentifiers;
 use indicatif::MultiProgress;
 use resman::Resources;
 use tokio::sync::RwLock;
@@ -68,14 +65,10 @@ impl Train {
         .await;
         train_report.resources = resources;
 
-        let node_ids = dest
-            .stations
-            .node_identifiers()
-            .collect::<Vec<NodeIndex<DefaultIx>>>();
+        let node_ids = dest.stations.node_identifiers();
         let mut frozen = dest.stations.frozen();
 
         node_ids
-            .into_iter()
             .filter_map(|node_id| {
                 let station = &mut frozen[node_id];
                 station.error.take().map(|error| (node_id, error))
