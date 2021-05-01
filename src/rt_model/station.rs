@@ -1,5 +1,6 @@
 use std::fmt;
 
+use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 use resman::Resources;
 
@@ -27,25 +28,25 @@ pub struct Station<E> {
 impl<E> Station<E> {
     /// Template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
-        "❌ {msg:17.bold} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
+        "❌ {msg:20} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
     /// Template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:17.bold} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
+    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
     /// Template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:17.bold} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
+    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
     /// Template to apply when a parent station has failed.
     pub const STYLE_PARENT_FAILED: &'static str =
-        "☠️  {msg:17.bold} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
+        "☠️  {msg:20} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
     /// Template to apply when the station is still queued.
     pub const STYLE_QUEUED: &'static str =
-        "⏳ {msg:17.bold} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
+        "⏳ {msg:20} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
     /// Template to apply when the station visit is successful.
     pub const STYLE_SUCCESS: &'static str =
-        "✅ {msg:17.bold} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
+        "✅ {msg:20} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
     /// Template to apply when the station visit is successful.
     pub const STYLE_SUCCESS_BYTES: &'static str =
-        "✅ {msg:17.bold} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
+        "✅ {msg:20} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
     /// Template to apply when the station was not necessary to visit.
-    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:17.bold} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
+    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:20} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
 
     /// Returns a new [`Station`].
     ///
@@ -54,9 +55,18 @@ impl<E> Station<E> {
     /// * `station_spec`: Behaviour specification for this station.
     /// * `visit_status`: Whether this [`Station`] is ready to be visited.
     pub fn new(station_spec: StationSpec<E>, visit_status: VisitStatus) -> Self {
+        let id_style = Style::new().blue().bold();
+        let name_style = Style::new().bold().bright();
+
+        let message = format!(
+            "{id} {name}",
+            id = id_style.apply_to(station_spec.id()),
+            name = name_style.apply_to(station_spec.name())
+        );
+
         let progress_bar = ProgressBar::hidden();
         progress_bar.set_length(100);
-        progress_bar.set_message(station_spec.name().to_string());
+        progress_bar.set_message(message);
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(Self::STYLE_QUEUED)

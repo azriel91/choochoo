@@ -19,7 +19,7 @@ pub struct StationH;
 impl StationH {
     /// Notifies of deployment completion.
     pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_id = StationId::new("f")?;
+        let station_id = StationId::new("h")?;
         let station_name = String::from("Notify Completion");
         let station_description = String::from("Notifies of deployment completion.");
         let station = StationSleep::new(

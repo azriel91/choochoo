@@ -19,7 +19,7 @@ pub struct StationG;
 impl StationG {
     /// Attaches the domain name to the web server.
     pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_id = StationId::new("f")?;
+        let station_id = StationId::new("g")?;
         let station_name = String::from("Attach Domain");
         let station_description = String::from("Attaches the domain name to the web server.");
         let station = StationSleep::new(
