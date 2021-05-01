@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow, fmt, path::Path};
 
 use choochoo::rt_model::error::StationSpecError;
 use srcerr::{
@@ -14,6 +14,10 @@ pub enum ErrorCode {
     StationSpecError,
     /// Failed to build `reqwest::Client`.
     ReqwestClientBuild,
+    /// Unable to determine station directory.
+    StationDirDiscover,
+    /// Unable to determine file name of station file.
+    StationFileNameDiscover,
     /// Failed to open `app.zip` to upload.
     AppZipOpen,
     /// Failed to connect to artifact server.
@@ -44,16 +48,18 @@ impl srcerr::ErrorCode for ErrorCode {
         match self {
             Self::StationSpecError => 1,
             Self::ReqwestClientBuild => 2,
-            Self::AppZipOpen => 3,
-            Self::ArtifactServerConnect => 4,
-            Self::AppZipReject => 5,
-            Self::DatabaseCreate => 6,
-            Self::WebServerAppZipOpen => 7,
-            Self::WebServerAppZipMetadata => 8,
-            Self::AppZipDownload => 9,
-            Self::AppZipStream => 10,
-            Self::AppZipWrite => 11,
-            Self::ApplicationDatabaseLink => 12,
+            Self::StationDirDiscover => 3,
+            Self::StationFileNameDiscover => 4,
+            Self::AppZipOpen => 5,
+            Self::ArtifactServerConnect => 6,
+            Self::AppZipReject => 7,
+            Self::DatabaseCreate => 8,
+            Self::WebServerAppZipOpen => 9,
+            Self::WebServerAppZipMetadata => 10,
+            Self::AppZipDownload => 11,
+            Self::AppZipStream => 12,
+            Self::AppZipWrite => 13,
+            Self::ApplicationDatabaseLink => 14,
         }
     }
 
@@ -61,6 +67,8 @@ impl srcerr::ErrorCode for ErrorCode {
         match self {
             Self::StationSpecError => "There is a bug with the station specification.",
             Self::ReqwestClientBuild => "Failed to build `reqwest::Client`.",
+            Self::StationDirDiscover => "Unable to determine station directory.",
+            Self::StationFileNameDiscover => "Unable to determine file name of station file.",
             Self::AppZipOpen => "Failed to open `app.zip` to upload.",
             Self::ArtifactServerConnect => "Failed to connect to artifact server.",
             Self::AppZipReject => "Artifact server rejected `app.zip`.",
@@ -82,6 +90,16 @@ pub enum ErrorDetail {
     StationSpecError(StationSpecError),
     /// Failed to build `reqwest::Client`.
     ReqwestClientBuild(reqwest::Error),
+    /// Unable to determine station directory.
+    StationDirDiscover {
+        /// File path whose parent should be the station directory.
+        station_file_path: &'static Path,
+    },
+    /// Unable to determine file name of station file.
+    StationFileNameDiscover {
+        /// File path whose last component should be a file name.
+        station_file_path: &'static Path,
+    },
     /// Failed to open `app.zip` to upload.
     AppZipOpen {
         /// `app.zip` path file ID.
@@ -189,6 +207,8 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
         match self {
             Self::StationSpecError(_error) => vec![],
             Self::ReqwestClientBuild(_error) => vec![],
+            Self::StationDirDiscover { .. } => vec![],
+            Self::StationFileNameDiscover { .. } => vec![],
             Self::AppZipOpen {
                 app_zip_path_file_id,
                 app_zip_path_span,
@@ -305,6 +325,22 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
             Self::ReqwestClientBuild(error) => vec![
                 String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
                 error.to_string(),
+            ],
+            Self::StationDirDiscover { station_file_path } => vec![
+                format!(
+                    "`{}` is an invalid station file path.",
+                    station_file_path.display()
+                ),
+                String::from(
+                    "The station file path should be in a subdirectory for transient artifacts.",
+                ),
+            ],
+            Self::StationFileNameDiscover { station_file_path } => vec![
+                format!(
+                    "Unable to determine file name for `{}`.",
+                    station_file_path.display()
+                ),
+                String::from("The station file path should not be empty or have trailing slashes."),
             ],
             Self::AppZipOpen {
                 app_zip_path_file_id,
@@ -427,6 +463,12 @@ impl fmt::Display for ErrorDetail {
         match self {
             Self::StationSpecError(error) => error.fmt(f),
             Self::ReqwestClientBuild(error) => error.fmt(f),
+            Self::StationDirDiscover { .. } => {
+                write!(f, "{}", ErrorCode::StationDirDiscover.description())
+            }
+            Self::StationFileNameDiscover { .. } => {
+                write!(f, "{}", ErrorCode::StationFileNameDiscover.description())
+            }
             Self::AppZipOpen { .. } => write!(f, "{}", ErrorCode::AppZipOpen.description()),
             Self::ArtifactServerConnect { .. } => {
                 write!(f, "{}", ErrorCode::ArtifactServerConnect.description())
@@ -454,6 +496,8 @@ impl std::error::Error for ErrorDetail {
         match self {
             Self::StationSpecError(error) => Some(error),
             Self::ReqwestClientBuild(error) => Some(error),
+            Self::StationDirDiscover { .. } => None,
+            Self::StationFileNameDiscover { .. } => None,
             Self::AppZipOpen { error, .. } => Some(error),
             Self::ArtifactServerConnect { error, .. } => Some(error),
             Self::AppZipReject { .. } => None,

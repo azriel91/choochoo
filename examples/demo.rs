@@ -37,6 +37,8 @@ mod station_c;
 mod station_d;
 #[path = "demo/station_e.rs"]
 mod station_e;
+#[path = "demo/station_sleep.rs"]
+mod station_sleep;
 
 pub struct DemoError(pub SourceError<'static, ErrorCode, ErrorDetail, Files>);
 
