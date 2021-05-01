@@ -4,7 +4,7 @@ use resman::Resources;
 
 use crate::{
     cfg_model::CheckStatus,
-    rt_model::{error::StationSpecError, EnsureOutcome, Station},
+    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, Station},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -34,25 +34,32 @@ impl<E> Driver<E> {
     /// * Recording the timestamps / duration of each step.
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
-    pub async fn ensure(resources: &Resources, station: &mut Station<E>) -> Result<EnsureOutcome, E>
+    pub async fn ensure(
+        resources: &Resources,
+        station: &mut Station<E>,
+    ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
         let visit_required = if let Some(check_status) = station.check(resources) {
-            check_status.await? == CheckStatus::VisitRequired
+            check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
         } else {
             // if there is no check function, always visit the station.
             true
         };
 
         if visit_required {
-            station.visit(&resources).await?;
+            station
+                .visit(&resources)
+                .await
+                .map_err(EnsureOutcomeErr::VisitFail)?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
             let spec_has_error = if let Some(check_status) = station.check(resources) {
-                check_status.await? == CheckStatus::VisitRequired
+                check_status.await.map_err(EnsureOutcomeErr::CheckFail)?
+                    == CheckStatus::VisitRequired
             } else {
                 false
             };
@@ -67,9 +74,9 @@ impl<E> Driver<E> {
                 station.error.insert(E::from(station_spec_error));
             }
 
-            Ok(EnsureOutcome::Changed)
+            Ok(EnsureOutcomeOk::Changed)
         } else {
-            Ok(EnsureOutcome::Unchanged)
+            Ok(EnsureOutcomeOk::Unchanged)
         }
     }
 }

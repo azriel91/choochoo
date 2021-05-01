@@ -9,6 +9,8 @@ pub enum VisitStatus {
     ParentFail,
     /// Station is ready to be visited, but has not been.
     Queued,
+    /// Station check function failed.
+    CheckFail,
     /// Station visit is in progress.
     ///
     /// There is a train at this station.

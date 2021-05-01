@@ -161,7 +161,7 @@ where
                     VisitStatus::Queued => "⏳",
                     VisitStatus::InProgress => "⏳",
                     VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::VisitFail => "❌",
+                    VisitStatus::CheckFail | VisitStatus::VisitFail => "❌",
                 };
 
                 b_writeln!(
@@ -199,7 +199,15 @@ mod tests {
             add_station(&mut stations, "c", "C", "c_desc", VisitStatus::Queued)?;
             add_station(&mut stations, "d", "D", "d_desc", VisitStatus::InProgress)?;
             add_station(&mut stations, "e", "E", "e_desc", VisitStatus::VisitSuccess)?;
-            add_station(&mut stations, "f", "F", "f_desc", VisitStatus::VisitFail)?;
+            add_station(
+                &mut stations,
+                "f",
+                "F",
+                "f_desc",
+                VisitStatus::VisitUnnecessary,
+            )?;
+            add_station(&mut stations, "g", "G", "g_desc", VisitStatus::VisitFail)?;
+            add_station(&mut stations, "h", "H", "h_desc", VisitStatus::CheckFail)?;
             Destination { stations }
         };
         let train_report = TrainReport::new();
@@ -213,7 +221,9 @@ mod tests {
             ⏳ C: c_desc\n\
             ⏳ D: d_desc\n\
             ✅ E: e_desc\n\
-            ❌ F: f_desc\n\
+            ✅ F: f_desc\n\
+            ❌ G: g_desc\n\
+            ❌ H: h_desc\n\
             ",
             String::from_utf8(output)?
         );

@@ -92,6 +92,7 @@ impl<E> IntegrityStrat<E> {
                         .template(Station::<E>::STYLE_IN_PROGRESS_BYTES);
                     station.progress_bar.set_style(progress_style);
                     visit_logic(seed_ref, station).await;
+
                     Self::station_progress_bar_update(station);
                 })
                 .await;
@@ -100,6 +101,9 @@ impl<E> IntegrityStrat<E> {
             }
 
             VisitStatusUpdater::update(&mut dest.stations);
+            dest.stations
+                .iter()
+                .for_each(Self::station_progress_bar_update);
 
             node_ids_queued.clear();
         }
@@ -110,14 +114,17 @@ impl<E> IntegrityStrat<E> {
     fn station_progress_bar_update(station: &Station<E>) {
         if !station.progress_bar.is_finished() {
             match station.visit_status {
-                VisitStatus::NotReady => {}
+                VisitStatus::NotReady | VisitStatus::Queued => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
+                    station.progress_bar.set_style(progress_style);
+                }
                 VisitStatus::ParentFail => {
                     let progress_style =
                         ProgressStyle::default_bar().template(Station::<E>::STYLE_PARENT_FAILED);
                     station.progress_bar.set_style(progress_style);
                     station.progress_bar.abandon();
                 }
-                VisitStatus::Queued => {}
                 VisitStatus::InProgress => {}
                 VisitStatus::VisitSuccess => {
                     let progress_style =
@@ -131,25 +138,12 @@ impl<E> IntegrityStrat<E> {
                     station.progress_bar.set_style(progress_style);
                     station.progress_bar.finish();
                 }
-                VisitStatus::VisitFail => {
+                VisitStatus::CheckFail | VisitStatus::VisitFail => {
                     let progress_style =
                         ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
                     station.progress_bar.set_style(progress_style);
                     station.progress_bar.abandon();
                 }
-            }
-        } else {
-            match station.visit_status {
-                VisitStatus::NotReady | VisitStatus::Queued => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
-                    station.progress_bar.set_style(progress_style);
-                }
-                VisitStatus::InProgress
-                | VisitStatus::ParentFail
-                | VisitStatus::VisitSuccess
-                | VisitStatus::VisitUnnecessary
-                | VisitStatus::VisitFail => {}
             }
         }
     }

@@ -9,8 +9,8 @@ use tokio::sync::RwLock;
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver},
     rt_model::{
-        error::StationSpecError, Destination, EnsureOutcome, Files, RwFiles, TrainReport,
-        VisitStatus,
+        error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Files, RwFiles,
+        TrainReport, VisitStatus,
     },
 };
 
@@ -47,11 +47,18 @@ impl Train {
                 station.visit_status = VisitStatus::InProgress;
 
                 match Driver::ensure(resources, station).await {
-                    Ok(EnsureOutcome::Changed) => station.visit_status = VisitStatus::VisitSuccess,
-                    Ok(EnsureOutcome::Unchanged) => {
+                    Ok(EnsureOutcomeOk::Changed) => {
+                        station.visit_status = VisitStatus::VisitSuccess
+                    }
+                    Ok(EnsureOutcomeOk::Unchanged) => {
                         station.visit_status = VisitStatus::VisitUnnecessary
                     }
-                    Err(_e) => {
+                    Err(EnsureOutcomeErr::CheckFail(e)) => {
+                        station.error.insert(e);
+                        station.visit_status = VisitStatus::CheckFail;
+                    }
+                    Err(EnsureOutcomeErr::VisitFail(e)) => {
+                        station.error.insert(e);
                         station.visit_status = VisitStatus::VisitFail;
                     }
                 }
