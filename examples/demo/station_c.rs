@@ -83,6 +83,7 @@ impl StationC {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
+                let files = files.downgrade();
                 let address = files.source(address_file_id);
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {

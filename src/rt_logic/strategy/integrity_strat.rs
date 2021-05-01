@@ -75,50 +75,6 @@ impl<E> IntegrityStrat<E> {
             let frozen = dest.stations.frozen();
             node_ids.iter().for_each(|node_id| {
                 let station = &frozen[*node_id];
-                if !station.progress_bar.is_finished() {
-                    match station.visit_status {
-                        VisitStatus::NotReady => {}
-                        VisitStatus::ParentFail => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_PARENT_FAILED);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.abandon();
-                        }
-                        VisitStatus::Queued => {}
-                        VisitStatus::InProgress => {}
-                        VisitStatus::VisitSuccess => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_SUCCESS_BYTES);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.finish();
-                        }
-                        VisitStatus::VisitUnnecessary => {
-                            let progress_style = ProgressStyle::default_bar()
-                                .template(Station::<E>::STYLE_UNCHANGED_BYTES);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.finish();
-                        }
-                        VisitStatus::VisitFail => {
-                            let progress_style =
-                                ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
-                            station.progress_bar.set_style(progress_style);
-                            station.progress_bar.abandon();
-                        }
-                    }
-                } else {
-                    match station.visit_status {
-                        VisitStatus::NotReady | VisitStatus::Queued => {
-                            let progress_style =
-                                ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
-                            station.progress_bar.set_style(progress_style);
-                        }
-                        VisitStatus::InProgress
-                        | VisitStatus::ParentFail
-                        | VisitStatus::VisitSuccess
-                        | VisitStatus::VisitUnnecessary
-                        | VisitStatus::VisitFail => {}
-                    }
-                }
                 if station.visit_status == VisitStatus::Queued {
                     node_ids_queued.push(*node_id);
                 }
@@ -136,6 +92,7 @@ impl<E> IntegrityStrat<E> {
                         ProgressStyle::default_bar().template(Station::<E>::STYLE_IN_PROGRESS);
                     station.progress_bar.set_style(progress_style);
                     visit_logic(seed_ref, station).await;
+                    Self::station_progress_bar_update(station);
                 })
                 .await;
             } else {
@@ -148,6 +105,53 @@ impl<E> IntegrityStrat<E> {
         }
 
         seed
+    }
+
+    fn station_progress_bar_update(station: &Station<E>) {
+        if !station.progress_bar.is_finished() {
+            match station.visit_status {
+                VisitStatus::NotReady => {}
+                VisitStatus::ParentFail => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_PARENT_FAILED);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.abandon();
+                }
+                VisitStatus::Queued => {}
+                VisitStatus::InProgress => {}
+                VisitStatus::VisitSuccess => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_SUCCESS_BYTES);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.finish();
+                }
+                VisitStatus::VisitUnnecessary => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_UNCHANGED_BYTES);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.finish();
+                }
+                VisitStatus::VisitFail => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
+                    station.progress_bar.set_style(progress_style);
+                    station.progress_bar.abandon();
+                }
+            }
+        } else {
+            match station.visit_status {
+                VisitStatus::NotReady | VisitStatus::Queued => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
+                    station.progress_bar.set_style(progress_style);
+                }
+                VisitStatus::InProgress
+                | VisitStatus::ParentFail
+                | VisitStatus::VisitSuccess
+                | VisitStatus::VisitUnnecessary
+                | VisitStatus::VisitFail => {}
+            }
+        }
     }
 }
 
