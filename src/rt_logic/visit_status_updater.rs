@@ -107,7 +107,9 @@ impl<E> VisitStatusUpdater<E> {
                         return Err(Some(VisitStatus::ParentFail));
                     }
                     // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                    _ => return Err(None),
+                    VisitStatus::NotReady | VisitStatus::Queued | VisitStatus::InProgress => {
+                        return Err(None);
+                    }
                 }
 
                 Ok(visit_status)
