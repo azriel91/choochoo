@@ -19,7 +19,7 @@ pub struct StationB;
 impl StationB {
     /// Creates the database for the web application.
     pub fn build() -> Result<Station<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_id = StationId::new("d")?;
+        let station_id = StationId::new("b")?;
         let station_name = String::from("Create DB");
         let station_description = String::from("Creates the database for the web application.");
         let station = StationSleep::new(
