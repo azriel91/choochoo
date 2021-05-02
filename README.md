@@ -4,7 +4,9 @@
 ![CI](https://github.com/azriel91/choochoo/workflows/CI/badge.svg)
 [![Coverage Status](https://codecov.io/gh/azriel91/choochoo/branch/main/graph/badge.svg)](https://codecov.io/gh/azriel91/choochoo)
 
-Automation that starts where it stops.
+## Demo
+
+https://user-images.githubusercontent.com/2993230/116825827-04b89c00-abe5-11eb-9e83-2a223f859ddd.mp4
 
 ## License
 
