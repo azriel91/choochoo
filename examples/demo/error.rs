@@ -350,10 +350,20 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 let app_zip_path = files
                     .source_slice(*app_zip_path_file_id, *app_zip_path_span)
                     .expect("Expected file to exist.");
-                vec![format!(
-                    "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
-                    app_zip_path = app_zip_path
-                )]
+                vec![
+                    format!(
+                        "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
+                        app_zip_path = app_zip_path
+                    ),
+                    format!(
+                        "Create the file by running:\n\
+                        \n\
+                        ```bash\n\
+                        for i in {{0..10000}}; do printf \"application contents ${{i}}\\n\"; done | gzip -cf > {app_zip_path}\n\
+                        ```",
+                        app_zip_path = app_zip_path
+                    ),
+                ]
             }
             Self::ArtifactServerConnect {
                 address_file_id,

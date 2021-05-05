@@ -208,8 +208,8 @@ impl StationA {
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 
-        let code = ErrorCode::WebServerAppZipOpen;
-        let detail = ErrorDetail::WebServerAppZipOpen {
+        let code = ErrorCode::AppZipOpen;
+        let detail = ErrorDetail::AppZipOpen {
             app_zip_path_file_id,
             app_zip_path_span,
             error,
