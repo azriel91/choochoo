@@ -50,7 +50,7 @@ impl<E> Driver<E> {
 
         if visit_required {
             station
-                .visit(&resources)
+                .visit(resources)
                 .await
                 .map_err(EnsureOutcomeErr::VisitFail)?;
 
