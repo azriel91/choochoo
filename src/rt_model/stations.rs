@@ -5,14 +5,14 @@ use daggy::{
     Dag, NodeWeightsMut,
 };
 
-use crate::{cfg_model::Workload, rt_model::Station};
+use crate::cfg_model::{StationSpec, Workload};
 
-/// Frozen stations graph.
-pub type StationsFrozen<'s, E> = Frozen<'s, Dag<Station<E>, Workload>>;
+/// Frozen station spec graph.
+pub type StationsFrozen<'s, E> = Frozen<'s, Dag<StationSpec<E>, Workload>>;
 
-/// Directed acyclic graph of [`Station`]s.
+/// Directed acyclic graph of [`StationSpec`]s.
 #[derive(Clone, Debug, Default)]
-pub struct Stations<E>(pub Dag<Station<E>, Workload>);
+pub struct Stations<E>(pub Dag<StationSpec<E>, Workload>);
 
 impl<E> Stations<E> {
     /// Returns an empty graph of [`Station`]s.
@@ -28,25 +28,25 @@ impl<E> Stations<E> {
     /// Returns an iterator over references of all [`Station`]s.
     pub fn iter(
         &self,
-    ) -> impl Iterator<Item = &Station<E>> + ExactSizeIterator + DoubleEndedIterator {
+    ) -> impl Iterator<Item = &StationSpec<E>> + ExactSizeIterator + DoubleEndedIterator {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references().map(|(_, station)| station)
     }
 
     /// Returns an iterator over mutable references of all [`Station`]s.
-    pub fn iter_mut(&mut self) -> NodeWeightsMut<Station<E>, DefaultIx> {
+    pub fn iter_mut(&mut self) -> NodeWeightsMut<StationSpec<E>, DefaultIx> {
         self.0.node_weights_mut()
     }
 
     /// Returns an iterator over references of all [`Station`]s.
-    pub fn iter_with_indices(&self) -> NodeReferences<Station<E>> {
+    pub fn iter_with_indices(&self) -> NodeReferences<StationSpec<E>> {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references()
     }
 }
 
 impl<E> Deref for Stations<E> {
-    type Target = Dag<Station<E>, Workload>;
+    type Target = Dag<StationSpec<E>, Workload>;
 
     #[cfg(not(tarpaulin_include))]
     fn deref(&self) -> &Self::Target {
@@ -70,7 +70,7 @@ mod tests {
     use super::Stations;
     use crate::{
         cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::{Station, VisitStatus},
+        rt_model::VisitStatus,
     };
 
     #[test]
@@ -120,7 +120,6 @@ mod tests {
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-        let station = Station::new(station_spec, VisitStatus::Queued);
-        Ok(stations.add_node(station))
+        Ok(stations.add_node(station_spec))
     }
 }
