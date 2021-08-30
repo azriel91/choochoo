@@ -63,21 +63,23 @@ impl<E> VisitStatusUpdater<E> {
         let station_id_to_rt_id = dest.station_id_to_rt_id();
 
         stations.iter().for_each(|station| {
-            station_id_to_rt_id
-                .get(station.id())
-                .and_then(|station_rt_id| {
-                    station_progresses
-                        .get(station_rt_id)
-                        .map(|station_progress| (*station_rt_id, station_progress.borrow_mut()))
-                })
-                .map(|(station_rt_id, mut station_progress)| {
-                    let visit_status_next =
-                        Self::visit_status_next(dest, station_rt_id, &station_progress);
+            let station_rt_id_and_progress =
+                station_id_to_rt_id
+                    .get(station.id())
+                    .and_then(|station_rt_id| {
+                        station_progresses
+                            .get(station_rt_id)
+                            .map(|station_progress| (*station_rt_id, station_progress.borrow_mut()))
+                    });
 
-                    if let Some(visit_status_next) = visit_status_next {
-                        station_progress.visit_status = visit_status_next
-                    };
-                });
+            if let Some((station_rt_id, mut station_progress)) = station_rt_id_and_progress {
+                let visit_status_next =
+                    Self::visit_status_next(dest, station_rt_id, &station_progress);
+
+                if let Some(visit_status_next) = visit_status_next {
+                    station_progress.visit_status = visit_status_next
+                };
+            }
         });
     }
 

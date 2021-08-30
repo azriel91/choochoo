@@ -94,7 +94,7 @@ impl<E> IntegrityStrat<E> {
                             .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
                         station_progress.progress_bar.set_style(progress_style);
 
-                        visit_logic(&station, &mut station_progress, seed_ref).await;
+                        visit_logic(station, &mut station_progress, seed_ref).await;
 
                         Self::station_progress_bar_update(&station_progress);
                     })
