@@ -2,10 +2,7 @@ use std::marker::PhantomData;
 
 use daggy::Walker;
 
-use crate::{
-    cfg_model::StationProgress,
-    rt_model::{Destination, StationRtId, VisitStatus},
-};
+use crate::rt_model::{Destination, StationRtId, VisitStatus};
 
 /// Updates the [`VisitStatus`]es for all [`Station`]s.
 ///
@@ -55,50 +52,60 @@ impl<E> VisitStatusUpdater<E> {
     ///
     /// # Parameters
     ///
-    /// * `stations`: `Stations` to update the `VisitStatus` for.
-    /// * `station_progresses`: Map of [`StationProgress`]es.
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
     pub fn update(dest: &Destination<E>) {
         let stations = dest.stations();
-        let station_progresses = dest.station_progresses();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
 
         stations.iter().for_each(|station| {
-            let station_rt_id_and_progress =
-                station_id_to_rt_id
-                    .get(station.id())
-                    .and_then(|station_rt_id| {
-                        station_progresses
-                            .get(station_rt_id)
-                            .map(|station_progress| (*station_rt_id, station_progress.borrow_mut()))
-                    });
-
-            if let Some((station_rt_id, mut station_progress)) = station_rt_id_and_progress {
-                let visit_status_next =
-                    Self::visit_status_next(dest, station_rt_id, &station_progress);
+            if let Some(station_rt_id) = station_id_to_rt_id.get(station.id()) {
+                let visit_status_next = Self::visit_status_next(dest, *station_rt_id);
 
                 if let Some(visit_status_next) = visit_status_next {
-                    station_progress.visit_status = visit_status_next
+                    let station_progress = dest
+                        .station_progresses()
+                        .get(station_rt_id)
+                        .map(|station_progress| station_progress.borrow_mut());
+
+                    if let Some(mut station_progress) = station_progress {
+                        station_progress.visit_status = visit_status_next
+                    }
                 };
             }
         });
     }
 
-    /// Returns the [`VisitStatus`] to be transitioned to, if any.
-    fn visit_status_next(
+    /// Returns the [`VisitStatus`] to be transitioned to for a single station,
+    /// if any.
+    ///
+    /// # Parameters
+    ///
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
+    /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
+    ///   compute.
+    /// * `station_progress`: Runtime ID of the station whose next `VisitStatus`
+    ///   to compute.
+    pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,
-        station_progress: &StationProgress<E>,
     ) -> Option<VisitStatus> {
-        match station_progress.visit_status {
-            VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
-            VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
-            | VisitStatus::CheckFail
-            | VisitStatus::InProgress
-            | VisitStatus::ParentFail
-            | VisitStatus::VisitSuccess
-            | VisitStatus::VisitUnnecessary
-            | VisitStatus::VisitFail => None,
-        }
+        dest.station_progresses()
+            .get(&station_rt_id)
+            .map(|station_progress| station_progress.borrow())
+            .and_then(|station_progress| {
+                match station_progress.visit_status {
+                    VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
+                    VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
+                    | VisitStatus::CheckFail
+                    | VisitStatus::InProgress
+                    | VisitStatus::ParentFail
+                    | VisitStatus::VisitSuccess
+                    | VisitStatus::VisitUnnecessary
+                    | VisitStatus::VisitFail => None,
+                }
+            })
     }
 
     fn transition_not_ready(
@@ -301,10 +308,7 @@ mod tests {
         )?;
         let dest = Destination::new(stations, station_progresses);
 
-        let station_progress = &dest.station_progresses()[&station_rt_id];
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&dest, station_rt_id, &station_progress.borrow());
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_rt_id);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -340,10 +344,7 @@ mod tests {
         stations.add_edge(station_b, station_c, Workload::default())?;
         let dest = Destination::new(stations, station_progresses);
 
-        let station_c_progress = dest.station_progresses().borrow(&station_c);
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&dest, station_c, &station_c_progress);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -379,10 +380,7 @@ mod tests {
         stations.add_edge(station_b, station_c, Workload::default())?;
         let dest = Destination::new(stations, station_progresses);
 
-        let station_c_progress = dest.station_progresses().borrow(&station_c);
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&dest, station_c, &station_c_progress);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -418,10 +416,7 @@ mod tests {
         stations.add_edge(station_b, station_c, Workload::default())?;
         let dest = Destination::new(stations, station_progresses);
 
-        let station_c_progress = dest.station_progresses().borrow(&station_c);
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&dest, station_c, &station_c_progress);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
         Ok(())
@@ -454,10 +449,7 @@ mod tests {
         stations.add_edge(station_b, station_c, Workload::default())?;
         let dest = Destination::new(stations, station_progresses);
 
-        let station_c_progress = dest.station_progresses().borrow(&station_c);
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&dest, station_c, &station_c_progress);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
         Ok(())
@@ -498,10 +490,7 @@ mod tests {
             stations.add_edge(station_b, station_c, Workload::default())?;
             let dest = Destination::new(stations, station_progresses);
 
-            let station_c_progress = dest.station_progresses().borrow(&station_c);
-
-            let visit_status_next =
-                VisitStatusUpdater::visit_status_next(&dest, station_c, &station_c_progress);
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
             assert_eq!(None, visit_status_next);
 
@@ -525,10 +514,7 @@ mod tests {
             let station_a = add_station(&mut stations, &mut station_progresses, "a", visit_status)?;
             let dest = Destination::new(stations, station_progresses);
 
-            let station_a_progress = dest.station_progresses().borrow(&station_a);
-
-            let visit_status_next =
-                VisitStatusUpdater::visit_status_next(&dest, station_a, &station_a_progress);
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
 
             assert_eq!(None, visit_status_next);
 
