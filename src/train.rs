@@ -21,8 +21,11 @@ impl Train {
         E: From<StationSpecError>,
     {
         let multi_progress = MultiProgress::new();
-        dest.station_progresses()
-            .values()
+        // Iterate using `stations` because these are sorted.
+        dest.stations()
+            .graph()
+            .node_indices()
+            .filter_map(|station_rt_id| dest.station_progresses().get(&station_rt_id))
             .for_each(|station_progress| {
                 let progress_bar = station_progress.borrow().progress_bar.clone();
                 let progress_bar_for_tick = station_progress.borrow().progress_bar.clone();
