@@ -1,15 +1,12 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use daggy::{
-    petgraph::{graph::DefaultIx, visit::IntoNodeIdentifiers},
-    NodeIndex,
-};
 use futures::{stream, stream::StreamExt};
 use indicatif::ProgressStyle;
 
 use crate::{
+    cfg_model::{StationProgress, StationSpec},
     rt_logic::VisitStatusUpdater,
-    rt_model::{Destination, Station, VisitStatus},
+    rt_model::{Destination, VisitStatus},
 };
 
 /// [`Stream`] of [`Station`]s to process with integrity guarantees.
@@ -62,84 +59,93 @@ impl<E> IntegrityStrat<E> {
     /// * `visit_logic`: Logic to run to visit a `Station`.
     pub async fn iter<F, R>(dest: &mut Destination<E>, seed: R, visit_logic: F) -> R
     where
-        F: for<'a> Fn(&'a R, &'a mut Station<E>) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
+        F: for<'a> Fn(
+            &'a StationSpec<E>,
+            &'a mut StationProgress<E>,
+            &'a R,
+        ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
         let visit_logic = &visit_logic;
         let seed_ref = &seed;
-        let mut node_ids_queued =
-            Vec::<NodeIndex<DefaultIx>>::with_capacity(dest.stations.graph().node_count());
 
         loop {
-            let node_ids = dest.stations.node_identifiers();
-            node_ids.for_each(|node_id| {
-                let station = &dest.stations[node_id];
-                if station.visit_status == VisitStatus::Queued {
-                    node_ids_queued.push(node_id);
-                }
-            });
-
-            if !node_ids_queued.is_empty() {
-                stream::iter(
-                    dest.stations
-                        .node_weights_mut()
-                        .filter(|station| station.visit_status == VisitStatus::Queued),
-                )
-                .for_each_concurrent(4, |station| async move {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(Station::<E>::STYLE_IN_PROGRESS_BYTES);
-                    station.progress_bar.set_style(progress_style);
-                    visit_logic(seed_ref, station).await;
-
-                    Self::station_progress_bar_update(station);
+            let stations_queued = dest
+                .stations()
+                .iter()
+                .filter_map(|station| {
+                    let station_rt_id = dest.station_id_to_rt_id().get(station.id());
+                    if let Some(station_rt_id) = station_rt_id {
+                        let station_progress = dest.station_progresses().borrow_mut(station_rt_id);
+                        if station_progress.visit_status == VisitStatus::Queued {
+                            Some((station, station_progress))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
                 })
-                .await;
+                .collect::<Vec<_>>();
+
+            if !stations_queued.is_empty() {
+                stream::iter(stations_queued.into_iter())
+                    .for_each_concurrent(4, |(station, mut station_progress)| async move {
+                        let progress_style = ProgressStyle::default_bar()
+                            .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
+                        station_progress.progress_bar.set_style(progress_style);
+
+                        visit_logic(&station, &mut station_progress, seed_ref).await;
+
+                        Self::station_progress_bar_update(&station_progress);
+                    })
+                    .await;
             } else {
                 break;
             }
 
-            VisitStatusUpdater::update(&mut dest.stations);
-            dest.stations
-                .iter()
-                .for_each(Self::station_progress_bar_update);
-
-            node_ids_queued.clear();
+            VisitStatusUpdater::update(&*dest);
+            dest.station_progresses()
+                .values()
+                .for_each(|station_progress| {
+                    Self::station_progress_bar_update(&station_progress.borrow())
+                });
         }
 
         seed
     }
 
-    fn station_progress_bar_update(station: &Station<E>) {
-        if !station.progress_bar.is_finished() {
-            match station.visit_status {
+    fn station_progress_bar_update(station_progress: &StationProgress<E>) {
+        if !station_progress.progress_bar.is_finished() {
+            match station_progress.visit_status {
                 VisitStatus::NotReady | VisitStatus::Queued => {
                     let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_QUEUED);
-                    station.progress_bar.set_style(progress_style);
+                        ProgressStyle::default_bar().template(StationProgress::<E>::STYLE_QUEUED);
+                    station_progress.progress_bar.set_style(progress_style);
                 }
                 VisitStatus::ParentFail => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_PARENT_FAILED);
-                    station.progress_bar.set_style(progress_style);
-                    station.progress_bar.abandon();
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(StationProgress::<E>::STYLE_PARENT_FAILED);
+                    station_progress.progress_bar.set_style(progress_style);
+                    station_progress.progress_bar.abandon();
                 }
                 VisitStatus::InProgress => {}
                 VisitStatus::VisitSuccess => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_SUCCESS_BYTES);
-                    station.progress_bar.set_style(progress_style);
-                    station.progress_bar.finish();
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(StationProgress::<E>::STYLE_SUCCESS_BYTES);
+                    station_progress.progress_bar.set_style(progress_style);
+                    station_progress.progress_bar.finish();
                 }
                 VisitStatus::VisitUnnecessary => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_UNCHANGED_BYTES);
-                    station.progress_bar.set_style(progress_style);
-                    station.progress_bar.finish();
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(StationProgress::<E>::STYLE_UNCHANGED_BYTES);
+                    station_progress.progress_bar.set_style(progress_style);
+                    station_progress.progress_bar.finish();
                 }
                 VisitStatus::CheckFail | VisitStatus::VisitFail => {
                     let progress_style =
-                        ProgressStyle::default_bar().template(Station::<E>::STYLE_FAILED);
-                    station.progress_bar.set_style(progress_style);
-                    station.progress_bar.abandon();
+                        ProgressStyle::default_bar().template(StationProgress::<E>::STYLE_FAILED);
+                    station_progress.progress_bar.set_style(progress_style);
+                    station_progress.progress_bar.abandon();
                 }
             }
         }
@@ -156,8 +162,10 @@ mod tests {
 
     use super::IntegrityStrat;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::{Destination, Station, Stations, VisitStatus},
+        cfg_model::{
+            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+        },
+        rt_model::{Destination, StationProgresses, Stations, VisitStatus},
     };
 
     #[test]
@@ -177,10 +185,29 @@ mod tests {
         let (tx, _rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::VisitSuccess, Ok((tx, 0)))?;
-            add_station(&mut stations, "b", VisitStatus::VisitFail, Err(()))?;
-            add_station(&mut stations, "c", VisitStatus::ParentFail, Err(()))?;
-            Destination { stations }
+            let mut station_progresses = StationProgresses::new();
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "a",
+                VisitStatus::VisitSuccess,
+                Ok((tx, 0)),
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "b",
+                VisitStatus::VisitFail,
+                Err(()),
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "c",
+                VisitStatus::ParentFail,
+                Err(()),
+            )?;
+            Destination::new(stations, station_progresses)
         };
 
         let (call_count, stations_sequence) = call_iter(dest, None)?;
@@ -195,10 +222,29 @@ mod tests {
         let (tx, rx) = mpsc::channel(10);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued, Ok((tx.clone(), 0)))?;
-            add_station(&mut stations, "b", VisitStatus::Queued, Ok((tx.clone(), 1)))?;
-            add_station(&mut stations, "c", VisitStatus::NotReady, Ok((tx, 2)))?;
-            Destination { stations }
+            let mut station_progresses = StationProgresses::new();
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "a",
+                VisitStatus::Queued,
+                Ok((tx.clone(), 0)),
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "b",
+                VisitStatus::Queued,
+                Ok((tx.clone(), 1)),
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "c",
+                VisitStatus::NotReady,
+                Ok((tx, 2)),
+            )?;
+            Destination::new(stations, station_progresses)
         };
 
         let (call_count, stations_sequence) = call_iter(dest, Some(rx))?;
@@ -210,16 +256,17 @@ mod tests {
 
     fn add_station(
         stations: &mut Stations<()>,
+        station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,
     ) -> Result<(), StationIdInvalidFmt<'static>> {
         let station_spec_fns = {
             let visit_fn = match visit_result {
-                Ok((tx, n)) => StationFn::new(move |station, _| {
+                Ok((tx, n)) => StationFn::new(move |station_progress, _| {
                     let tx = tx.clone();
                     Box::pin(async move {
-                        station.visit_status = VisitStatus::VisitSuccess;
+                        station_progress.visit_status = VisitStatus::VisitSuccess;
                         tx.send(n).await.map_err(|_| ())
                     })
                 }),
@@ -230,8 +277,9 @@ mod tests {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-        let station = Station::new(station_spec, visit_status);
-        stations.add_node(station);
+        let station_progress = StationProgress::new(&station_spec, visit_status);
+        let station_rt_id = stations.add_node(station_spec);
+        station_progresses.insert(station_rt_id, station_progress);
         Ok(())
     }
 
@@ -244,17 +292,21 @@ mod tests {
 
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let resources = IntegrityStrat::iter(&mut dest, resources, |resources, station| {
-                Box::pin(async move {
-                    station
-                        .visit(&Resources::default())
-                        .await
-                        .expect("Failed to visit station.");
+            let resources = IntegrityStrat::iter(
+                &mut dest,
+                resources,
+                |station, station_progress, resources| {
+                    Box::pin(async move {
+                        station
+                            .visit(station_progress, &Resources::default())
+                            .await
+                            .expect("Failed to visit station.");
 
-                    *resources.borrow_mut::<u32>() += 1;
-                    resources
-                })
-            })
+                        *resources.borrow_mut::<u32>() += 1;
+                        resources
+                    })
+                },
+            )
             .await;
             let call_count = *resources.borrow::<u32>();
 

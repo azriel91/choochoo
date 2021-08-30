@@ -1,6 +1,8 @@
 use std::fmt;
 
-use crate::cfg_model::{StationId, StationSpecFns};
+use resman::Resources;
+
+use crate::cfg_model::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
 
 /// Behaviour specification for a station.
 #[derive(Debug, Clone, PartialEq)]
@@ -56,6 +58,28 @@ impl<E> StationSpec<E> {
     /// Returns this station's behaviours.
     pub fn station_spec_fns(&self) -> &StationSpecFns<E> {
         &self.station_spec_fns
+    }
+
+    /// Checks if the station needs to be visited.
+    pub fn check<'f>(
+        &self,
+        station_progress: &'f mut StationProgress<E>,
+        resources: &'f Resources,
+    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
+        self.station_spec_fns
+            .check_fn
+            .clone()
+            .map(move |check_fn| check_fn.0(station_progress, resources))
+    }
+
+    /// Returns a task to visit the station.
+    pub fn visit<'f>(
+        &self,
+        station_progress: &'f mut StationProgress<E>,
+        resources: &'f Resources,
+    ) -> StationFnReturn<'f, (), E> {
+        let visit_fn = self.station_spec_fns.visit_fn.clone();
+        visit_fn.0(station_progress, resources)
     }
 }
 

@@ -39,6 +39,8 @@ impl<E> Stations<E> {
     }
 
     /// Returns an iterator over references of all [`Station`]s.
+    ///
+    /// Each iteration returns a `(NodeIndex<Ix>, &'a N)`.
     pub fn iter_with_indices(&self) -> NodeReferences<StationSpec<E>> {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references()
@@ -65,7 +67,8 @@ impl<E> DerefMut for Stations<E> {
 mod tests {
     use std::ops::{Deref, DerefMut};
 
-    use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+    use crate::rt_model::StationRtId;
+    use daggy::NodeIndex;
 
     use super::Stations;
     use crate::{
@@ -107,13 +110,13 @@ mod tests {
     fn add_station(
         stations: &mut Stations<()>,
         station_id: &'static str,
-    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
-            let visit_fn = StationFn::new(|station, _| {
+            let visit_fn = StationFn::new(|station_progress, _| {
                 Box::pin(async move {
-                    station.visit_status = VisitStatus::VisitSuccess;
+                    station_progress.visit_status = VisitStatus::VisitSuccess;
                     Result::<(), ()>::Ok(())
                 })
             });

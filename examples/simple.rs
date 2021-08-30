@@ -1,12 +1,15 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
+    cfg_model::{
+        StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+    },
     fmt::PlainTextFormatter,
-    rt_model::{error::StationSpecError, Destination, Station, Stations, VisitStatus},
+    rt_model::{
+        error::StationSpecError, Destination, StationProgresses, StationRtId, Stations, VisitStatus,
+    },
     Train,
 };
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use srcerr::{
     codespan::{FileId, Files, Span},
     codespan_reporting::diagnostic::{Diagnostic, Severity},
@@ -50,9 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let (mut dest, _station_a, _station_b) = {
             let mut stations = Stations::new();
-            let station_a = station_a(&mut stations);
-            let station_b = station_b(&mut stations, file_id);
-            let dest = Destination { stations };
+            let mut station_progresses = StationProgresses::new();
+            let station_a = station_a(&mut stations, &mut station_progresses);
+            let station_b = station_b(&mut stations, &mut station_progresses, file_id);
+            let dest = Destination::new(stations, station_progresses);
 
             (dest, station_a, station_b)
         };
@@ -81,15 +85,17 @@ async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId
 
 fn station_a(
     stations: &mut Stations<ExampleError>,
-) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(|station, _| {
+    station_progresses: &mut StationProgresses<ExampleError>,
+) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    let visit_fn = StationFn::new(|_station_progress, _| {
         Box::pin(async move {
-            eprintln!("Visiting {}.", station.station_spec.name());
+            eprintln!("Visiting {}.", "Station A");
             Result::<(), ExampleError>::Ok(())
         })
     });
     add_station(
         stations,
+        station_progresses,
         "a",
         "Station A",
         "Prints visit.",
@@ -100,17 +106,19 @@ fn station_a(
 
 fn station_b(
     stations: &mut Stations<ExampleError>,
+    station_progresses: &mut StationProgresses<ExampleError>,
     file_id: FileId,
-) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |station, _| {
+) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    let visit_fn = StationFn::new(move |_station_progress, _| {
         Box::pin(async move {
-            eprintln!("Visiting {}.", station.station_spec.name());
+            eprintln!("Visiting {}.", "Station B");
             let error = value_out_of_range(file_id);
             Result::<(), ExampleError>::Err(error)
         })
     });
     add_station(
         stations,
+        station_progresses,
         "b",
         "Station B",
         "Reads `simple.toml` and reports error.",
@@ -134,12 +142,13 @@ fn value_out_of_range(file_id: FileId) -> ExampleError {
 
 fn add_station(
     stations: &mut Stations<ExampleError>,
+    station_progresses: &mut StationProgresses<ExampleError>,
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
     visit_status: VisitStatus,
     visit_fn: StationFn<(), ExampleError>,
-) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
@@ -150,8 +159,10 @@ fn add_station(
         station_description,
         station_spec_fns,
     );
-    let station = Station::new(station_spec, visit_status);
-    Ok(stations.add_node(station))
+    let station_progress = StationProgress::new(&station_spec, visit_status);
+    let station_rt_id = stations.add_node(station_spec);
+    station_progresses.insert(station_rt_id, station_progress);
+    Ok(station_rt_id)
 }
 
 mod error {

@@ -2,21 +2,15 @@ use std::fmt;
 
 use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
-use resman::Resources;
 
-use crate::{
-    cfg_model::{CheckStatus, StationFnReturn, StationSpec},
-    rt_model::VisitStatus,
-};
+use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
 
 /// A state along the way to the destination.
 ///
 /// This is a high level item that is included in the user facing progress
 /// report.
 #[derive(Clone, Debug)]
-pub struct Station<E> {
-    /// Behaviour specification for this station.
-    pub station_spec: StationSpec<E>,
+pub struct StationProgress<E> {
     /// Progress bar to display this station's state and progress.
     pub progress_bar: ProgressBar,
     /// Error returned by this station.
@@ -25,7 +19,7 @@ pub struct Station<E> {
     pub visit_status: VisitStatus,
 }
 
-impl<E> Station<E> {
+impl<E> StationProgress<E> {
     /// Template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
         "❌ {msg:20} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
@@ -54,7 +48,7 @@ impl<E> Station<E> {
     ///
     /// * `station_spec`: Behaviour specification for this station.
     /// * `visit_status`: Whether this [`Station`] is ready to be visited.
-    pub fn new(station_spec: StationSpec<E>, visit_status: VisitStatus) -> Self {
+    pub fn new(station_spec: &StationSpec<E>, visit_status: VisitStatus) -> Self {
         let id_style = Style::new().blue().bold();
         let name_style = Style::new().bold().bright();
 
@@ -74,7 +68,6 @@ impl<E> Station<E> {
         );
 
         Self {
-            station_spec,
             progress_bar,
             error: None,
             visit_status,
@@ -87,28 +80,24 @@ impl<E> Station<E> {
         self
     }
 
-    /// Checks if the station needs to be visited.
-    pub fn check<'f>(
-        &'f mut self,
-        resources: &'f Resources,
-    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
-        self.station_spec
-            .station_spec_fns()
-            .check_fn
-            .clone()
-            .map(move |check_fn| check_fn.0(self, resources))
-    }
-
-    /// Returns a task to visit the station.
-    pub fn visit<'f>(&'f mut self, resources: &'f Resources) -> StationFnReturn<'f, (), E> {
-        let visit_fn = self.station_spec.station_spec_fns().visit_fn.clone();
-        visit_fn.0(self, resources)
+    /// Returns a type that implements [`fmt::Display`] for this progress.
+    pub fn display<'f>(&'f self, station_spec: &'f StationSpec<E>) -> impl fmt::Display + 'f {
+        StationProgressDisplay {
+            station_spec,
+            station_progress: self,
+        }
     }
 }
 
-impl<E> fmt::Display for Station<E> {
+/// Implements `Display`
+struct StationProgressDisplay<'station, E> {
+    station_spec: &'station StationSpec<E>,
+    station_progress: &'station StationProgress<E>,
+}
+
+impl<E> fmt::Display for StationProgressDisplay<'_, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{:?}] ", self.visit_status)?;
+        write!(f, "[{:?}] ", self.station_progress.visit_status)?;
 
         self.station_spec.fmt(f)
     }
@@ -116,7 +105,7 @@ impl<E> fmt::Display for Station<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::Station;
+    use super::StationProgress;
     use crate::{
         cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::VisitStatus,
@@ -132,9 +121,12 @@ mod tests {
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
-        let station = Station::new(station_spec, VisitStatus::InProgress);
+        let station = StationProgress::new(&station_spec, VisitStatus::InProgress);
 
-        assert_eq!("[InProgress] Station Name: One liner.", station.to_string());
+        assert_eq!(
+            "[InProgress] Station Name: One liner.",
+            station.display(&station_spec).to_string()
+        );
         Ok(())
     }
 }
