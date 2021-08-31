@@ -76,6 +76,39 @@ impl<E> VisitStatusUpdater<E> {
         });
     }
 
+    /// Updates the [`VisitStatus`]es for children of the given [`Station`].
+    ///
+    /// `ParentFail` transitions are propagated through to all later stations,
+    /// on the condition that the nodes are added in order.
+    ///
+    /// # Parameters
+    ///
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
+    /// * `station_rt_id`: Runtime ID of the parent station, whose children to
+    ///   update.
+    pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
+        let stations = dest.stations();
+
+        stations
+            .children(station_rt_id)
+            .iter(&*stations)
+            .for_each(|(_edge, station_rt_id)| {
+                let visit_status_next = Self::visit_status_next(dest, station_rt_id);
+
+                if let Some(visit_status_next) = visit_status_next {
+                    let station_progress = dest
+                        .station_progresses()
+                        .get(&station_rt_id)
+                        .map(|station_progress| station_progress.borrow_mut());
+
+                    if let Some(mut station_progress) = station_progress {
+                        station_progress.visit_status = visit_status_next
+                    }
+                };
+            });
+    }
+
     /// Returns the [`VisitStatus`] to be transitioned to for a single station,
     /// if any.
     ///
@@ -85,15 +118,13 @@ impl<E> VisitStatusUpdater<E> {
     ///   information.
     /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
     ///   compute.
-    /// * `station_progress`: Runtime ID of the station whose next `VisitStatus`
-    ///   to compute.
     pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
         dest.station_progresses()
             .get(&station_rt_id)
-            .map(|station_progress| station_progress.borrow())
+            .and_then(|station_progress| station_progress.try_borrow())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
                     VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
