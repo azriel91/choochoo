@@ -159,22 +159,28 @@ impl<E> VisitStatusUpdater<E> {
             .try_fold(
                 Some(VisitStatus::Queued),
                 |visit_status, parent_station_progress| {
-                    match parent_station_progress.borrow().visit_status {
-                        // If parent is already done, we keep going.
-                        VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
+                    if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                        match parent_station_progress.visit_status {
+                            // If parent is already done, we keep going.
+                            VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
 
-                        // Short circuits:
+                            // Short circuits:
 
-                        // If parent / ancestor has failed, indicate it in this station.
-                        VisitStatus::CheckFail
-                        | VisitStatus::VisitFail
-                        | VisitStatus::ParentFail => {
-                            return Err(Some(VisitStatus::ParentFail));
+                            // If parent / ancestor has failed, indicate it in this station.
+                            VisitStatus::CheckFail
+                            | VisitStatus::VisitFail
+                            | VisitStatus::ParentFail => {
+                                return Err(Some(VisitStatus::ParentFail));
+                            }
+                            // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
+                            VisitStatus::NotReady
+                            | VisitStatus::Queued
+                            | VisitStatus::InProgress => {
+                                return Err(None);
+                            }
                         }
-                        // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                        VisitStatus::NotReady | VisitStatus::Queued | VisitStatus::InProgress => {
-                            return Err(None);
-                        }
+                    } else {
+                        // Parent is probably being processed.
                     }
 
                     Ok(visit_status)

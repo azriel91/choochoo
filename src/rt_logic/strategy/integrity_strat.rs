@@ -95,7 +95,6 @@ impl<E> IntegrityStrat<E> {
                     .await
                     .unwrap_or_else(|e| panic!("Failed to queue additional station. {}", e)); // TODO: properly propagate this.
 
-                dbg!(stations_in_progress_count);
                 if stations_in_progress_count == 0 {
                     stations_done_rx.close();
                     break;
@@ -124,29 +123,30 @@ impl<E> IntegrityStrat<E> {
 
         // Process task.
         let station_visitor = async move {
-            while let Some((station_spec, station_rt_id, mut station_progress)) =
-                stations_queued_rx.recv().await
-            {
-                let progress_style = ProgressStyle::default_bar()
-                    .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
-                station_progress.progress_bar.set_style(progress_style);
+            let stations_done_tx_ref = &stations_done_tx;
+            stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
+                .for_each_concurrent(
+                    4,
+                    |(station_spec, station_rt_id, mut station_progress)| async move {
+                        let progress_style = ProgressStyle::default_bar()
+                            .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
+                        station_progress.progress_bar.set_style(progress_style);
 
-                visit_logic(station_spec, &mut station_progress, seed_ref).await;
+                        visit_logic(station_spec, &mut station_progress, seed_ref).await;
 
-                Self::station_progress_bar_update(&station_progress);
-
-                stations_done_tx
-                    .send(station_rt_id)
-                    .await
-                    .unwrap_or_else(|e| {
-                        panic!(
-                            "Failed to notify that `{}` is completed. {}",
-                            station_spec.id(),
-                            e
-                        )
-                    });
-            }
-            // No more stations to process
+                        stations_done_tx_ref
+                            .send(station_rt_id)
+                            .await
+                            .unwrap_or_else(|e| {
+                                panic!(
+                                    "Failed to notify that `{}` is completed. {}",
+                                    station_spec.id(),
+                                    e
+                                )
+                            });
+                    },
+                )
+                .await;
             stations_queued_rx.close();
             drop(stations_done_tx);
         };
