@@ -58,7 +58,7 @@ impl StationC {
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |station, resources| {
+        StationFn::new(move |station_progress, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 // Short circuit in case the file doesn't exist locally.
@@ -100,7 +100,7 @@ impl StationC {
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
                     if let Some(remote_file_length) = response.content_length() {
-                        station.progress_bar.set_length(remote_file_length);
+                        station_progress.progress_bar.set_length(remote_file_length);
                         if local_file_length == remote_file_length {
                             CheckStatus::VisitNotRequired
                         } else {
@@ -120,10 +120,10 @@ impl StationC {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|station, resources| {
+        StationFn::new(|station_progress, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station.progress_bar.reset();
+                station_progress.progress_bar.reset();
                 let files = resources.borrow::<RwFiles>();
                 let mut files = files.write().await;
 
@@ -142,8 +142,13 @@ impl StationC {
 
                 let status_code = response.status();
                 if status_code.is_success() {
-                    Self::app_zip_write(&station, &mut files, app_zip_url, response.bytes_stream())
-                        .await?;
+                    Self::app_zip_write(
+                        &station_progress,
+                        &mut files,
+                        app_zip_url,
+                        response.bytes_stream(),
+                    )
+                    .await?;
                     Result::<(), DemoError>::Ok(())
                 } else {
                     let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
@@ -171,7 +176,7 @@ impl StationC {
     }
 
     async fn app_zip_write(
-        station: &StationProgress<DemoError>,
+        station_progress: &StationProgress<DemoError>,
         files: &mut Files,
         app_zip_url: String,
         byte_stream: impl Stream<Item = reqwest::Result<Bytes>>,
@@ -204,7 +209,7 @@ impl StationC {
                 })
             })
             .try_fold(buffer, |mut buffer, bytes| async move {
-                station.progress_bar.inc(bytes.len() as u64);
+                station_progress.progress_bar.inc(bytes.len() as u64);
                 buffer.write_all(&bytes).await.map_err(|error| {
                     Self::write_error(app_zip_path_file_id, app_zip_path, error)
                 })?;

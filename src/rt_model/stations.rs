@@ -30,7 +30,9 @@ impl<E> Stations<E> {
         &self,
     ) -> impl Iterator<Item = &StationSpec<E>> + ExactSizeIterator + DoubleEndedIterator {
         use daggy::petgraph::visit::IntoNodeReferences;
-        self.0.node_references().map(|(_, station)| station)
+        self.0
+            .node_references()
+            .map(|(_, station_spec)| station_spec)
     }
 
     /// Returns an iterator over mutable references of all [`Station`]s.

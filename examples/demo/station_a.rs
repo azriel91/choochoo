@@ -59,7 +59,7 @@ impl StationA {
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(|station, resources| {
+        StationFn::new(|station_progress, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 let files = resources.borrow::<RwFiles>();
@@ -67,7 +67,7 @@ impl StationA {
 
                 // TODO: Hash the file and compare with server file hash.
                 // Currently we only compare file size
-                station.progress_bar.tick();
+                station_progress.progress_bar.tick();
                 let local_file_length = {
                     let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
                         .await
@@ -78,11 +78,11 @@ impl StationA {
                         .map_err(|error| Self::file_metadata_error(&mut files, error))?;
                     metadata.len()
                 };
-                station.progress_bar.set_length(local_file_length);
+                station_progress.progress_bar.set_length(local_file_length);
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
-                station.progress_bar.tick();
+                station_progress.progress_bar.tick();
                 let mut app_zip_url = address.to_string();
                 app_zip_url.push('/');
                 app_zip_url.push_str(APP_ZIP_NAME);
@@ -94,7 +94,7 @@ impl StationA {
                     Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
                 })?;
 
-                station.progress_bar.tick();
+                station_progress.progress_bar.tick();
                 let status_code = response.status();
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
@@ -119,9 +119,9 @@ impl StationA {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|station, resources| {
-            station.progress_bar.reset();
-            station.progress_bar.tick();
+        StationFn::new(|station_progress, resources| {
+            station_progress.progress_bar.reset();
+            station_progress.progress_bar.tick();
             Box::pin(async move {
                 let client = reqwest::Client::builder()
                     .redirect(Policy::none())

@@ -63,13 +63,13 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {
-        StationFn::new(move |station, resources| {
+        StationFn::new(move |station_progress, resources| {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
-                station.progress_bar.reset();
+                station_progress.progress_bar.reset();
                 stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
-                        station.progress_bar.inc(1);
+                        station_progress.progress_bar.inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     })
                     .await;

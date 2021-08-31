@@ -29,8 +29,8 @@ impl<E> Destination<E> {
         let mut station_id_to_rt_id = HashMap::with_capacity(stations.node_count());
         stations
             .iter_with_indices()
-            .for_each(|(node_index, station)| {
-                station_id_to_rt_id.insert(station.id().clone(), node_index);
+            .for_each(|(node_index, station_spec)| {
+                station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
             });
 
         Self {

@@ -41,14 +41,16 @@ impl Train {
         let mut train_report = TrainReport::new();
         let mut resources = Resources::default();
         resources.insert(RwFiles::new(RwLock::new(Files::new())));
-        let resources =
-            IntegrityStrat::iter(dest, resources, |station, station_progress, resources| {
+        let resources = IntegrityStrat::iter(
+            dest,
+            resources,
+            |station_spec, station_progress, resources| {
                 Box::pin(async move {
                     // Because this is in an async block, concurrent tasks may access this station's
                     // `visit_status` while the `visit()` is `await`ed.
                     station_progress.visit_status = VisitStatus::InProgress;
 
-                    match Driver::ensure(station, station_progress, resources).await {
+                    match Driver::ensure(station_spec, station_progress, resources).await {
                         Ok(EnsureOutcomeOk::Changed) => {
                             station_progress.visit_status = VisitStatus::VisitSuccess
                         }
@@ -66,15 +68,16 @@ impl Train {
                     }
                     resources
                 })
-            })
-            .await;
+            },
+        )
+        .await;
         train_report.resources = resources;
 
         dest.stations()
             .iter()
-            .filter_map(|station| {
+            .filter_map(|station_spec| {
                 dest.station_id_to_rt_id()
-                    .get(station.id())
+                    .get(station_spec.id())
                     .and_then(|station_rt_id| {
                         dest.station_progresses()
                             .get(station_rt_id)

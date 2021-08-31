@@ -121,11 +121,11 @@ mod tests {
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
-        let station = StationProgress::new(&station_spec, VisitStatus::InProgress);
+        let station_progress = StationProgress::new(&station_spec, VisitStatus::InProgress);
 
         assert_eq!(
             "[InProgress] Station Name: One liner.",
-            station.display(&station_spec).to_string()
+            station_progress.display(&station_spec).to_string()
         );
         Ok(())
     }

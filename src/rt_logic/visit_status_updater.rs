@@ -58,8 +58,8 @@ impl<E> VisitStatusUpdater<E> {
         let stations = dest.stations();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
 
-        stations.iter().for_each(|station| {
-            if let Some(station_rt_id) = station_id_to_rt_id.get(station.id()) {
+        stations.iter().for_each(|station_spec| {
+            if let Some(station_rt_id) = station_id_to_rt_id.get(station_spec.id()) {
                 let visit_status_next = Self::visit_status_next(dest, *station_rt_id);
 
                 if let Some(visit_status_next) = visit_status_next {

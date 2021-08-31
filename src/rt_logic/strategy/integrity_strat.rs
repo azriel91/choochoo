@@ -262,9 +262,9 @@ mod tests {
             let resources = IntegrityStrat::iter(
                 &mut dest,
                 resources,
-                |station, station_progress, resources| {
+                |station_spec, station_progress, resources| {
                     Box::pin(async move {
-                        station
+                        station_spec
                             .visit(station_progress, &Resources::default())
                             .await
                             .expect("Failed to visit station.");
