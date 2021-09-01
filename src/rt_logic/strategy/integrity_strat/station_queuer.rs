@@ -48,32 +48,34 @@ impl<E> StationQueuer<E> {
             if stations_in_progress_count == 0 {
                 stations_done_rx.close();
                 break;
+            } else if let Some(station_rt_id) = stations_done_rx.recv().await {
+                stations_in_progress_count -= 1;
+
+                VisitStatusUpdater::update_children(dest, station_rt_id);
+
+                // We have to update all progress bars, otherwise the multi progress bar will
+                // interleave redraw operations, causing the output to be non-sensical, e.g. the
+                // first few stations' progress bars are drawn multiple times, and the last few
+                // stations' progress bars are not drawn at all.
+                Self::progress_bar_update_all(dest);
             } else {
-                if let Some(station_rt_id) = stations_done_rx.recv().await {
-                    stations_in_progress_count -= 1;
-
-                    VisitStatusUpdater::update_children(dest, station_rt_id);
-
-                    // We have to update all progress bars, otherwise the multi progress bar will
-                    // interleave redraw operations, causing the output to be non-sensical, e.g. the
-                    // first few stations' progress bars are drawn multiple times, and the last few
-                    // stations' progress bars are not drawn at all.
-                    Self::progress_bar_update_all(dest);
-                } else {
-                    // No more stations will be sent.
-                    stations_done_rx.close();
-                    break;
-                }
+                // No more stations will be sent.
+                stations_done_rx.close();
+                break;
             }
         }
     }
 
     fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = Station<'_, E>> + '_ {
         dest.stations().iter().filter_map(move |station_spec| {
-            let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id()).copied();
-            if let Some(station_rt_id) = station_rt_id {
-                let station_progress = dest.station_progresses().try_borrow_mut(&station_rt_id);
-                if let Some(station_progress) = station_progress {
+            dest.station_id_to_rt_id()
+                .get(station_spec.id())
+                .and_then(|station_rt_id| {
+                    dest.station_progresses()
+                        .try_borrow_mut(station_rt_id)
+                        .map(|station_progress| (*station_rt_id, station_progress))
+                })
+                .and_then(|(station_rt_id, station_progress)| {
                     if station_progress.visit_status == VisitStatus::Queued {
                         Some(Station {
                             spec: station_spec,
@@ -83,12 +85,7 @@ impl<E> StationQueuer<E> {
                     } else {
                         None
                     }
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+                })
         })
     }
 
