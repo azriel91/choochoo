@@ -41,35 +41,31 @@ impl Train {
         let mut train_report = TrainReport::new();
         let mut resources = Resources::default();
         resources.insert(RwFiles::new(RwLock::new(Files::new())));
-        let resources = IntegrityStrat::iter(
-            dest,
-            resources,
-            |station_spec, station_progress, resources| {
-                Box::pin(async move {
-                    // Because this is in an async block, concurrent tasks may access this station's
-                    // `visit_status` while the `visit()` is `await`ed.
-                    station_progress.visit_status = VisitStatus::InProgress;
+        let resources = IntegrityStrat::iter(dest, resources, |mut station, resources| {
+            Box::pin(async move {
+                // Because this is in an async block, concurrent tasks may access this station's
+                // `visit_status` while the `visit()` is `await`ed.
+                station.progress.visit_status = VisitStatus::InProgress;
 
-                    match Driver::ensure(station_spec, station_progress, resources).await {
-                        Ok(EnsureOutcomeOk::Changed) => {
-                            station_progress.visit_status = VisitStatus::VisitSuccess
-                        }
-                        Ok(EnsureOutcomeOk::Unchanged) => {
-                            station_progress.visit_status = VisitStatus::VisitUnnecessary
-                        }
-                        Err(EnsureOutcomeErr::CheckFail(e)) => {
-                            station_progress.error = Some(e);
-                            station_progress.visit_status = VisitStatus::CheckFail;
-                        }
-                        Err(EnsureOutcomeErr::VisitFail(e)) => {
-                            station_progress.error = Some(e);
-                            station_progress.visit_status = VisitStatus::VisitFail;
-                        }
+                match Driver::ensure(&mut station, resources).await {
+                    Ok(EnsureOutcomeOk::Changed) => {
+                        station.progress.visit_status = VisitStatus::VisitSuccess
                     }
-                    resources
-                })
-            },
-        )
+                    Ok(EnsureOutcomeOk::Unchanged) => {
+                        station.progress.visit_status = VisitStatus::VisitUnnecessary
+                    }
+                    Err(EnsureOutcomeErr::CheckFail(e)) => {
+                        station.progress.error = Some(e);
+                        station.progress.visit_status = VisitStatus::CheckFail;
+                    }
+                    Err(EnsureOutcomeErr::VisitFail(e)) => {
+                        station.progress.error = Some(e);
+                        station.progress.visit_status = VisitStatus::VisitFail;
+                    }
+                }
+                resources
+            })
+        })
         .await;
         train_report.resources = resources;
 
@@ -95,6 +91,22 @@ impl Train {
                 train_report.errors.insert(station_rt_id, error);
             });
 
+        // We need to finish / abandon all progress bars, otherwise the
+        // `MultiProgress` will never finish.
+        let dest = &dest;
+        dest.stations().iter().for_each(move |station_spec| {
+            let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id()).copied();
+            if let Some(station_rt_id) = station_rt_id {
+                let station_progress = dest.station_progresses().try_borrow_mut(&station_rt_id);
+                if let Some(station_progress) = station_progress {
+                    if !station_progress.progress_bar.is_finished() {
+                        station_progress.progress_bar.finish_at_current_pos();
+                    }
+                }
+            }
+        });
+
+        // Note: This will hang if a progress bar is started but not completed.
         multi_progress_fut.await.unwrap();
 
         train_report

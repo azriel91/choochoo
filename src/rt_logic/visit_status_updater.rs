@@ -38,6 +38,8 @@ use crate::rt_model::{Destination, StationRtId, VisitStatus};
 /// ## `VisitFail`
 ///
 /// No transitions.
+///
+/// [`Station`]: crate::rt_model::Station
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
     /// Marker
@@ -54,6 +56,8 @@ impl<E> VisitStatusUpdater<E> {
     ///
     /// * `dest`: `Destination` with all the stations and their progress
     ///   information.
+    ///
+    /// [`Station`]: crate::rt_model::Station
     pub fn update(dest: &Destination<E>) {
         let stations = dest.stations();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
@@ -87,6 +91,8 @@ impl<E> VisitStatusUpdater<E> {
     ///   information.
     /// * `station_rt_id`: Runtime ID of the parent station, whose children to
     ///   update.
+    ///
+    /// [`Station`]: crate::rt_model::Station
     pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
         let stations = dest.stations();
 
@@ -109,8 +115,8 @@ impl<E> VisitStatusUpdater<E> {
             });
     }
 
-    /// Returns the [`VisitStatus`] to be transitioned to for a single station,
-    /// if any.
+    /// Returns the [`VisitStatus`] to be transitioned to for a single
+    /// [`Station`], if any.
     ///
     /// # Parameters
     ///
@@ -118,6 +124,8 @@ impl<E> VisitStatusUpdater<E> {
     ///   information.
     /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
     ///   compute.
+    ///
+    /// [`Station`]: crate::rt_model::Station
     pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,

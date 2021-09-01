@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
+use crate::rt_model::Station;
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use indicatif::ProgressStyle;
-use rt_map::RefMut;
 use tokio::sync::mpsc::{error::SendError, Receiver, Sender};
 
 use crate::{
-    cfg_model::{StationProgress, StationSpec},
+    cfg_model::StationProgress,
     rt_logic::VisitStatusUpdater,
     rt_model::{Destination, StationRtId, VisitStatus},
 };
@@ -25,11 +25,7 @@ impl<E> StationQueuer<E> {
     /// * `stations_done_rx`: Receiver for station that have been visited.
     pub async fn run<'f>(
         dest: &'f Destination<E>,
-        stations_queued_tx: Sender<(
-            &'f StationSpec<E>,
-            StationRtId,
-            RefMut<'f, StationProgress<E>>,
-        )>,
+        stations_queued_tx: Sender<Station<'f, E>>,
         mut stations_done_rx: Receiver<StationRtId>,
     ) {
         let stations_queued_tx_ref = &stations_queued_tx;
@@ -40,8 +36,8 @@ impl<E> StationQueuer<E> {
                 .map(Result::<_, SendError<_>>::Ok)
                 .try_fold(
                     stations_in_progress_count,
-                    |stations_in_progress_count, station_and_progress| async move {
-                        stations_queued_tx_ref.send(station_and_progress).await?;
+                    |stations_in_progress_count, station| async move {
+                        stations_queued_tx_ref.send(station).await?;
 
                         Ok(stations_in_progress_count + 1)
                     },
@@ -53,44 +49,37 @@ impl<E> StationQueuer<E> {
                 stations_done_rx.close();
                 break;
             } else {
-                // TODO: will this wait indefinitely?
                 if let Some(station_rt_id) = stations_done_rx.recv().await {
                     stations_in_progress_count -= 1;
+
                     VisitStatusUpdater::update_children(dest, station_rt_id);
 
-                    dest.station_progresses()
-                        .values()
-                        .for_each(|station_progress| {
-                            if let Some(station_progress) = station_progress.try_borrow() {
-                                Self::station_progress_bar_update(&station_progress)
-                            }
-                        });
+                    // We have to update all progress bars, otherwise the multi progress bar will
+                    // interleave redraw operations, causing the output to be non-sensical, e.g. the
+                    // first few stations' progress bars are drawn multiple times, and the last few
+                    // stations' progress bars are not drawn at all.
+                    Self::progress_bar_update_all(dest);
                 } else {
                     // No more stations will be sent.
                     stations_done_rx.close();
-                    drop(stations_queued_tx);
                     break;
                 }
             }
         }
     }
 
-    fn stations_queued(
-        dest: &Destination<E>,
-    ) -> impl Iterator<
-        Item = (
-            &StationSpec<E>,
-            StationRtId,
-            rt_map::RefMut<StationProgress<E>>,
-        ),
-    > + '_ {
+    fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = Station<'_, E>> + '_ {
         dest.stations().iter().filter_map(move |station_spec| {
             let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id()).copied();
             if let Some(station_rt_id) = station_rt_id {
                 let station_progress = dest.station_progresses().try_borrow_mut(&station_rt_id);
                 if let Some(station_progress) = station_progress {
                     if station_progress.visit_status == VisitStatus::Queued {
-                        Some((station_spec, station_rt_id, station_progress))
+                        Some(Station {
+                            spec: station_spec,
+                            rt_id: station_rt_id,
+                            progress: station_progress,
+                        })
                     } else {
                         None
                     }
@@ -101,6 +90,16 @@ impl<E> StationQueuer<E> {
                 None
             }
         })
+    }
+
+    fn progress_bar_update_all(dest: &Destination<E>) {
+        dest.station_progresses()
+            .values()
+            .for_each(|station_progress| {
+                if let Some(station_progress) = station_progress.try_borrow() {
+                    Self::station_progress_bar_update(&station_progress)
+                }
+            });
     }
 
     fn station_progress_bar_update(station_progress: &StationProgress<E>) {

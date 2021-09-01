@@ -4,7 +4,7 @@ use resman::Resources;
 
 use crate::cfg_model::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
 
-/// Behaviour specification for a station.
+/// Behaviour specification of the station.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StationSpec<E> {
     /// Unique identifier of the station.
@@ -18,7 +18,7 @@ pub struct StationSpec<E> {
 }
 
 impl<E> StationSpec<E> {
-    /// Returns a new [`Station`].
+    /// Returns a new [`StationSpec`].
     ///
     /// # Parameters
     ///

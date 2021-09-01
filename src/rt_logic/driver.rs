@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use resman::Resources;
 
 use crate::{
-    cfg_model::{CheckStatus, StationProgress, StationSpec},
-    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk},
+    cfg_model::CheckStatus,
+    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, Station},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -35,15 +35,14 @@ impl<E> Driver<E> {
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
     pub async fn ensure(
-        station_spec: &StationSpec<E>,
-        station_progress: &mut StationProgress<E>,
+        station: &mut Station<'_, E>,
         resources: &Resources,
     ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
         let visit_required = if let Some(check_status) =
-            station_spec.check(station_progress, resources)
+            station.spec.check(&mut station.progress, resources)
         {
             check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
         } else {
@@ -52,8 +51,9 @@ impl<E> Driver<E> {
         };
 
         if visit_required {
-            station_spec
-                .visit(station_progress, resources)
+            station
+                .spec
+                .visit(&mut station.progress, resources)
                 .await
                 .map_err(EnsureOutcomeErr::VisitFail)?;
 
@@ -61,21 +61,21 @@ impl<E> Driver<E> {
             // need to visit, then the visit function or the check
             // function needs to be corrected.
             let spec_has_error =
-                if let Some(check_status) = station_spec.check(station_progress, resources) {
+                if let Some(check_status) = station.spec.check(&mut station.progress, resources) {
                     check_status.await.map_err(EnsureOutcomeErr::CheckFail)?
                         == CheckStatus::VisitRequired
                 } else {
                     false
                 };
 
-            // Need to split this out, because `station_progress` is borrowed during the
+            // Need to split this out, because `station.progress` is borrowed during the
             // scope of the `if let`
             if spec_has_error {
-                let id = station_spec.id().clone();
-                let name = station_spec.name().to_string();
+                let id = station.spec.id().clone();
+                let name = station.spec.name().to_string();
                 let station_spec_error = StationSpecError::VisitRequiredAfterVisit { id, name };
 
-                station_progress.error = Some(E::from(station_spec_error));
+                station.progress.error = Some(E::from(station_spec_error));
             }
 
             Ok(EnsureOutcomeOk::Changed)

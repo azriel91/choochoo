@@ -5,7 +5,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
 
-/// A state along the way to the destination.
+/// Station progress to reaching the destination.
 ///
 /// This is a high level item that is included in the user facing progress
 /// report.
@@ -42,12 +42,13 @@ impl<E> StationProgress<E> {
     /// Template to apply when the station was not necessary to visit.
     pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:20} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
 
-    /// Returns a new [`Station`].
+    /// Returns a new [`StationProgress`].
     ///
     /// # Parameters
     ///
     /// * `station_spec`: Behaviour specification for this station.
-    /// * `visit_status`: Whether this [`Station`] is ready to be visited.
+    /// * `visit_status`: Whether this [`StationProgress`] is ready to be
+    ///   visited.
     pub fn new(station_spec: &StationSpec<E>, visit_status: VisitStatus) -> Self {
         let id_style = Style::new().blue().bold();
         let name_style = Style::new().bold().bright();

@@ -5,9 +5,9 @@ use indicatif::ProgressStyle;
 use tokio::sync::mpsc;
 
 use crate::{
-    cfg_model::{StationProgress, StationSpec},
+    cfg_model::StationProgress,
     rt_logic::VisitStatusUpdater,
-    rt_model::Destination,
+    rt_model::{Destination, Station},
 };
 
 use self::station_queuer::StationQueuer;
@@ -64,9 +64,8 @@ impl<E> IntegrityStrat<E> {
     /// * `visit_logic`: Logic to run to visit a `Station`.
     pub async fn iter<F, R>(dest: &mut Destination<E>, seed: R, visit_logic: F) -> R
     where
-        F: for<'a> Fn(
-            &'a StationSpec<E>,
-            &'a mut StationProgress<E>,
+        F: for<'a, 'station> Fn(
+            &'a mut Station<'station, E>,
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
@@ -87,27 +86,24 @@ impl<E> IntegrityStrat<E> {
         let station_visitor = async move {
             let stations_done_tx_ref = &stations_done_tx;
             stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
-                .for_each_concurrent(
-                    4,
-                    |(station_spec, station_rt_id, mut station_progress)| async move {
-                        let progress_style = ProgressStyle::default_bar()
-                            .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
-                        station_progress.progress_bar.set_style(progress_style);
+                .for_each_concurrent(4, |mut station| async move {
+                    let progress_style = ProgressStyle::default_bar()
+                        .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
+                    station.progress.progress_bar.set_style(progress_style);
 
-                        visit_logic(station_spec, &mut station_progress, seed_ref).await;
+                    visit_logic(&mut station, seed_ref).await;
 
-                        stations_done_tx_ref
-                            .send(station_rt_id)
-                            .await
-                            .unwrap_or_else(|e| {
-                                panic!(
-                                    "Failed to notify that `{}` is completed. {}",
-                                    station_spec.id(),
-                                    e
-                                )
-                            });
-                    },
-                )
+                    stations_done_tx_ref
+                        .send(station.rt_id)
+                        .await
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Failed to notify that `{}` is completed. {}",
+                                station.spec.id(),
+                                e
+                            )
+                        });
+                })
                 .await;
             stations_queued_rx.close();
             drop(stations_done_tx);
@@ -259,21 +255,18 @@ mod tests {
 
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let resources = IntegrityStrat::iter(
-                &mut dest,
-                resources,
-                |station_spec, station_progress, resources| {
-                    Box::pin(async move {
-                        station_spec
-                            .visit(station_progress, &Resources::default())
-                            .await
-                            .expect("Failed to visit station.");
+            let resources = IntegrityStrat::iter(&mut dest, resources, |station, resources| {
+                Box::pin(async move {
+                    station
+                        .spec
+                        .visit(&mut station.progress, &Resources::default())
+                        .await
+                        .expect("Failed to visit station.");
 
-                        *resources.borrow_mut::<u32>() += 1;
-                        resources
-                    })
-                },
-            )
+                    *resources.borrow_mut::<u32>() += 1;
+                    resources
+                })
+            })
             .await;
             let call_count = *resources.borrow::<u32>();
 
