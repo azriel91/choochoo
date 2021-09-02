@@ -1,18 +1,16 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use futures::{stream, stream::StreamExt};
-use indicatif::ProgressStyle;
 use tokio::sync::mpsc;
 
 use crate::{
-    cfg_model::StationProgress,
     rt_logic::VisitStatusUpdater,
     rt_model::{Destination, Station},
 };
 
-use self::station_queuer::StationQueuer;
+use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 
 mod station_queuer;
+mod station_visitor;
 
 /// [`Stream`] of [`Station`]s to process with integrity guarantees.
 ///
@@ -69,45 +67,18 @@ impl<E> IntegrityStrat<E> {
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
-        let dest = &dest;
-        let visit_logic = &visit_logic;
-        let seed_ref = &seed;
-
         // Set `NotReady` stations to `Queued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        let (stations_queued_tx, mut stations_queued_rx) = mpsc::channel(64);
+        let (stations_queued_tx, stations_queued_rx) = mpsc::channel(64);
         let (stations_done_tx, stations_done_rx) = mpsc::channel(64);
 
         // Listen to completion and queue more stations task.
         let station_queuer = StationQueuer::run(dest, stations_queued_tx, stations_done_rx);
 
         // Process task.
-        let station_visitor = async move {
-            let stations_done_tx_ref = &stations_done_tx;
-            stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
-                .for_each_concurrent(4, |mut station| async move {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
-                    station.progress.progress_bar.set_style(progress_style);
-
-                    visit_logic(&mut station, seed_ref).await;
-
-                    stations_done_tx_ref
-                        .send(station.rt_id)
-                        .await
-                        .unwrap_or_else(|e| {
-                            panic!(
-                                "Failed to notify that `{}` is completed. {}",
-                                station.spec.id(),
-                                e
-                            )
-                        });
-                })
-                .await;
-            stations_queued_rx.close();
-            drop(stations_done_tx);
-        };
+        let station_visitor =
+            StationVisitor::visit(&visit_logic, &seed, stations_queued_rx, stations_done_tx);
 
         futures::join!(station_queuer, station_visitor);
 
