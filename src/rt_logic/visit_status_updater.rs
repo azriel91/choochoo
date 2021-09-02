@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
-use daggy::{petgraph::graph::DefaultIx, NodeIndex, Walker};
+use daggy::Walker;
 
-use crate::rt_model::{Station, Stations, VisitStatus};
+use crate::rt_model::{Destination, StationRtId, VisitStatus};
 
 /// Updates the [`VisitStatus`]es for all [`Station`]s.
 ///
@@ -38,6 +38,8 @@ use crate::rt_model::{Station, Stations, VisitStatus};
 /// ## `VisitFail`
 ///
 /// No transitions.
+///
+/// [`Station`]: crate::rt_model::Station
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
     /// Marker
@@ -52,68 +54,146 @@ impl<E> VisitStatusUpdater<E> {
     ///
     /// # Parameters
     ///
-    /// * `stations`: `Stations` to update the `VisitStatus` for.
-    pub fn update(stations: &mut Stations<E>) {
-        stations.graph().node_indices().for_each(|node_index| {
-            // The `Option<&mut Station>` returned by `node_weight_mut` cannot be returned
-            // outside an iterator closure, which is why we cannot use `filter_map`.
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
+    ///
+    /// [`Station`]: crate::rt_model::Station
+    pub fn update(dest: &Destination<E>) {
+        let stations = dest.stations();
+        let station_id_to_rt_id = dest.station_id_to_rt_id();
 
-            let visit_status_next = stations
-                .node_weight(node_index)
-                .and_then(|station| Self::visit_status_next(stations, node_index, station));
-            let station_mut = stations.node_weight_mut(node_index);
+        stations.iter().for_each(|station_spec| {
+            if let Some(station_rt_id) = station_id_to_rt_id.get(station_spec.id()) {
+                let visit_status_next = Self::visit_status_next(dest, *station_rt_id);
 
-            if let (Some(station), Some(visit_status_next)) = (station_mut, visit_status_next) {
-                station.visit_status = visit_status_next;
+                if let Some(visit_status_next) = visit_status_next {
+                    let station_progress = dest
+                        .station_progresses()
+                        .get(station_rt_id)
+                        .map(|station_progress| station_progress.borrow_mut());
+
+                    if let Some(mut station_progress) = station_progress {
+                        station_progress.visit_status = visit_status_next
+                    }
+                };
             }
         });
     }
 
-    /// Returns the [`VisitStatus`] to be transitioned to, if any.
-    fn visit_status_next(
-        stations: &Stations<E>,
-        node_index: NodeIndex<DefaultIx>,
-        station: &Station<E>,
+    /// Updates the [`VisitStatus`]es for children of the given [`Station`].
+    ///
+    /// `ParentFail` transitions are propagated through to all later stations,
+    /// on the condition that the nodes are added in order.
+    ///
+    /// # Parameters
+    ///
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
+    /// * `station_rt_id`: Runtime ID of the parent station, whose children to
+    ///   update.
+    ///
+    /// [`Station`]: crate::rt_model::Station
+    pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
+        let stations = dest.stations();
+
+        stations
+            .children(station_rt_id)
+            .iter(&*stations)
+            .for_each(|(_edge, station_rt_id)| {
+                let visit_status_next = Self::visit_status_next(dest, station_rt_id);
+
+                if let Some(visit_status_next) = visit_status_next {
+                    let station_progress = dest
+                        .station_progresses()
+                        .get(&station_rt_id)
+                        .map(|station_progress| station_progress.borrow_mut());
+
+                    if let Some(mut station_progress) = station_progress {
+                        station_progress.visit_status = visit_status_next
+                    }
+                };
+            });
+    }
+
+    /// Returns the [`VisitStatus`] to be transitioned to for a single
+    /// [`Station`], if any.
+    ///
+    /// # Parameters
+    ///
+    /// * `dest`: `Destination` with all the stations and their progress
+    ///   information.
+    /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
+    ///   compute.
+    ///
+    /// [`Station`]: crate::rt_model::Station
+    pub fn visit_status_next(
+        dest: &Destination<E>,
+        station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
-        match station.visit_status {
-            VisitStatus::NotReady => Self::transition_not_ready(stations, node_index),
-            VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
-            | VisitStatus::CheckFail
-            | VisitStatus::InProgress
-            | VisitStatus::ParentFail
-            | VisitStatus::VisitSuccess
-            | VisitStatus::VisitUnnecessary
-            | VisitStatus::VisitFail => None,
-        }
+        dest.station_progresses()
+            .get(&station_rt_id)
+            .and_then(|station_progress| station_progress.try_borrow())
+            .and_then(|station_progress| {
+                match station_progress.visit_status {
+                    VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
+                    VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
+                    | VisitStatus::CheckFail
+                    | VisitStatus::InProgress
+                    | VisitStatus::ParentFail
+                    | VisitStatus::VisitSuccess
+                    | VisitStatus::VisitUnnecessary
+                    | VisitStatus::VisitFail => None,
+                }
+            })
     }
 
     fn transition_not_ready(
-        stations: &Stations<E>,
-        node_index: NodeIndex<DefaultIx>,
+        dest: &Destination<E>,
+        station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
-        let parents_walker = stations.parents(node_index);
+        let stations = dest.stations();
+        let station_progresses = dest.station_progresses();
+        let station_id_to_rt_id = dest.station_id_to_rt_id();
+
+        let parents_walker = stations.parents(station_rt_id);
         let visit_status_next = parents_walker
             .iter(stations)
-            .filter_map(|(_, parent_node_index)| stations.node_weight(parent_node_index))
-            .try_fold(Some(VisitStatus::Queued), |visit_status, parent_station| {
-                match parent_station.visit_status {
-                    // If parent is already done, we keep going.
-                    VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
+            .filter_map(|(_, parent_station_rt_id)| stations.node_weight(parent_station_rt_id))
+            .filter_map(|parent_station| {
+                station_id_to_rt_id
+                    .get(parent_station.id())
+                    .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
+            })
+            .try_fold(
+                Some(VisitStatus::Queued),
+                |visit_status, parent_station_progress| {
+                    if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                        match parent_station_progress.visit_status {
+                            // If parent is already done, we keep going.
+                            VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
 
-                    // Short circuits:
+                            // Short circuits:
 
-                    // If parent / ancestor has failed, indicate it in this station.
-                    VisitStatus::CheckFail | VisitStatus::VisitFail | VisitStatus::ParentFail => {
-                        return Err(Some(VisitStatus::ParentFail));
+                            // If parent / ancestor has failed, indicate it in this station.
+                            VisitStatus::CheckFail
+                            | VisitStatus::VisitFail
+                            | VisitStatus::ParentFail => {
+                                return Err(Some(VisitStatus::ParentFail));
+                            }
+                            // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
+                            VisitStatus::NotReady
+                            | VisitStatus::Queued
+                            | VisitStatus::InProgress => {
+                                return Err(None);
+                            }
+                        }
+                    } else {
+                        // Parent is probably being processed.
                     }
-                    // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                    VisitStatus::NotReady | VisitStatus::Queued | VisitStatus::InProgress => {
-                        return Err(None);
-                    }
-                }
 
-                Ok(visit_status)
-            });
+                    Ok(visit_status)
+                },
+            );
 
         match visit_status_next {
             Ok(visit_status_next) | Err(visit_status_next) => visit_status_next,
@@ -126,9 +206,10 @@ mod tests {
     use super::VisitStatusUpdater;
     use crate::{
         cfg_model::{
-            StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
+            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
+            StationSpecFns, Workload,
         },
-        rt_model::{Station, Stations, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationRtId, Stations, VisitStatus},
     };
 
     #[test]
@@ -141,37 +222,63 @@ mod tests {
         //
         // e --> f
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess)?;
-        let station_b = station("b", VisitStatus::VisitSuccess)?;
-        let station_c = station("c", VisitStatus::NotReady)?; // Should become `Queued`
-        let station_d = station("d", VisitStatus::NotReady)?; // Should become `Queued`
-        let station_e = station("e", VisitStatus::VisitFail)?;
-        let station_f = station("f", VisitStatus::NotReady)?; // Should become `ParentFail`
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        let node_index_d = stations.add_node(station_d);
-        let node_index_e = stations.add_node(station_e);
-        let node_index_f = stations.add_node(station_f);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_d, Workload::default())?;
-        stations.add_edge(node_index_e, node_index_f, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?; // Should become `Queued`
+        let station_d = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "d",
+            VisitStatus::NotReady,
+        )?; // Should become `Queued`
+        let station_e = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "e",
+            VisitStatus::VisitFail,
+        )?;
+        let station_f = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "f",
+            VisitStatus::NotReady,
+        )?; // Should become `ParentFail`
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_d, Workload::default())?;
+        stations.add_edge(station_e, station_f, Workload::default())?;
+        let mut dest = Destination::new(stations, station_progresses);
 
-        VisitStatusUpdater::update(&mut stations);
+        VisitStatusUpdater::update(&mut dest);
 
-        let station_a = &stations[node_index_a];
-        let station_b = &stations[node_index_b];
-        let station_c = &stations[node_index_c];
-        let station_d = &stations[node_index_d];
-        let station_e = &stations[node_index_e];
-        let station_f = &stations[node_index_f];
-        assert_eq!(VisitStatus::VisitSuccess, station_a.visit_status);
-        assert_eq!(VisitStatus::VisitSuccess, station_b.visit_status);
-        assert_eq!(VisitStatus::Queued, station_c.visit_status);
-        assert_eq!(VisitStatus::Queued, station_d.visit_status);
-        assert_eq!(VisitStatus::VisitFail, station_e.visit_status);
-        assert_eq!(VisitStatus::ParentFail, station_f.visit_status);
+        let station_a = &dest.station_progresses()[&station_a];
+        let station_b = &dest.station_progresses()[&station_b];
+        let station_c = &dest.station_progresses()[&station_c];
+        let station_d = &dest.station_progresses()[&station_d];
+        let station_e = &dest.station_progresses()[&station_e];
+        let station_f = &dest.station_progresses()[&station_f];
+        assert_eq!(VisitStatus::VisitSuccess, station_a.borrow().visit_status);
+        assert_eq!(VisitStatus::VisitSuccess, station_b.borrow().visit_status);
+        assert_eq!(VisitStatus::Queued, station_c.borrow().visit_status);
+        assert_eq!(VisitStatus::Queued, station_d.borrow().visit_status);
+        assert_eq!(VisitStatus::VisitFail, station_e.borrow().visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_f.borrow().visit_status);
         Ok(())
     }
 
@@ -181,33 +288,55 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::InProgress)?;
-        let station_b = station("b", VisitStatus::VisitFail)?;
-        let station_c = station("c", VisitStatus::NotReady)?;
-        let station_d = station("d", VisitStatus::NotReady)?;
-        let station_e = station("e", VisitStatus::NotReady)?;
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        let node_index_d = stations.add_node(station_d);
-        let node_index_e = stations.add_node(station_e);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_c, node_index_d, Workload::default())?;
-        stations.add_edge(node_index_d, node_index_e, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::InProgress,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::VisitFail,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?;
+        let station_d = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "d",
+            VisitStatus::NotReady,
+        )?;
+        let station_e = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "e",
+            VisitStatus::NotReady,
+        )?;
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        stations.add_edge(station_c, station_d, Workload::default())?;
+        stations.add_edge(station_d, station_e, Workload::default())?;
+        let mut dest = Destination::new(stations, station_progresses);
 
-        VisitStatusUpdater::update(&mut stations);
+        VisitStatusUpdater::update(&mut dest);
 
-        let station_a = &stations[node_index_a];
-        let station_b = &stations[node_index_b];
-        let station_c = &stations[node_index_c];
-        let station_d = &stations[node_index_d];
-        let station_e = &stations[node_index_e];
-        assert_eq!(VisitStatus::InProgress, station_a.visit_status);
-        assert_eq!(VisitStatus::VisitFail, station_b.visit_status);
-        assert_eq!(VisitStatus::ParentFail, station_c.visit_status);
-        assert_eq!(VisitStatus::ParentFail, station_d.visit_status);
-        assert_eq!(VisitStatus::ParentFail, station_e.visit_status);
+        let station_a = &dest.station_progresses()[&station_a];
+        let station_b = &dest.station_progresses()[&station_b];
+        let station_c = &dest.station_progresses()[&station_c];
+        let station_d = &dest.station_progresses()[&station_d];
+        let station_e = &dest.station_progresses()[&station_e];
+        assert_eq!(VisitStatus::InProgress, station_a.borrow().visit_status);
+        assert_eq!(VisitStatus::VisitFail, station_b.borrow().visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_c.borrow().visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_d.borrow().visit_status);
+        assert_eq!(VisitStatus::ParentFail, station_e.borrow().visit_status);
         Ok(())
     }
 
@@ -215,12 +344,16 @@ mod tests {
     fn updates_not_ready_to_queued_when_no_parents_exist() -> Result<(), Box<dyn std::error::Error>>
     {
         let mut stations = Stations::new();
-        let station = station("n", VisitStatus::NotReady)?;
-        let node_index = stations.add_node(station);
-        let station = &stations[node_index];
+        let mut station_progresses = StationProgresses::new();
+        let station_rt_id = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "n",
+            VisitStatus::NotReady,
+        )?;
+        let dest = Destination::new(stations, station_progresses);
 
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&stations, node_index, &station);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_rt_id);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -233,21 +366,30 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess)?;
-        let station_b = station("b", VisitStatus::VisitSuccess)?;
-        let station_c = station("c", VisitStatus::NotReady)?;
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?;
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(stations, station_progresses);
 
-        let station_c = stations
-            .node_weight(node_index_c)
-            .expect("Expected station to exist.");
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -260,21 +402,30 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess)?;
-        let station_b = station("b", VisitStatus::VisitUnnecessary)?;
-        let station_c = station("c", VisitStatus::NotReady)?;
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::VisitUnnecessary,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?;
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(stations, station_progresses);
 
-        let station_c = stations
-            .node_weight(node_index_c)
-            .expect("Expected station to exist.");
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::Queued), visit_status_next);
         Ok(())
@@ -287,19 +438,30 @@ mod tests {
         //      ^
         // b --/
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess)?;
-        let station_b = station("b", VisitStatus::VisitFail)?;
-        let station_c = station("c", VisitStatus::NotReady)?;
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::VisitFail,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?;
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(stations, station_progresses);
 
-        let station_c = &stations[node_index_c];
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
         Ok(())
@@ -309,19 +471,30 @@ mod tests {
     fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
     -> Result<(), Box<dyn std::error::Error>> {
         let mut stations = Stations::new();
-        let station_a = station("a", VisitStatus::VisitSuccess)?;
-        let station_b = station("b", VisitStatus::ParentFail)?;
-        let station_c = station("c", VisitStatus::NotReady)?;
-        let node_index_a = stations.add_node(station_a);
-        let node_index_b = stations.add_node(station_b);
-        let node_index_c = stations.add_node(station_c);
-        stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-        stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+        let mut station_progresses = StationProgresses::new();
+        let station_a = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "a",
+            VisitStatus::VisitSuccess,
+        )?;
+        let station_b = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "b",
+            VisitStatus::ParentFail,
+        )?;
+        let station_c = add_station(
+            &mut stations,
+            &mut station_progresses,
+            "c",
+            VisitStatus::NotReady,
+        )?;
+        stations.add_edge(station_a, station_c, Workload::default())?;
+        stations.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(stations, station_progresses);
 
-        let station_c = &stations[node_index_c];
-
-        let visit_status_next =
-            VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
         assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
         Ok(())
@@ -339,19 +512,30 @@ mod tests {
         .copied()
         .try_for_each(|visit_status_parent| {
             let mut stations = Stations::new();
-            let station_a = station("a", VisitStatus::VisitSuccess)?;
-            let station_b = station("b", visit_status_parent)?;
-            let station_c = station("c", VisitStatus::NotReady)?;
-            let node_index_a = stations.add_node(station_a);
-            let node_index_b = stations.add_node(station_b);
-            let node_index_c = stations.add_node(station_c);
-            stations.add_edge(node_index_a, node_index_c, Workload::default())?;
-            stations.add_edge(node_index_b, node_index_c, Workload::default())?;
+            let mut station_progresses = StationProgresses::new();
+            let station_a = add_station(
+                &mut stations,
+                &mut station_progresses,
+                "a",
+                VisitStatus::VisitSuccess,
+            )?;
+            let station_b = add_station(
+                &mut stations,
+                &mut station_progresses,
+                "b",
+                visit_status_parent,
+            )?;
+            let station_c = add_station(
+                &mut stations,
+                &mut station_progresses,
+                "c",
+                VisitStatus::NotReady,
+            )?;
+            stations.add_edge(station_a, station_c, Workload::default())?;
+            stations.add_edge(station_b, station_c, Workload::default())?;
+            let dest = Destination::new(stations, station_progresses);
 
-            let station_c = &stations[node_index_c];
-
-            let visit_status_next =
-                VisitStatusUpdater::visit_status_next(&stations, node_index_c, &station_c);
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
             assert_eq!(None, visit_status_next);
 
@@ -371,13 +555,11 @@ mod tests {
         .copied()
         .try_for_each(|visit_status| {
             let mut stations = Stations::new();
-            let station_a = station("a", visit_status)?;
-            let node_index_a = stations.add_node(station_a);
+            let mut station_progresses = StationProgresses::new();
+            let station_a = add_station(&mut stations, &mut station_progresses, "a", visit_status)?;
+            let dest = Destination::new(stations, station_progresses);
 
-            let station_a = &stations[node_index_a];
-
-            let visit_status_next =
-                VisitStatusUpdater::visit_status_next(&stations, node_index_a, &station_a);
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
 
             assert_eq!(None, visit_status_next);
 
@@ -385,10 +567,12 @@ mod tests {
         })
     }
 
-    fn station(
+    fn add_station(
+        stations: &mut Stations<()>,
+        station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         visit_status: VisitStatus,
-    ) -> Result<Station<()>, StationIdInvalidFmt<'static>> {
+    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
@@ -396,6 +580,11 @@ mod tests {
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-        Ok(Station::new(station_spec, visit_status))
+        let station_progress = StationProgress::new(&station_spec, visit_status);
+        let station_rt_id = stations.add_node(station_spec);
+
+        station_progresses.insert(station_rt_id, station_progress);
+
+        Ok(station_rt_id)
     }
 }

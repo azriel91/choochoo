@@ -12,7 +12,7 @@ use crate::cfg_model::StationIdInvalidFmt;
 ///
 /// Can only contain ASCII letters, numbers, and underscores.
 #[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct StationId(Cow<'static, str>);
 
 impl StationId {

@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationId, StationSpec, StationSpecFns},
-    rt_model::{Files, RwFiles, Station, VisitStatus},
+    cfg_model::{CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns},
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, Stations, VisitStatus},
 };
 use futures::{stream, stream::StreamExt};
 use srcerr::{
@@ -21,12 +21,14 @@ pub struct StationSleep;
 impl StationSleep {
     /// Sleeps to simulate a process
     pub fn new(
+        stations: &mut Stations<DemoError>,
+        station_progresses: &mut StationProgresses<DemoError>,
         station_id: StationId,
         station_name: String,
         station_description: String,
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
-    ) -> Station<DemoError> {
+    ) -> StationRtId {
         let station_spec_fns = StationSpecFns::new(Self::visit_fn(station_file_path, error_fn))
             .with_check_fn(Self::check_fn(station_file_path));
         let station_spec = StationSpec::new(
@@ -35,10 +37,13 @@ impl StationSleep {
             station_description,
             station_spec_fns,
         );
-        let station = Station::new(station_spec, VisitStatus::NotReady);
-        station.progress_bar.set_length(PROGRESS_LENGTH);
+        let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
+        station_progress.progress_bar.set_length(PROGRESS_LENGTH);
 
-        station
+        let station_rt_id = stations.add_node(station_spec);
+        station_progresses.insert(station_rt_id, station_progress);
+
+        station_rt_id
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
@@ -58,13 +63,13 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {
-        StationFn::new(move |station, resources| {
+        StationFn::new(move |station_progress, resources| {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
-                station.progress_bar.reset();
+                station_progress.progress_bar.reset();
                 stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
-                        station.progress_bar.inc(1);
+                        station_progress.progress_bar.inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     })
                     .await;

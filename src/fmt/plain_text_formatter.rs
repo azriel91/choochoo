@@ -7,9 +7,7 @@ use futures::{stream, StreamExt, TryStreamExt};
 use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{
-    error::AsDiagnostic, Destination, Files, RwFiles, Station, Stations, TrainReport, VisitStatus,
-};
+use crate::rt_model::{error::AsDiagnostic, Destination, Files, RwFiles, TrainReport, VisitStatus};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -71,7 +69,7 @@ where
         train_report: &TrainReport<E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
-        write_buf = Self::write_station_statuses(&dest.stations, write_buf).await?;
+        write_buf = Self::write_station_statuses(dest, write_buf).await?;
 
         // `E` should either:
         //
@@ -148,14 +146,25 @@ where
     // clippy warns on this, but if we elide the lifetime, it doesn't compile.
     #[allow(clippy::needless_lifetimes)]
     async fn write_station_statuses<'w>(
-        stations: &Stations<E>,
+        dest: &Destination<E>,
         write_buf: WriterAndBuffer<'w, W>,
     ) -> Result<WriterAndBuffer<'w, W>, io::Error> {
-        stream::iter(stations.iter())
-            .map(Result::<&Station<E>, io::Error>::Ok)
-            .try_fold(write_buf, |mut write_buf, station| async move {
-                let station_spec = &station.station_spec;
-                let icon = match station.visit_status {
+        let stations = dest.stations();
+        let station_progresses = dest.station_progresses();
+
+        stream::iter(stations.iter().filter_map(|station_spec| {
+            let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id());
+            station_rt_id.and_then(|station_rt_id| {
+                station_progresses
+                    .get(station_rt_id)
+                    .map(|station_progress| (station_spec, station_progress))
+            })
+        }))
+        .map(Result::<_, io::Error>::Ok)
+        .try_fold(
+            write_buf,
+            |mut write_buf, (station_spec, station_progress)| async move {
+                let icon = match station_progress.borrow().visit_status {
                     VisitStatus::NotReady => "⏰",
                     VisitStatus::ParentFail => "☠️",
                     VisitStatus::Queued => "⏳",
@@ -172,20 +181,25 @@ where
                     desc = station_spec.description()
                 );
                 Ok(write_buf)
-            })
-            .await
+            },
+        )
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+
     use tokio::runtime;
 
     use super::PlainTextFormatter;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::{Destination, Station, Stations, TrainReport, VisitStatus},
+        cfg_model::{
+            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+        },
+        rt_model::{
+            Destination, StationProgresses, StationRtId, Stations, TrainReport, VisitStatus,
+        },
     };
 
     #[test]
@@ -194,21 +208,72 @@ mod tests {
         let mut output = Vec::with_capacity(1024);
         let dest = {
             let mut stations = Stations::new();
-            add_station(&mut stations, "a", "A", "a_desc", VisitStatus::NotReady)?;
-            add_station(&mut stations, "b", "B", "b_desc", VisitStatus::ParentFail)?;
-            add_station(&mut stations, "c", "C", "c_desc", VisitStatus::Queued)?;
-            add_station(&mut stations, "d", "D", "d_desc", VisitStatus::InProgress)?;
-            add_station(&mut stations, "e", "E", "e_desc", VisitStatus::VisitSuccess)?;
+            let mut station_progresses = StationProgresses::new();
             add_station(
                 &mut stations,
+                &mut station_progresses,
+                "a",
+                "A",
+                "a_desc",
+                VisitStatus::NotReady,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "b",
+                "B",
+                "b_desc",
+                VisitStatus::ParentFail,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "c",
+                "C",
+                "c_desc",
+                VisitStatus::Queued,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "d",
+                "D",
+                "d_desc",
+                VisitStatus::InProgress,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "e",
+                "E",
+                "e_desc",
+                VisitStatus::VisitSuccess,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
                 "f",
                 "F",
                 "f_desc",
                 VisitStatus::VisitUnnecessary,
             )?;
-            add_station(&mut stations, "g", "G", "g_desc", VisitStatus::VisitFail)?;
-            add_station(&mut stations, "h", "H", "h_desc", VisitStatus::CheckFail)?;
-            Destination { stations }
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "g",
+                "G",
+                "g_desc",
+                VisitStatus::VisitFail,
+            )?;
+            add_station(
+                &mut stations,
+                &mut station_progresses,
+                "h",
+                "H",
+                "h_desc",
+                VisitStatus::CheckFail,
+            )?;
+            Destination::new(stations, station_progresses)
         };
         let train_report = TrainReport::new();
 
@@ -233,11 +298,12 @@ mod tests {
 
     fn add_station(
         stations: &mut Stations<()>,
+        station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         station_name: &'static str,
         station_desc: &'static str,
         visit_status: VisitStatus,
-    ) -> Result<NodeIndex<DefaultIx>, StationIdInvalidFmt<'static>> {
+    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new(station_id)?;
         let station_spec_fns = {
             let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
@@ -249,7 +315,10 @@ mod tests {
             String::from(station_desc),
             station_spec_fns,
         );
-        let station = Station::new(station_spec, visit_status);
-        Ok(stations.add_node(station))
+        let station_progress = StationProgress::new(&station_spec, visit_status);
+        let station_rt_id = stations.add_node(station_spec);
+        station_progresses.insert(station_rt_id, station_progress);
+
+        Ok(station_rt_id)
     }
 }

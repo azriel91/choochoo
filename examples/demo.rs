@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use choochoo::{
     cfg_model::Workload,
     fmt::PlainTextFormatter,
-    rt_model::{error::StationSpecError, Destination, Stations},
+    rt_model::{error::StationSpecError, Destination, StationProgresses, Stations},
     Train,
 };
 use srcerr::{
@@ -107,14 +107,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.block_on(async move {
         let mut dest = {
             let mut stations = Stations::new();
-            let station_a = stations.add_node(StationA::build()?);
-            let station_b = stations.add_node(StationB::build()?);
-            let station_c = stations.add_node(StationC::build()?);
-            let station_d = stations.add_node(StationD::build()?);
-            let station_e = stations.add_node(StationE::build()?);
-            let station_f = stations.add_node(StationF::build()?);
-            let station_g = stations.add_node(StationG::build()?);
-            let station_h = stations.add_node(StationH::build()?);
+            let mut station_progresses = StationProgresses::new();
+            let station_a = StationA::build(&mut stations, &mut station_progresses)?;
+            let station_b = StationB::build(&mut stations, &mut station_progresses)?;
+            let station_c = StationC::build(&mut stations, &mut station_progresses)?;
+            let station_d = StationD::build(&mut stations, &mut station_progresses)?;
+            let station_e = StationE::build(&mut stations, &mut station_progresses)?;
+            let station_f = StationF::build(&mut stations, &mut station_progresses)?;
+            let station_g = StationG::build(&mut stations, &mut station_progresses)?;
+            let station_h = StationH::build(&mut stations, &mut station_progresses)?;
 
             if args.dependency_mode == DependencyMode::Sequential {
                 stations.add_edge(station_a, station_b, Workload::default())?;
@@ -135,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 stations.add_edge(station_g, station_h, Workload::default())?;
             }
 
-            let dest = Destination { stations };
+            let dest = Destination::new(stations, station_progresses);
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;

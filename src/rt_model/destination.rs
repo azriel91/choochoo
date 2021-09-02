@@ -1,120 +1,67 @@
-use std::iter::{Filter, Peekable};
+use std::collections::HashMap;
 
-use daggy::{petgraph::graph::DefaultIx, NodeWeightsMut};
-
-use crate::rt_model::{Station, Stations, VisitStatus};
-
-/// Iterator over [`Station`]s that have [`VisitStatus::Queued`].
-pub type StationsQueuedIter<'dest, E> =
-    Peekable<Filter<NodeWeightsMut<'dest, Station<E>, DefaultIx>, FnFilterQueued<E>>>;
-
-type FnFilterQueued<E> = for<'f, 's> fn(&'f &'s mut Station<E>) -> bool;
+use crate::{
+    cfg_model::StationId,
+    rt_model::{StationProgresses, StationRtId, Stations},
+};
 
 /// Specification of a desired state.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Destination<E> {
     /// The stations along the way to the destination.
-    pub stations: Stations<E>,
+    stations: Stations<E>,
+    /// Map from station ID to station runtime ID.
+    ///
+    /// This is the only clone of `StationId`s that we should hold.
+    station_id_to_rt_id: HashMap<StationId, StationRtId>,
+    /// Progress information for each `Station`.
+    station_progresses: StationProgresses<E>,
 }
 
 impl<E> Destination<E> {
-    /// Returns an iterator over queued `Station`s, or `None` if none are
-    /// queued.
+    /// Returns a new `Destination`.
     ///
-    /// This does not include `Station`s that have a visit in progress.
-    pub fn stations_queued(&mut self) -> Option<StationsQueuedIter<'_, E>> {
-        // Without this, we get the error:
-        //
-        // ```
-        // error[E0308]: mismatched types
-        //   --> src/rt_model/destination.rs:35:18
-        //    |
-        // 35 |             Some(stations_queued)
-        //    |                  ^^^^^^^^^^^^^^^ expected fn pointer, found fn item
-        //    |
-        // ```
-        //
-        // https://users.rust-lang.org/t/difference-between-fn-pointer-and-fn-item/32642
-        let is_station_queued: FnFilterQueued<E> = Self::is_station_queued;
+    /// # Parameters
+    ///
+    /// * `stations`: The stations along the way to the destination.
+    /// * `station_progresses`: The initial state of the stations.
+    pub fn new(stations: Stations<E>, station_progresses: StationProgresses<E>) -> Self {
+        let mut station_id_to_rt_id = HashMap::with_capacity(stations.node_count());
+        stations
+            .iter_with_indices()
+            .for_each(|(node_index, station_spec)| {
+                station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
+            });
 
-        let mut stations_queued = self
-            .stations
-            .iter_mut()
-            .filter(is_station_queued)
-            .peekable();
-
-        if stations_queued.peek().is_some() {
-            Some(stations_queued)
-        } else {
-            None
+        Self {
+            stations,
+            station_id_to_rt_id,
+            station_progresses,
         }
     }
 
-    fn is_station_queued(station: &&mut Station<E>) -> bool {
-        station.visit_status == VisitStatus::Queued
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Destination;
-    use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::{Station, Stations, VisitStatus},
-    };
-
-    #[test]
-    fn stations_queued_returns_none_when_no_stations_queued()
-    -> Result<(), StationIdInvalidFmt<'static>> {
-        let mut dest = {
-            let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::VisitSuccess)?;
-            add_station(&mut stations, "b", VisitStatus::NotReady)?;
-            Destination { stations }
-        };
-
-        assert!(
-            dest.stations_queued().is_none(),
-            "Expected `stations_queued()` to be `None`."
-        );
-        Ok(())
+    /// Returns a reference to the `Stations` for this destination.
+    pub fn stations(&self) -> &Stations<E> {
+        &self.stations
     }
 
-    #[test]
-    fn stations_queued_returns_iter_when_stations_queued_exists()
-    -> Result<(), StationIdInvalidFmt<'static>> {
-        let mut dest = {
-            let mut stations = Stations::new();
-            add_station(&mut stations, "a", VisitStatus::Queued)?;
-            add_station(&mut stations, "b", VisitStatus::Queued)?;
-            add_station(&mut stations, "c", VisitStatus::NotReady)?;
-            Destination { stations }
-        };
-
-        if let Some(mut stations_queued) = dest.stations_queued() {
-            assert!(stations_queued.next().is_some());
-            assert!(stations_queued.next().is_some());
-            assert!(stations_queued.next().is_none());
-        } else {
-            panic!("Expected stations_queued to be `Some(..)`");
-        }
-        Ok(())
+    /// Returns a mutable reference to the `Stations` for this destination.
+    pub fn stations_mut(&mut self) -> &mut Stations<E> {
+        &mut self.stations
     }
 
-    fn add_station(
-        stations: &mut Stations<()>,
-        station_id: &'static str,
-        visit_status: VisitStatus,
-    ) -> Result<(), StationIdInvalidFmt<'static>> {
-        let name = String::from(station_id);
-        let station_id = StationId::new(station_id)?;
-        let station_spec_fns = {
-            let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
-            StationSpecFns::new(visit_fn)
-        };
-        let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-        let station = Station::new(station_spec, visit_status);
-        stations.add_node(station);
-        Ok(())
+    /// Returns a reference to the station progresses.
+    pub fn station_progresses(&self) -> &StationProgresses<E> {
+        &self.station_progresses
+    }
+
+    /// Returns a mutable reference to the station progresses.
+    pub fn station_progresses_mut(&mut self) -> &mut StationProgresses<E> {
+        &mut self.station_progresses
+    }
+
+    /// Returns a reference to the station ID to runtime ID map.
+    pub fn station_id_to_rt_id(&self) -> &HashMap<StationId, StationRtId> {
+        &self.station_id_to_rt_id
     }
 }
