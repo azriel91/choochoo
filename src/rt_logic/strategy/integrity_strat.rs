@@ -2,10 +2,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use tokio::sync::mpsc;
 
-use crate::{
-    rt_logic::VisitStatusUpdater,
-    rt_model::{Destination, Station},
-};
+use crate::rt_model::{Destination, Station};
 
 use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 
@@ -60,16 +57,14 @@ impl<E> IntegrityStrat<E> {
     /// * `dest`: `Destination` whose stations to visit.
     /// * `seed`: Initial seed for the return value.
     /// * `visit_logic`: Logic to run to visit a `Station`.
-    pub async fn iter<F, R>(dest: &mut Destination<E>, seed: R, visit_logic: F) -> R
+    pub async fn iter<F, R>(dest: &Destination<E>, seed: R, visit_logic: F) -> R
     where
         F: for<'a, 'station> Fn(
+            &'a Destination<E>,
             &'a mut Station<'station, E>,
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {
-        // Set `NotReady` stations to `Queued` if they have no dependencies.
-        VisitStatusUpdater::update(dest);
-
         let (stations_queued_tx, stations_queued_rx) = mpsc::channel(64);
         let (stations_done_tx, stations_done_rx) = mpsc::channel(64);
 
@@ -77,8 +72,13 @@ impl<E> IntegrityStrat<E> {
         let station_queuer = StationQueuer::run(dest, stations_queued_tx, stations_done_rx);
 
         // Process task.
-        let station_visitor =
-            StationVisitor::visit(&visit_logic, &seed, stations_queued_rx, stations_done_tx);
+        let station_visitor = StationVisitor::visit(
+            dest,
+            &visit_logic,
+            &seed,
+            stations_queued_rx,
+            stations_done_tx,
+        );
 
         futures::join!(station_queuer, station_visitor);
 
@@ -175,7 +175,7 @@ mod tests {
                 &mut stations,
                 &mut station_progresses,
                 "c",
-                VisitStatus::NotReady,
+                VisitStatus::Queued,
                 Ok((tx, 2)),
             )?;
             Destination::new(stations, station_progresses)
@@ -183,7 +183,6 @@ mod tests {
 
         let (_call_count, stations_sequence) = call_iter(dest, Some(rx))?;
 
-        // assert_eq!(3, call_count);
         assert_eq!(vec![0u8, 1u8, 2u8], stations_sequence);
         Ok(())
     }
@@ -226,7 +225,7 @@ mod tests {
 
         let rt = runtime::Builder::new_current_thread().build()?;
         let call_count_and_values = rt.block_on(async {
-            let resources = IntegrityStrat::iter(&mut dest, resources, |station, resources| {
+            let resources = IntegrityStrat::iter(&mut dest, resources, |_, station, resources| {
                 Box::pin(async move {
                     station
                         .spec

@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     cfg_model::StationProgress,
-    rt_model::{Station, StationRtId},
+    rt_model::{Destination, Station, StationRtId},
 };
 
 /// Listens for queued station and visits them.
@@ -23,12 +23,14 @@ impl<E> StationVisitor<E> {
     /// * `stations_queued_rx`: Receiver for queued stations.
     /// * `stations_done_tx`: Sender to write visited stations to.
     pub async fn visit<'f, F, R>(
+        dest: &Destination<E>,
         visit_logic: &F,
         seed: &R,
         mut stations_queued_rx: Receiver<Station<'f, E>>,
         stations_done_tx: Sender<StationRtId>,
     ) where
         F: for<'a, 'station> Fn(
+            &'a Destination<E>,
             &'a mut Station<'station, E>,
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
@@ -40,7 +42,7 @@ impl<E> StationVisitor<E> {
                     .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
                 station.progress.progress_bar.set_style(progress_style);
 
-                visit_logic(&mut station, seed).await;
+                visit_logic(dest, &mut station, seed).await;
 
                 stations_done_tx_ref
                     .send(station.rt_id)

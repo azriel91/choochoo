@@ -154,6 +154,9 @@ impl<E> VisitStatusUpdater<E> {
         let stations = dest.stations();
         let station_progresses = dest.station_progresses();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
+        let visit_status_existing = station_progresses
+            .get(&station_rt_id)
+            .map(|station_progress| station_progress.borrow().visit_status);
 
         let parents_walker = stations.parents(station_rt_id);
         let visit_status_next = parents_walker
@@ -187,11 +190,11 @@ impl<E> VisitStatusUpdater<E> {
                                 return Err(None);
                             }
                         }
+                        Ok(visit_status)
                     } else {
                         // Parent is probably being processed.
+                        Ok(visit_status_existing)
                     }
-
-                    Ok(visit_status)
                 },
             );
 

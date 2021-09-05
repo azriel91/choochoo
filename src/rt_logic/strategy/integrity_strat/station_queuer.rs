@@ -7,7 +7,6 @@ use tokio::sync::mpsc::{error::SendError, Receiver, Sender};
 
 use crate::{
     cfg_model::StationProgress,
-    rt_logic::VisitStatusUpdater,
     rt_model::{Destination, StationRtId, VisitStatus},
 };
 
@@ -48,10 +47,8 @@ impl<E> StationQueuer<E> {
             if stations_in_progress_count == 0 {
                 stations_done_rx.close();
                 break;
-            } else if let Some(station_rt_id) = stations_done_rx.recv().await {
+            } else if let Some(_station_rt_id) = stations_done_rx.recv().await {
                 stations_in_progress_count -= 1;
-
-                VisitStatusUpdater::update_children(dest, station_rt_id);
 
                 // We have to update all progress bars, otherwise the multi progress bar will
                 // interleave redraw operations, causing the output to be non-sensical, e.g. the

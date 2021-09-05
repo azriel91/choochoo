@@ -3,7 +3,7 @@ use resman::Resources;
 use tokio::sync::RwLock;
 
 use crate::{
-    rt_logic::{strategy::IntegrityStrat, Driver},
+    rt_logic::{strategy::IntegrityStrat, Driver, VisitStatusUpdater},
     rt_model::{
         error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Files, RwFiles,
         TrainReport, VisitStatus,
@@ -41,7 +41,11 @@ impl Train {
         let mut train_report = TrainReport::new();
         let mut resources = Resources::default();
         resources.insert(RwFiles::new(RwLock::new(Files::new())));
-        let resources = IntegrityStrat::iter(dest, resources, |mut station, resources| {
+
+        // Set `NotReady` stations to `Queued` if they have no dependencies.
+        VisitStatusUpdater::update(dest);
+
+        let resources = IntegrityStrat::iter(dest, resources, |dest, mut station, resources| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's
                 // `visit_status` while the `visit()` is `await`ed.
@@ -63,6 +67,9 @@ impl Train {
                         station.progress.visit_status = VisitStatus::VisitFail;
                     }
                 }
+
+                VisitStatusUpdater::update_children(dest, station.rt_id);
+
                 resources
             })
         })
