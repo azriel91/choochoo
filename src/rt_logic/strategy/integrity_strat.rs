@@ -9,7 +9,7 @@ use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 mod station_queuer;
 mod station_visitor;
 
-/// [`Stream`] of [`Station`]s to process with integrity guarantees.
+/// [`Station`]s to process with integrity guarantees.
 ///
 /// This means all stations are still checked and visited even though the
 /// destination may already be reached at the beginning of the execution --
@@ -28,7 +28,9 @@ mod station_visitor;
 /// However, this requires GAT, which is not yet stable: <https://github.com/rust-lang/rust/issues/44265>.
 /// See <https://users.rust-lang.org/t/returning-borrowed-values-from-an-iterator/1096> for implementation hint.
 ///
-/// https://users.rust-lang.org/t/how-to-implement-iterator-where-next-elements-depends-on-previous-elements-mutation/54209
+/// <https://users.rust-lang.org/t/how-to-implement-iterator-where-next-elements-depends-on-previous-elements-mutation/54209>
+///
+/// [`Stream`]: futures::stream::Stream
 #[derive(Debug)]
 pub struct IntegrityStrat<E> {
     /// Marker.
@@ -49,8 +51,8 @@ impl<E> IntegrityStrat<E> {
     /// We need to make it valid for the lifetime of the returned future, but
     /// not so long that it extends beyond the `match` block.
     ///
-    /// * https://users.rust-lang.org/t/function-that-takes-a-closure-with-mutable-reference-that-returns-a-future/54324
-    /// * https://github.com/rust-lang/rust/issues/74497#issuecomment-661995588
+    /// * <https://users.rust-lang.org/t/function-that-takes-a-closure-with-mutable-reference-that-returns-a-future/54324>
+    /// * <https://github.com/rust-lang/rust/issues/74497#issuecomment-661995588>
     ///
     /// # Parameters
     ///

@@ -7,7 +7,7 @@ use srcerr::{
 
 /// Types that can be represented as a [`Diagnostic`].
 pub trait AsDiagnostic<'files> {
-    /// Type of `FileId` in [`srcerr::codespan_reporting::Files`].
+    /// Type of `FileId` in [`srcerr::codespan_reporting::files::Files`].
     type Files: Files<'files>;
 
     /// Returns the information in this type as a `Diagnostic`.

@@ -29,7 +29,7 @@ use crate::rt_model::{Destination, StationRtId, VisitStatus};
 /// ## `InProgress` Stations
 ///
 /// No transitions -- [`Train::reach`] sets this to `VisitSuccess` or
-/// `VisitFail` depending on [`Station::visit`]'s result.
+/// `VisitFail` depending on [`StationSpec::visit`]'s result.
 ///
 /// ## `VisitSuccess`
 ///
@@ -39,7 +39,9 @@ use crate::rt_model::{Destination, StationRtId, VisitStatus};
 ///
 /// No transitions.
 ///
+/// [`StationSpec::visit`]: crate::cfg_model::StationSpec::visit
 /// [`Station`]: crate::rt_model::Station
+/// [`Train::reach`]: crate::Train::reach
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
     /// Marker

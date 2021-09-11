@@ -1,4 +1,6 @@
 /// Status of whether a [`Station`] has been visited.
+///
+/// [`Station`]: crate::rt_model::Station
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum VisitStatus {
     /// Station has at least one parent that hasn't been visited.

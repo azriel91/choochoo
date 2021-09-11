@@ -4,7 +4,7 @@ use rt_map::RtMap;
 
 use crate::{cfg_model::StationProgress, rt_model::StationRtId};
 
-/// Map from [`StationId`] to the runtime data.
+/// Map from [`StationRtId`] to the runtime data.
 #[derive(Debug, Default)]
 pub struct StationProgresses<E>(pub RtMap<StationRtId, StationProgress<E>>);
 
