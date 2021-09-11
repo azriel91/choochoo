@@ -64,7 +64,7 @@ impl<E> StationQueuer<E> {
     }
 
     fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = Station<'_, E>> + '_ {
-        dest.stations().iter().filter_map(move |station_spec| {
+        dest.station_specs().iter().filter_map(move |station_spec| {
             dest.station_id_to_rt_id()
                 .get(station_spec.id())
                 .and_then(|station_rt_id| {

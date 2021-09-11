@@ -59,10 +59,10 @@ impl<E> VisitStatusUpdater<E> {
     ///
     /// [`Station`]: crate::rt_model::Station
     pub fn update(dest: &Destination<E>) {
-        let stations = dest.stations();
+        let station_specs = dest.station_specs();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
 
-        stations.iter().for_each(|station_spec| {
+        station_specs.iter().for_each(|station_spec| {
             if let Some(station_rt_id) = station_id_to_rt_id.get(station_spec.id()) {
                 let visit_status_next = Self::visit_status_next(dest, *station_rt_id);
 
@@ -94,11 +94,11 @@ impl<E> VisitStatusUpdater<E> {
     ///
     /// [`Station`]: crate::rt_model::Station
     pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
-        let stations = dest.stations();
+        let station_specs = dest.station_specs();
 
-        stations
+        station_specs
             .children(station_rt_id)
-            .iter(&*stations)
+            .iter(&*station_specs)
             .for_each(|(_edge, station_rt_id)| {
                 let visit_status_next = Self::visit_status_next(dest, station_rt_id);
 
@@ -151,17 +151,17 @@ impl<E> VisitStatusUpdater<E> {
         dest: &Destination<E>,
         station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
-        let stations = dest.stations();
+        let station_specs = dest.station_specs();
         let station_progresses = dest.station_progresses();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
         let visit_status_existing = station_progresses
             .get(&station_rt_id)
             .map(|station_progress| station_progress.borrow().visit_status);
 
-        let parents_walker = stations.parents(station_rt_id);
+        let parents_walker = station_specs.parents(station_rt_id);
         let visit_status_next = parents_walker
-            .iter(stations)
-            .filter_map(|(_, parent_station_rt_id)| stations.node_weight(parent_station_rt_id))
+            .iter(station_specs)
+            .filter_map(|(_, parent_station_rt_id)| station_specs.node_weight(parent_station_rt_id))
             .filter_map(|parent_station| {
                 station_id_to_rt_id
                     .get(parent_station.id())
@@ -212,7 +212,7 @@ mod tests {
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
             StationSpecFns, Workload,
         },
-        rt_model::{Destination, StationProgresses, StationRtId, Stations, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, VisitStatus},
     };
 
     #[test]
@@ -224,49 +224,49 @@ mod tests {
         //    \--> d
         //
         // e --> f
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::VisitSuccess,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::VisitSuccess,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?; // Should become `Queued`
         let station_d = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "d",
             VisitStatus::NotReady,
         )?; // Should become `Queued`
         let station_e = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "e",
             VisitStatus::VisitFail,
         )?;
         let station_f = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "f",
             VisitStatus::NotReady,
         )?; // Should become `ParentFail`
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_d, Workload::default())?;
-        stations.add_edge(station_e, station_f, Workload::default())?;
-        let mut dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_d, Workload::default())?;
+        station_specs.add_edge(station_e, station_f, Workload::default())?;
+        let mut dest = Destination::new(station_specs, station_progresses);
 
         VisitStatusUpdater::update(&mut dest);
 
@@ -290,43 +290,43 @@ mod tests {
         // a -> c -> d -> e
         //      ^
         // b --/
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::InProgress,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::VisitFail,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?;
         let station_d = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "d",
             VisitStatus::NotReady,
         )?;
         let station_e = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "e",
             VisitStatus::NotReady,
         )?;
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        stations.add_edge(station_c, station_d, Workload::default())?;
-        stations.add_edge(station_d, station_e, Workload::default())?;
-        let mut dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        station_specs.add_edge(station_c, station_d, Workload::default())?;
+        station_specs.add_edge(station_d, station_e, Workload::default())?;
+        let mut dest = Destination::new(station_specs, station_progresses);
 
         VisitStatusUpdater::update(&mut dest);
 
@@ -346,15 +346,15 @@ mod tests {
     #[test]
     fn updates_not_ready_to_queued_when_no_parents_exist() -> Result<(), Box<dyn std::error::Error>>
     {
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_rt_id = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "n",
             VisitStatus::NotReady,
         )?;
-        let dest = Destination::new(stations, station_progresses);
+        let dest = Destination::new(station_specs, station_progresses);
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_rt_id);
 
@@ -368,29 +368,29 @@ mod tests {
         // a -> c
         //      ^
         // b --/
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::VisitSuccess,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::VisitSuccess,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?;
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        let dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(station_specs, station_progresses);
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
@@ -404,29 +404,29 @@ mod tests {
         // a -> c
         //      ^
         // b --/
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::VisitSuccess,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::VisitUnnecessary,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?;
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        let dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(station_specs, station_progresses);
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
@@ -440,29 +440,29 @@ mod tests {
         // a -> c
         //      ^
         // b --/
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::VisitSuccess,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::VisitFail,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?;
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        let dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(station_specs, station_progresses);
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
@@ -473,29 +473,29 @@ mod tests {
     #[test]
     fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
     -> Result<(), Box<dyn std::error::Error>> {
-        let mut stations = Stations::new();
+        let mut station_specs = StationSpecs::new();
         let mut station_progresses = StationProgresses::new();
         let station_a = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "a",
             VisitStatus::VisitSuccess,
         )?;
         let station_b = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "b",
             VisitStatus::ParentFail,
         )?;
         let station_c = add_station(
-            &mut stations,
+            &mut station_specs,
             &mut station_progresses,
             "c",
             VisitStatus::NotReady,
         )?;
-        stations.add_edge(station_a, station_c, Workload::default())?;
-        stations.add_edge(station_b, station_c, Workload::default())?;
-        let dest = Destination::new(stations, station_progresses);
+        station_specs.add_edge(station_a, station_c, Workload::default())?;
+        station_specs.add_edge(station_b, station_c, Workload::default())?;
+        let dest = Destination::new(station_specs, station_progresses);
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
@@ -514,29 +514,29 @@ mod tests {
         .iter()
         .copied()
         .try_for_each(|visit_status_parent| {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             let station_a = add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 VisitStatus::VisitSuccess,
             )?;
             let station_b = add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 visit_status_parent,
             )?;
             let station_c = add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "c",
                 VisitStatus::NotReady,
             )?;
-            stations.add_edge(station_a, station_c, Workload::default())?;
-            stations.add_edge(station_b, station_c, Workload::default())?;
-            let dest = Destination::new(stations, station_progresses);
+            station_specs.add_edge(station_a, station_c, Workload::default())?;
+            station_specs.add_edge(station_b, station_c, Workload::default())?;
+            let dest = Destination::new(station_specs, station_progresses);
 
             let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
@@ -557,10 +557,15 @@ mod tests {
         .iter()
         .copied()
         .try_for_each(|visit_status| {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
-            let station_a = add_station(&mut stations, &mut station_progresses, "a", visit_status)?;
-            let dest = Destination::new(stations, station_progresses);
+            let station_a = add_station(
+                &mut station_specs,
+                &mut station_progresses,
+                "a",
+                visit_status,
+            )?;
+            let dest = Destination::new(station_specs, station_progresses);
 
             let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
 
@@ -571,7 +576,7 @@ mod tests {
     }
 
     fn add_station(
-        stations: &mut Stations<()>,
+        station_specs: &mut StationSpecs<()>,
         station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         visit_status: VisitStatus,
@@ -584,7 +589,7 @@ mod tests {
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station_progress = StationProgress::new(&station_spec, visit_status);
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
 
         station_progresses.insert(station_rt_id, station_progress);
 

@@ -149,10 +149,10 @@ where
         dest: &Destination<E>,
         write_buf: WriterAndBuffer<'w, W>,
     ) -> Result<WriterAndBuffer<'w, W>, io::Error> {
-        let stations = dest.stations();
+        let station_specs = dest.station_specs();
         let station_progresses = dest.station_progresses();
 
-        stream::iter(stations.iter().filter_map(|station_spec| {
+        stream::iter(station_specs.iter().filter_map(|station_spec| {
             let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id());
             station_rt_id.and_then(|station_rt_id| {
                 station_progresses
@@ -198,7 +198,7 @@ mod tests {
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
         },
         rt_model::{
-            Destination, StationProgresses, StationRtId, Stations, TrainReport, VisitStatus,
+            Destination, StationProgresses, StationRtId, StationSpecs, TrainReport, VisitStatus,
         },
     };
 
@@ -207,10 +207,10 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut output = Vec::with_capacity(1024);
         let dest = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 "A",
@@ -218,7 +218,7 @@ mod tests {
                 VisitStatus::NotReady,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 "B",
@@ -226,7 +226,7 @@ mod tests {
                 VisitStatus::ParentFail,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "c",
                 "C",
@@ -234,7 +234,7 @@ mod tests {
                 VisitStatus::Queued,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "d",
                 "D",
@@ -242,7 +242,7 @@ mod tests {
                 VisitStatus::InProgress,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "e",
                 "E",
@@ -250,7 +250,7 @@ mod tests {
                 VisitStatus::VisitSuccess,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "f",
                 "F",
@@ -258,7 +258,7 @@ mod tests {
                 VisitStatus::VisitUnnecessary,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "g",
                 "G",
@@ -266,14 +266,14 @@ mod tests {
                 VisitStatus::VisitFail,
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "h",
                 "H",
                 "h_desc",
                 VisitStatus::CheckFail,
             )?;
-            Destination::new(stations, station_progresses)
+            Destination::new(station_specs, station_progresses)
         };
         let train_report = TrainReport::new();
 
@@ -297,7 +297,7 @@ mod tests {
     }
 
     fn add_station(
-        stations: &mut Stations<()>,
+        station_specs: &mut StationSpecs<()>,
         station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         station_name: &'static str,
@@ -316,7 +316,7 @@ mod tests {
             station_spec_fns,
         );
         let station_progress = StationProgress::new(&station_spec, visit_status);
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
 
         Ok(station_rt_id)

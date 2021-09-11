@@ -99,7 +99,7 @@ mod tests {
         cfg_model::{
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
         },
-        rt_model::{Destination, StationProgresses, Stations, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationSpecs, VisitStatus},
     };
 
     #[test]
@@ -118,30 +118,30 @@ mod tests {
     -> Result<(), Box<dyn std::error::Error>> {
         let (tx, _rx) = mpsc::channel(10);
         let dest = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 VisitStatus::VisitSuccess,
                 Ok((tx, 0)),
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 VisitStatus::VisitFail,
                 Err(()),
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "c",
                 VisitStatus::ParentFail,
                 Err(()),
             )?;
-            Destination::new(stations, station_progresses)
+            Destination::new(station_specs, station_progresses)
         };
 
         let (call_count, stations_sequence) = call_iter(dest, None)?;
@@ -155,30 +155,30 @@ mod tests {
     fn returns_queued_stations_and_propagates_queued() -> Result<(), Box<dyn std::error::Error>> {
         let (tx, rx) = mpsc::channel(10);
         let dest = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 VisitStatus::Queued,
                 Ok((tx.clone(), 0)),
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 VisitStatus::Queued,
                 Ok((tx.clone(), 1)),
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "c",
                 VisitStatus::Queued,
                 Ok((tx, 2)),
             )?;
-            Destination::new(stations, station_progresses)
+            Destination::new(station_specs, station_progresses)
         };
 
         let (_call_count, stations_sequence) = call_iter(dest, Some(rx))?;
@@ -188,7 +188,7 @@ mod tests {
     }
 
     fn add_station(
-        stations: &mut Stations<()>,
+        station_specs: &mut StationSpecs<()>,
         station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         visit_status: VisitStatus,
@@ -211,7 +211,7 @@ mod tests {
         let station_id = StationId::new(station_id)?;
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station_progress = StationProgress::new(&station_spec, visit_status);
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
         Ok(())
     }

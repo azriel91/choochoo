@@ -12,9 +12,9 @@ pub type StationsFrozen<'s, E> = Frozen<'s, Dag<StationSpec<E>, Workload>>;
 
 /// Directed acyclic graph of [`StationSpec`]s.
 #[derive(Clone, Debug, Default)]
-pub struct Stations<E>(pub Dag<StationSpec<E>, Workload>);
+pub struct StationSpecs<E>(pub Dag<StationSpec<E>, Workload>);
 
-impl<E> Stations<E> {
+impl<E> StationSpecs<E> {
     /// Returns an empty graph of [`StationSpec`]s.
     pub fn new() -> Self {
         Self(Dag::new())
@@ -49,7 +49,7 @@ impl<E> Stations<E> {
     }
 }
 
-impl<E> Deref for Stations<E> {
+impl<E> Deref for StationSpecs<E> {
     type Target = Dag<StationSpec<E>, Workload>;
 
     #[cfg(not(tarpaulin_include))]
@@ -58,7 +58,7 @@ impl<E> Deref for Stations<E> {
     }
 }
 
-impl<E> DerefMut for Stations<E> {
+impl<E> DerefMut for StationSpecs<E> {
     #[cfg(not(tarpaulin_include))]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -72,7 +72,7 @@ mod tests {
     use crate::rt_model::StationRtId;
     use daggy::NodeIndex;
 
-    use super::Stations;
+    use super::StationSpecs;
     use crate::{
         cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
         rt_model::VisitStatus,
@@ -81,11 +81,11 @@ mod tests {
     #[test]
     fn iter_with_indices_returns_iterator_with_all_stations()
     -> Result<(), StationIdInvalidFmt<'static>> {
-        let mut stations = Stations::new();
-        let a = add_station(&mut stations, "a")?;
-        let b = add_station(&mut stations, "b")?;
+        let mut station_specs = StationSpecs::new();
+        let a = add_station(&mut station_specs, "a")?;
+        let b = add_station(&mut station_specs, "b")?;
 
-        let indicies = stations
+        let indicies = station_specs
             .iter_with_indices()
             .map(|(node_index, _)| node_index)
             .collect::<Vec<NodeIndex>>();
@@ -96,21 +96,21 @@ mod tests {
 
     #[test]
     fn deref() {
-        let stations = Stations::<()>::new();
-        assert!(std::ptr::eq(Deref::deref(&stations), &stations.0));
+        let station_specs = StationSpecs::<()>::new();
+        assert!(std::ptr::eq(Deref::deref(&station_specs), &station_specs.0));
     }
 
     #[test]
     fn deref_mut() {
-        let mut stations = Stations::<()>::new();
+        let mut station_specs = StationSpecs::<()>::new();
         assert!(std::ptr::eq(
-            DerefMut::deref_mut(&mut stations),
-            &mut stations.0
+            DerefMut::deref_mut(&mut station_specs),
+            &mut station_specs.0
         ));
     }
 
     fn add_station(
-        stations: &mut Stations<()>,
+        station_specs: &mut StationSpecs<()>,
         station_id: &'static str,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let name = String::from(station_id);
@@ -125,6 +125,6 @@ mod tests {
             StationSpecFns::new(visit_fn)
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-        Ok(stations.add_node(station_spec))
+        Ok(station_specs.add_node(station_spec))
     }
 }

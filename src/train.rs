@@ -21,8 +21,8 @@ impl Train {
         E: From<StationSpecError>,
     {
         let multi_progress = MultiProgress::new();
-        // Iterate using `stations` because these are sorted.
-        dest.stations()
+        // Iterate using `station_specs` because these are sorted.
+        dest.station_specs()
             .graph()
             .node_indices()
             .filter_map(|station_rt_id| dest.station_progresses().get(&station_rt_id))
@@ -76,7 +76,7 @@ impl Train {
         .await;
         train_report.resources = resources;
 
-        dest.stations()
+        dest.station_specs()
             .iter()
             .filter_map(|station_spec| {
                 dest.station_id_to_rt_id()
@@ -101,7 +101,7 @@ impl Train {
         // We need to finish / abandon all progress bars, otherwise the
         // `MultiProgress` will never finish.
         let dest = &dest;
-        dest.stations().iter().for_each(move |station_spec| {
+        dest.station_specs().iter().for_each(move |station_spec| {
             let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id()).copied();
             if let Some(station_rt_id) = station_rt_id {
                 let station_progress = dest.station_progresses().try_borrow_mut(&station_rt_id);
@@ -130,7 +130,7 @@ mod tests {
         cfg_model::{
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
         },
-        rt_model::{Destination, StationProgresses, StationRtId, Stations, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, VisitStatus},
     };
 
     #[test]
@@ -148,23 +148,23 @@ mod tests {
     fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 VisitStatus::Queued,
                 Ok(()),
             )?;
             add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 VisitStatus::Queued,
                 Ok(()),
             )?;
-            Destination::new(stations, station_progresses)
+            Destination::new(station_specs, station_progresses)
         };
         let train_report = rt.block_on(Train::reach(&mut dest));
 
@@ -183,23 +183,23 @@ mod tests {
     fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Error>> {
         let rt = runtime::Builder::new_current_thread().build()?;
         let (mut dest, station_a, station_b) = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             let station_a = add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "a",
                 VisitStatus::Queued,
                 Ok(()),
             )?;
             let station_b = add_station(
-                &mut stations,
+                &mut station_specs,
                 &mut station_progresses,
                 "b",
                 VisitStatus::Queued,
                 Err(()),
             )?;
-            let dest = Destination::new(stations, station_progresses);
+            let dest = Destination::new(station_specs, station_progresses);
 
             (dest, station_a, station_b)
         };
@@ -224,7 +224,7 @@ mod tests {
     }
 
     fn add_station(
-        stations: &mut Stations<()>,
+        station_specs: &mut StationSpecs<()>,
         station_progresses: &mut StationProgresses<()>,
         station_id: &'static str,
         visit_status: VisitStatus,
@@ -242,7 +242,7 @@ mod tests {
         };
         let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
         let station_progress = StationProgress::new(&station_spec, visit_status);
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
 
         station_progresses.insert(station_rt_id, station_progress);
 

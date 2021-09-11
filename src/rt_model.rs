@@ -9,7 +9,7 @@ pub use self::{
     station::Station,
     station_progresses::StationProgresses,
     station_rt_id::StationRtId,
-    stations::{Stations, StationsFrozen},
+    station_specs::{StationSpecs, StationsFrozen},
     train_report::TrainReport,
     visit_status::VisitStatus,
 };
@@ -22,6 +22,6 @@ mod files;
 mod station;
 mod station_progresses;
 mod station_rt_id;
-mod stations;
+mod station_specs;
 mod train_report;
 mod visit_status;

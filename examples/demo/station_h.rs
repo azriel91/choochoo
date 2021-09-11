@@ -2,7 +2,7 @@ use std::path::Path;
 
 use choochoo::{
     cfg_model::{StationId, StationIdInvalidFmt},
-    rt_model::{StationProgresses, StationRtId, Stations},
+    rt_model::{StationProgresses, StationRtId, StationSpecs},
 };
 use srcerr::{
     codespan::{FileId, Span},
@@ -17,14 +17,14 @@ pub struct StationH;
 impl StationH {
     /// Notifies of deployment completion.
     pub fn build(
-        stations: &mut Stations<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
         station_progresses: &mut StationProgresses<DemoError>,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("h")?;
         let station_name = String::from("Notify Completion");
         let station_description = String::from("Notifies of deployment completion.");
         let station_rt_id = StationSleep::new(
-            stations,
+            station_specs,
             station_progresses,
             station_id,
             station_name,

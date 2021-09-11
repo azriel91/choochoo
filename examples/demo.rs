@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use choochoo::{
     cfg_model::Workload,
     fmt::PlainTextFormatter,
-    rt_model::{error::StationSpecError, Destination, StationProgresses, Stations},
+    rt_model::{error::StationSpecError, Destination, StationProgresses, StationSpecs},
     Train,
 };
 use srcerr::{
@@ -106,37 +106,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     rt.block_on(async move {
         let mut dest = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
-            let station_a = StationA::build(&mut stations, &mut station_progresses)?;
-            let station_b = StationB::build(&mut stations, &mut station_progresses)?;
-            let station_c = StationC::build(&mut stations, &mut station_progresses)?;
-            let station_d = StationD::build(&mut stations, &mut station_progresses)?;
-            let station_e = StationE::build(&mut stations, &mut station_progresses)?;
-            let station_f = StationF::build(&mut stations, &mut station_progresses)?;
-            let station_g = StationG::build(&mut stations, &mut station_progresses)?;
-            let station_h = StationH::build(&mut stations, &mut station_progresses)?;
+            let station_a = StationA::build(&mut station_specs, &mut station_progresses)?;
+            let station_b = StationB::build(&mut station_specs, &mut station_progresses)?;
+            let station_c = StationC::build(&mut station_specs, &mut station_progresses)?;
+            let station_d = StationD::build(&mut station_specs, &mut station_progresses)?;
+            let station_e = StationE::build(&mut station_specs, &mut station_progresses)?;
+            let station_f = StationF::build(&mut station_specs, &mut station_progresses)?;
+            let station_g = StationG::build(&mut station_specs, &mut station_progresses)?;
+            let station_h = StationH::build(&mut station_specs, &mut station_progresses)?;
 
             if args.dependency_mode == DependencyMode::Sequential {
-                stations.add_edge(station_a, station_b, Workload::default())?;
-                stations.add_edge(station_b, station_c, Workload::default())?;
-                stations.add_edge(station_c, station_d, Workload::default())?;
-                stations.add_edge(station_d, station_e, Workload::default())?;
-                stations.add_edge(station_e, station_f, Workload::default())?;
-                stations.add_edge(station_f, station_g, Workload::default())?;
-                stations.add_edge(station_g, station_h, Workload::default())?;
+                station_specs.add_edge(station_a, station_b, Workload::default())?;
+                station_specs.add_edge(station_b, station_c, Workload::default())?;
+                station_specs.add_edge(station_c, station_d, Workload::default())?;
+                station_specs.add_edge(station_d, station_e, Workload::default())?;
+                station_specs.add_edge(station_e, station_f, Workload::default())?;
+                station_specs.add_edge(station_f, station_g, Workload::default())?;
+                station_specs.add_edge(station_g, station_h, Workload::default())?;
             } else {
-                stations.add_edge(station_a, station_b, Workload::default())?;
-                stations.add_edge(station_a, station_c, Workload::default())?;
-                stations.add_edge(station_b, station_e, Workload::default())?;
-                stations.add_edge(station_c, station_d, Workload::default())?;
-                stations.add_edge(station_d, station_e, Workload::default())?;
-                stations.add_edge(station_e, station_g, Workload::default())?;
-                stations.add_edge(station_f, station_g, Workload::default())?;
-                stations.add_edge(station_g, station_h, Workload::default())?;
+                station_specs.add_edge(station_a, station_b, Workload::default())?;
+                station_specs.add_edge(station_a, station_c, Workload::default())?;
+                station_specs.add_edge(station_b, station_e, Workload::default())?;
+                station_specs.add_edge(station_c, station_d, Workload::default())?;
+                station_specs.add_edge(station_d, station_e, Workload::default())?;
+                station_specs.add_edge(station_e, station_g, Workload::default())?;
+                station_specs.add_edge(station_f, station_g, Workload::default())?;
+                station_specs.add_edge(station_g, station_h, Workload::default())?;
             }
 
-            let dest = Destination::new(stations, station_progresses);
+            let dest = Destination::new(station_specs, station_progresses);
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;

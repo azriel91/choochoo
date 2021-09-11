@@ -6,7 +6,7 @@ use choochoo::{
         CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
         StationSpecFns,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, Stations, VisitStatus},
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs, VisitStatus},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use indicatif::ProgressStyle;
@@ -32,7 +32,7 @@ pub struct StationC;
 impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
     pub fn build(
-        stations: &mut Stations<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
         station_progresses: &mut StationProgresses<DemoError>,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
@@ -52,7 +52,7 @@ impl StationC {
                     .template(StationProgress::<DemoError>::STYLE_IN_PROGRESS_BYTES)
                     .progress_chars("█▉▊▋▌▍▎▏  "),
             );
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
         Ok(station_rt_id)
     }

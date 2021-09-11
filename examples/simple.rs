@@ -6,7 +6,8 @@ use choochoo::{
     },
     fmt::PlainTextFormatter,
     rt_model::{
-        error::StationSpecError, Destination, StationProgresses, StationRtId, Stations, VisitStatus,
+        error::StationSpecError, Destination, StationProgresses, StationRtId, StationSpecs,
+        VisitStatus,
     },
     Train,
 };
@@ -52,11 +53,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .expect("Failed to read simple.toml");
 
         let (mut dest, _station_a, _station_b) = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
-            let station_a = station_a(&mut stations, &mut station_progresses);
-            let station_b = station_b(&mut stations, &mut station_progresses, file_id);
-            let dest = Destination::new(stations, station_progresses);
+            let station_a = station_a(&mut station_specs, &mut station_progresses);
+            let station_b = station_b(&mut station_specs, &mut station_progresses, file_id);
+            let dest = Destination::new(station_specs, station_progresses);
 
             (dest, station_a, station_b)
         };
@@ -84,7 +85,7 @@ async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId
 }
 
 fn station_a(
-    stations: &mut Stations<ExampleError>,
+    station_specs: &mut StationSpecs<ExampleError>,
     station_progresses: &mut StationProgresses<ExampleError>,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
     let visit_fn = StationFn::new(|_station_progress, _| {
@@ -94,7 +95,7 @@ fn station_a(
         })
     });
     add_station(
-        stations,
+        station_specs,
         station_progresses,
         "a",
         "Station A",
@@ -105,7 +106,7 @@ fn station_a(
 }
 
 fn station_b(
-    stations: &mut Stations<ExampleError>,
+    station_specs: &mut StationSpecs<ExampleError>,
     station_progresses: &mut StationProgresses<ExampleError>,
     file_id: FileId,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
@@ -117,7 +118,7 @@ fn station_b(
         })
     });
     add_station(
-        stations,
+        station_specs,
         station_progresses,
         "b",
         "Station B",
@@ -141,7 +142,7 @@ fn value_out_of_range(file_id: FileId) -> ExampleError {
 }
 
 fn add_station(
-    stations: &mut Stations<ExampleError>,
+    station_specs: &mut StationSpecs<ExampleError>,
     station_progresses: &mut StationProgresses<ExampleError>,
     station_id: &'static str,
     station_name: &'static str,
@@ -160,7 +161,7 @@ fn add_station(
         station_spec_fns,
     );
     let station_progress = StationProgress::new(&station_spec, visit_status);
-    let station_rt_id = stations.add_node(station_spec);
+    let station_rt_id = station_specs.add_node(station_spec);
     station_progresses.insert(station_rt_id, station_progress);
     Ok(station_rt_id)
 }

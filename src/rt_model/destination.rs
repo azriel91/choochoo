@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::{
     cfg_model::StationId,
-    rt_model::{StationProgresses, StationRtId, Stations},
+    rt_model::{StationProgresses, StationRtId, StationSpecs},
 };
 
 /// Specification of a desired state.
 #[derive(Debug, Default)]
 pub struct Destination<E> {
     /// The stations along the way to the destination.
-    stations: Stations<E>,
+    station_specs: StationSpecs<E>,
     /// Map from station ID to station runtime ID.
     ///
     /// This is the only clone of `StationId`s that we should hold.
@@ -23,31 +23,32 @@ impl<E> Destination<E> {
     ///
     /// # Parameters
     ///
-    /// * `stations`: The stations along the way to the destination.
+    /// * `station_specs`: The stations along the way to the destination.
     /// * `station_progresses`: The initial state of the stations.
-    pub fn new(stations: Stations<E>, station_progresses: StationProgresses<E>) -> Self {
-        let mut station_id_to_rt_id = HashMap::with_capacity(stations.node_count());
-        stations
+    pub fn new(station_specs: StationSpecs<E>, station_progresses: StationProgresses<E>) -> Self {
+        let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
+        station_specs
             .iter_with_indices()
             .for_each(|(node_index, station_spec)| {
                 station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
             });
 
         Self {
-            stations,
+            station_specs,
             station_id_to_rt_id,
             station_progresses,
         }
     }
 
-    /// Returns a reference to the `Stations` for this destination.
-    pub fn stations(&self) -> &Stations<E> {
-        &self.stations
+    /// Returns a reference to the [`StationSpecs`] for this destination.
+    pub fn station_specs(&self) -> &StationSpecs<E> {
+        &self.station_specs
     }
 
-    /// Returns a mutable reference to the `Stations` for this destination.
-    pub fn stations_mut(&mut self) -> &mut Stations<E> {
-        &mut self.stations
+    /// Returns a mutable reference to the [`StationSpecs`] for this
+    /// destination.
+    pub fn stations_mut(&mut self) -> &mut StationSpecs<E> {
+        &mut self.station_specs
     }
 
     /// Returns a reference to the station progresses.

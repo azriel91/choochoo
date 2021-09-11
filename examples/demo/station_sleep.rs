@@ -2,7 +2,7 @@ use std::path::Path;
 
 use choochoo::{
     cfg_model::{CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns},
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, Stations, VisitStatus},
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs, VisitStatus},
 };
 use futures::{stream, stream::StreamExt};
 use srcerr::{
@@ -21,7 +21,7 @@ pub struct StationSleep;
 impl StationSleep {
     /// Sleeps to simulate a process
     pub fn new(
-        stations: &mut Stations<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
         station_progresses: &mut StationProgresses<DemoError>,
         station_id: StationId,
         station_name: String,
@@ -40,7 +40,7 @@ impl StationSleep {
         let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
         station_progress.progress_bar.set_length(PROGRESS_LENGTH);
 
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
 
         station_rt_id
