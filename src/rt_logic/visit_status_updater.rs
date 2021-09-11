@@ -4,7 +4,7 @@ use daggy::Walker;
 
 use crate::rt_model::{Destination, StationRtId, VisitStatus};
 
-/// Updates the [`VisitStatus`]es for all [`Station`]s.
+/// Updates the [`VisitStatus`]es for all [`StationMut`]s.
 ///
 /// The new visit status is calculated based on the station's visit result
 /// and its parents' [`VisitStatus`]es.
@@ -40,7 +40,7 @@ use crate::rt_model::{Destination, StationRtId, VisitStatus};
 /// No transitions.
 ///
 /// [`StationSpec::visit`]: crate::cfg_model::StationSpec::visit
-/// [`Station`]: crate::rt_model::Station
+/// [`StationMut`]: crate::rt_model::StationMut
 /// [`Train::reach`]: crate::Train::reach
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
@@ -49,7 +49,7 @@ pub struct VisitStatusUpdater<E> {
 }
 
 impl<E> VisitStatusUpdater<E> {
-    /// Updates the [`VisitStatus`]es for all [`Station`]s.
+    /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -59,7 +59,7 @@ impl<E> VisitStatusUpdater<E> {
     /// * `dest`: `Destination` with all the stations and their progress
     ///   information.
     ///
-    /// [`Station`]: crate::rt_model::Station
+    /// [`StationMut`]: crate::rt_model::StationMut
     pub fn update(dest: &Destination<E>) {
         let station_specs = dest.station_specs();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
@@ -82,7 +82,7 @@ impl<E> VisitStatusUpdater<E> {
         });
     }
 
-    /// Updates the [`VisitStatus`]es for children of the given [`Station`].
+    /// Updates the [`VisitStatus`]es for children of the given [`StationMut`].
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -94,7 +94,7 @@ impl<E> VisitStatusUpdater<E> {
     /// * `station_rt_id`: Runtime ID of the parent station, whose children to
     ///   update.
     ///
-    /// [`Station`]: crate::rt_model::Station
+    /// [`StationMut`]: crate::rt_model::StationMut
     pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
         let station_specs = dest.station_specs();
 
@@ -118,7 +118,7 @@ impl<E> VisitStatusUpdater<E> {
     }
 
     /// Returns the [`VisitStatus`] to be transitioned to for a single
-    /// [`Station`], if any.
+    /// [`StationMut`], if any.
     ///
     /// # Parameters
     ///
@@ -127,7 +127,7 @@ impl<E> VisitStatusUpdater<E> {
     /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
     ///   compute.
     ///
-    /// [`Station`]: crate::rt_model::Station
+    /// [`StationMut`]: crate::rt_model::StationMut
     pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,

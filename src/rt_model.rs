@@ -7,6 +7,7 @@ pub use self::{
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     files::{Files, RwFiles},
     station::Station,
+    station_mut::StationMut,
     station_progresses::StationProgresses,
     station_rt_id::StationRtId,
     station_specs::{StationSpecs, StationsFrozen},
@@ -20,6 +21,7 @@ mod destination;
 mod ensure_outcome;
 mod files;
 mod station;
+mod station_mut;
 mod station_progresses;
 mod station_rt_id;
 mod station_specs;

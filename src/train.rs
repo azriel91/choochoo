@@ -76,40 +76,17 @@ impl Train {
         .await;
         train_report.resources = resources;
 
-        dest.station_specs()
-            .iter()
-            .filter_map(|station_spec| {
-                dest.station_id_to_rt_id()
-                    .get(station_spec.id())
-                    .and_then(|station_rt_id| {
-                        dest.station_progresses()
-                            .get(station_rt_id)
-                            .map(|station_progress| (*station_rt_id, station_progress))
-                    })
-                    .and_then(|(station_rt_id, station_progress)| {
-                        station_progress
-                            .borrow_mut()
-                            .error
-                            .take()
-                            .map(|error| (station_rt_id, error))
-                    })
-            })
-            .for_each(|(station_rt_id, error)| {
-                train_report.errors.insert(station_rt_id, error);
-            });
+        dest.stations_mut().for_each(|mut station| {
+            if let Some(error) = station.progress.error.take() {
+                train_report.errors.insert(station.rt_id, error);
+            }
+        });
 
         // We need to finish / abandon all progress bars, otherwise the
         // `MultiProgress` will never finish.
-        let dest = &dest;
-        dest.station_specs().iter().for_each(move |station_spec| {
-            let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id()).copied();
-            if let Some(station_rt_id) = station_rt_id {
-                let station_progress = dest.station_progresses().try_borrow_mut(&station_rt_id);
-                if let Some(station_progress) = station_progress {
-                    if !station_progress.progress_bar.is_finished() {
-                        station_progress.progress_bar.finish_at_current_pos();
-                    }
-                }
+        dest.stations_mut().for_each(|station| {
+            if !station.progress.progress_bar.is_finished() {
+                station.progress.progress_bar.finish_at_current_pos();
             }
         });
 

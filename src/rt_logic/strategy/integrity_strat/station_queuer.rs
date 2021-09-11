@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::rt_model::Station;
+use crate::rt_model::StationMut;
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use indicatif::ProgressStyle;
 use tokio::sync::mpsc::{error::SendError, Receiver, Sender};
@@ -24,7 +24,7 @@ impl<E> StationQueuer<E> {
     /// * `stations_done_rx`: Receiver for station that have been visited.
     pub async fn run<'f>(
         dest: &'f Destination<E>,
-        stations_queued_tx: Sender<Station<'f, E>>,
+        stations_queued_tx: Sender<StationMut<'f, E>>,
         mut stations_done_rx: Receiver<StationRtId>,
     ) {
         let stations_queued_tx_ref = &stations_queued_tx;
@@ -63,27 +63,9 @@ impl<E> StationQueuer<E> {
         }
     }
 
-    fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = Station<'_, E>> + '_ {
-        dest.station_specs().iter().filter_map(move |station_spec| {
-            dest.station_id_to_rt_id()
-                .get(station_spec.id())
-                .and_then(|station_rt_id| {
-                    dest.station_progresses()
-                        .try_borrow_mut(station_rt_id)
-                        .map(|station_progress| (*station_rt_id, station_progress))
-                })
-                .and_then(|(station_rt_id, station_progress)| {
-                    if station_progress.visit_status == VisitStatus::Queued {
-                        Some(Station {
-                            spec: station_spec,
-                            rt_id: station_rt_id,
-                            progress: station_progress,
-                        })
-                    } else {
-                        None
-                    }
-                })
-        })
+    fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = StationMut<'_, E>> + '_ {
+        dest.stations_mut()
+            .filter(move |station| station.progress.visit_status == VisitStatus::Queued)
     }
 
     fn progress_bar_update_all(dest: &Destination<E>) {

@@ -4,7 +4,7 @@ use resman::Resources;
 
 use crate::{
     cfg_model::CheckStatus,
-    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, Station},
+    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, StationMut},
 };
 
 /// Logic that determines whether or not to visit a station.
@@ -35,7 +35,7 @@ impl<E> Driver<E> {
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
     pub async fn ensure(
-        station: &mut Station<'_, E>,
+        station: &mut StationMut<'_, E>,
         resources: &Resources,
     ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where

@@ -2,14 +2,14 @@ use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use tokio::sync::mpsc;
 
-use crate::rt_model::{Destination, Station};
+use crate::rt_model::{Destination, StationMut};
 
 use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 
 mod station_queuer;
 mod station_visitor;
 
-/// [`Station`]s to process with integrity guarantees.
+/// [`StationMut`]s to process with integrity guarantees.
 ///
 /// This means all stations are still checked and visited even though the
 /// destination may already be reached at the beginning of the execution --
@@ -38,7 +38,7 @@ pub struct IntegrityStrat<E> {
 }
 
 impl<E> IntegrityStrat<E> {
-    /// Returns a stream of [`Station`]s to process with integrity guarantees.
+    /// Returns a stream of [`StationMut`]s to process with integrity guarantees.
     ///
     /// See the [`IntegrityStrat`] type level documentation for more details.
     ///
@@ -63,7 +63,7 @@ impl<E> IntegrityStrat<E> {
     where
         F: for<'a, 'station> Fn(
             &'a Destination<E>,
-            &'a mut Station<'station, E>,
+            &'a mut StationMut<'station, E>,
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
     {

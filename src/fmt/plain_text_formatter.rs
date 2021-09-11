@@ -149,22 +149,10 @@ where
         dest: &Destination<E>,
         write_buf: WriterAndBuffer<'w, W>,
     ) -> Result<WriterAndBuffer<'w, W>, io::Error> {
-        let station_specs = dest.station_specs();
-        let station_progresses = dest.station_progresses();
-
-        stream::iter(station_specs.iter().filter_map(|station_spec| {
-            let station_rt_id = dest.station_id_to_rt_id().get(station_spec.id());
-            station_rt_id.and_then(|station_rt_id| {
-                station_progresses
-                    .get(station_rt_id)
-                    .map(|station_progress| (station_spec, station_progress))
-            })
-        }))
-        .map(Result::<_, io::Error>::Ok)
-        .try_fold(
-            write_buf,
-            |mut write_buf, (station_spec, station_progress)| async move {
-                let icon = match station_progress.borrow().visit_status {
+        stream::iter(dest.stations())
+            .map(Result::<_, io::Error>::Ok)
+            .try_fold(write_buf, |mut write_buf, station| async move {
+                let icon = match station.progress.visit_status {
                     VisitStatus::NotReady => "⏰",
                     VisitStatus::ParentFail => "☠️",
                     VisitStatus::Queued => "⏳",
@@ -177,13 +165,12 @@ where
                     write_buf,
                     "{status} {name}: {desc}",
                     status = icon,
-                    name = station_spec.name(),
-                    desc = station_spec.description()
+                    name = station.spec.name(),
+                    desc = station.spec.description()
                 );
                 Ok(write_buf)
-            },
-        )
-        .await
+            })
+            .await
     }
 }
 
