@@ -38,7 +38,7 @@ pub struct IntegrityStrat<E> {
 }
 
 impl<E> IntegrityStrat<E> {
-    /// Returns a stream of [`StationMut`]s to process with integrity guarantees.
+    /// Runs the visit logic over each station with integrity guarantees.
     ///
     /// See the [`IntegrityStrat`] type level documentation for more details.
     ///
