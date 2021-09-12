@@ -1,4 +1,6 @@
-use tokio::sync::RwLock;
+use std::marker::PhantomData;
+
+use tokio::{sync::RwLock, task::JoinHandle};
 
 use crate::{
     cfg_model::{indicatif::MultiProgress, resman::Resources, VisitStatus},
@@ -11,16 +13,27 @@ use crate::{
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
-pub struct Train;
+pub struct Train<E>(PhantomData<E>);
 
-impl Train {
+impl<E> Train<E>
+where
+    E: From<StationSpecError>,
+{
     /// Ensures the given destination is reached.
-    pub async fn reach<E>(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>>
-    where
-        E: From<StationSpecError>,
-    {
+    pub async fn reach(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
+        let progress_fut = Self::progress_tracker_init(&dest);
+
+        let resources = Self::stations_visit(dest).await?;
+        let train_report = Self::train_report_build(resources, dest);
+
+        Self::progress_tracker_join(dest, progress_fut).await?;
+
+        Ok(train_report)
+    }
+
+    /// Initializes the progress tracker.
+    fn progress_tracker_init(dest: &Destination<E>) -> JoinHandle<std::io::Result<()>> {
         let multi_progress = MultiProgress::new();
-        // Iterate using `station_specs` because these are sorted.
         dest.station_specs()
             .graph()
             .node_indices()
@@ -34,17 +47,38 @@ impl Train {
                 progress_bar_for_tick.tick();
             });
 
-        let multi_progress_fut =
-            tokio::task::spawn_blocking(move || multi_progress.join().unwrap());
+        tokio::task::spawn_blocking(move || multi_progress.join())
+    }
 
-        let mut train_report = TrainReport::new();
+    /// Waits for the progress tracker to complete.
+    async fn progress_tracker_join(
+        dest: &mut Destination<E>,
+        progress_fut: JoinHandle<Result<(), std::io::Error>>,
+    ) -> Result<(), Error<E>> {
+        // We need to finish / abandon all progress bars, otherwise the `MultiProgress`
+        // will never finish.
+        dest.stations_mut().for_each(|station| {
+            if !station.progress.progress_bar.is_finished() {
+                station.progress.progress_bar.finish_at_current_pos();
+            }
+        });
+
+        progress_fut
+            .await
+            .map_err(Error::MultiProgressTaskJoin)?
+            .map_err(Error::MultiProgressJoin)?;
+
+        Ok(())
+    }
+
+    async fn stations_visit(dest: &mut Destination<E>) -> Result<Resources, Error<E>> {
         let mut resources = Resources::default();
         resources.insert(RwFiles::new(RwLock::new(Files::new())));
 
         // Set `NotReady` stations to `Queued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        let resources = IntegrityStrat::iter(dest, resources, |dest, mut station, resources| {
+        IntegrityStrat::iter(dest, resources, |dest, mut station, resources| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's
                 // `visit_status` while the `visit()` is `await`ed.
@@ -72,27 +106,17 @@ impl Train {
                 resources
             })
         })
-        .await?;
-        train_report.resources = resources;
+        .await
+    }
 
+    fn train_report_build(resources: Resources, dest: &mut Destination<E>) -> TrainReport<E> {
+        let mut train_report = TrainReport::new(resources);
         dest.stations_mut().for_each(|mut station| {
             if let Some(error) = station.progress.error.take() {
                 train_report.errors.insert(station.rt_id, error);
             }
         });
-
-        // We need to finish / abandon all progress bars, otherwise the
-        // `MultiProgress` will never finish.
-        dest.stations_mut().for_each(|station| {
-            if !station.progress.progress_bar.is_finished() {
-                station.progress.progress_bar.finish_at_current_pos();
-            }
-        });
-
-        // Note: This will hang if a progress bar is started but not completed.
-        multi_progress_fut.await.map_err(Error::MultiProgressJoin)?;
-
-        Ok(train_report)
+        train_report
     }
 }
 

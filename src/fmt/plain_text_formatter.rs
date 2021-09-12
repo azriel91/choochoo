@@ -182,7 +182,7 @@ where
 
 #[cfg(test)]
 mod tests {
-
+    use choochoo_cfg_model::resman::Resources;
     use tokio::runtime;
 
     use super::PlainTextFormatter;
@@ -267,7 +267,7 @@ mod tests {
             )?;
             Destination::new(station_specs, station_progresses)
         };
-        let train_report = TrainReport::new();
+        let train_report = TrainReport::new(Resources::default());
 
         rt.block_on(PlainTextFormatter::fmt(&mut output, &dest, &train_report))?;
 

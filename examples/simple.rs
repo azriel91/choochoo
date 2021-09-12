@@ -14,7 +14,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, StationProgresses, StationRtId, StationSpecs,
+        Destination, RwFiles, StationProgresses, StationRtId, StationSpecs,
     },
     Train,
 };
@@ -48,18 +48,12 @@ impl From<StationSpecError> for ExampleError {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
-    let mut files = Files::<Cow<'_, str>>::new();
-
     rt.block_on(async move {
-        let file_id = read_simple_toml(&mut files)
-            .await
-            .expect("Failed to read simple.toml");
-
         let (mut dest, _station_a, _station_b) = {
             let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
             let station_a = station_a(&mut station_specs, &mut station_progresses);
-            let station_b = station_b(&mut station_specs, &mut station_progresses, file_id);
+            let station_b = station_b(&mut station_specs, &mut station_progresses);
             let dest = Destination::new(station_specs, station_progresses);
 
             (dest, station_a, station_b)
@@ -93,7 +87,7 @@ fn station_a(
     station_specs: &mut StationSpecs<ExampleError>,
     station_progresses: &mut StationProgresses<ExampleError>,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(|_station_progress, _| {
+    let visit_fn = StationFn::new(|_station, _| {
         Box::pin(async move {
             eprintln!("Visiting {}.", "Station A");
             Result::<(), ExampleError>::Ok(())
@@ -113,11 +107,18 @@ fn station_a(
 fn station_b(
     station_specs: &mut StationSpecs<ExampleError>,
     station_progresses: &mut StationProgresses<ExampleError>,
-    file_id: FileId,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |_station_progress, _| {
+    let visit_fn = StationFn::new(move |_station, resources| {
         Box::pin(async move {
             eprintln!("Visiting {}.", "Station B");
+
+            let files = resources.borrow_mut::<RwFiles>();
+            let mut files = files.write().await;
+
+            let file_id = read_simple_toml(&mut files)
+                .await
+                .expect("Failed to read simple.toml");
+
             let error = value_out_of_range(file_id);
             Result::<(), ExampleError>::Err(error)
         })

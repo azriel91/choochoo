@@ -1,9 +1,6 @@
 use choochoo_cfg_model::resman::Resources;
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use indexmap::IndexMap;
-use tokio::sync::RwLock;
-
-use crate::{Files, RwFiles};
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]
@@ -16,16 +13,7 @@ pub struct TrainReport<E> {
 
 impl<E> TrainReport<E> {
     /// Returns a new TrainReport.
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl<E> Default for TrainReport<E> {
-    fn default() -> Self {
-        let mut resources = Resources::default();
-        resources.insert(RwFiles::new(RwLock::new(Files::new())));
-
+    pub fn new(resources: Resources) -> Self {
         Self {
             errors: Default::default(),
             resources,

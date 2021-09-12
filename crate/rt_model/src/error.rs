@@ -15,7 +15,9 @@ mod station_spec_error;
 #[derive(Debug)]
 pub enum Error<E> {
     /// Failed to join the multi-progress bar task.
-    MultiProgressJoin(JoinError),
+    MultiProgressTaskJoin(JoinError),
+    /// Failed to join the multi-progress bar.
+    MultiProgressJoin(std::io::Error),
     /// Failed to queue a station for visiting.
     StationQueue {
         /// The specification of the station that failed to be queued.
@@ -32,7 +34,10 @@ pub enum Error<E> {
 impl<E> fmt::Display for Error<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar task."),
+            Self::MultiProgressTaskJoin(_) => {
+                write!(f, "Failed to join the multi-progress bar task.")
+            }
+            Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar."),
             Self::StationQueue { station_spec } => write!(
                 f,
                 "Failed to queue station: `{id}: {name}`",
@@ -55,6 +60,7 @@ where
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
             Self::StationQueue { .. } => None,
             Self::StationVisitNotify { .. } => None,
