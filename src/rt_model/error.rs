@@ -21,6 +21,12 @@ pub enum Error<E> {
         /// The specification of the station that failed to be queued.
         station_spec: StationSpec<E>,
     },
+    /// Station visitor failed to notify the queuer that a station is completed.
+    StationVisitNotify {
+        /// The specification of the station whose notification failed to be
+        /// sent.
+        station_spec: StationSpec<E>,
+    },
 }
 
 impl<E> fmt::Display for Error<E> {
@@ -30,6 +36,12 @@ impl<E> fmt::Display for Error<E> {
             Self::StationQueue { station_spec } => write!(
                 f,
                 "Failed to queue station: `{id}: {name}`",
+                id = station_spec.id(),
+                name = station_spec.name()
+            ),
+            Self::StationVisitNotify { station_spec } => write!(
+                f,
+                "Failed to notify completion of station: `{id}: {name}`",
                 id = station_spec.id(),
                 name = station_spec.name()
             ),
@@ -45,6 +57,7 @@ where
         match self {
             Self::MultiProgressJoin(error) => Some(error),
             Self::StationQueue { .. } => None,
+            Self::StationVisitNotify { .. } => None,
         }
     }
 }

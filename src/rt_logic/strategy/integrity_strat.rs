@@ -82,8 +82,7 @@ impl<E> IntegrityStrat<E> {
             stations_done_tx,
         );
 
-        let (queuer_result, _) = futures::join!(station_queuer, station_visitor);
-        queuer_result?;
+        futures::try_join!(station_queuer, station_visitor)?;
 
         Ok(seed)
     }
