@@ -7,7 +7,7 @@ use std::{
 
 use resman::Resources;
 
-use crate::cfg_model::StationProgress;
+use crate::StationProgress;
 
 /// Return type of the `StationFn`.
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;

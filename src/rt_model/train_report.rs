@@ -1,9 +1,11 @@
 use daggy::{petgraph::graph::DefaultIx, NodeIndex};
 use indexmap::IndexMap;
-use resman::Resources;
 use tokio::sync::RwLock;
 
-use crate::rt_model::{Files, RwFiles};
+use crate::{
+    cfg_model::resman::Resources,
+    rt_model::{Files, RwFiles},
+};
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]

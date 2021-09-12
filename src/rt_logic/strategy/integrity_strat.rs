@@ -90,7 +90,6 @@ impl<E> IntegrityStrat<E> {
 
 #[cfg(test)]
 mod tests {
-    use resman::Resources;
     use tokio::{
         runtime,
         sync::mpsc::{self, Receiver, Sender},
@@ -99,9 +98,10 @@ mod tests {
     use super::IntegrityStrat;
     use crate::{
         cfg_model::{
-            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+            resman::Resources, StationFn, StationId, StationIdInvalidFmt, StationProgress,
+            StationSpec, StationSpecFns, VisitStatus,
         },
-        rt_model::{Destination, Error, StationProgresses, StationSpecs, VisitStatus},
+        rt_model::{Destination, Error, StationProgresses, StationSpecs},
     };
 
     #[test]

@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-use resman::Resources;
-
 use crate::{
-    cfg_model::CheckStatus,
+    cfg_model::{resman::Resources, CheckStatus},
     rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, StationMut},
 };
 

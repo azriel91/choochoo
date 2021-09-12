@@ -10,7 +10,7 @@
 /// [`Resources`].
 ///
 /// [`Resources`]: resman::Resources
-/// [`StationSpecFns`]: crate::cfg_model::StationSpecFns
+/// [`StationSpecFns`]: crate::StationSpecFns
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CheckStatus {
     /// Station is not in desired state.

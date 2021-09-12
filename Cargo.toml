@@ -1,6 +1,6 @@
 [package]
 name = "choochoo"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Azriel Hoh <azriel91@gmail.com>"]
 edition = "2018"
 description = "Automation that starts where it stops."
@@ -11,12 +11,10 @@ keywords = ["automation"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-console = "0.14.1"
+choochoo_cfg_model = { path = "crate/cfg_model", version = "0.1.0" }
 daggy = { version = "0.7.0", default-features = false }
 futures = "0.3.17"
 indexmap = "1.7.0"
-indicatif = "0.16.2"
-resman = { version = "0.5.0", features = ["debug"] }
 rt_map = "0.4.0"
 srcerr = { version = "0.4.0", features = ["codespan"] }
 tokio = { version = "1.11.0", features = ["io-util", "sync"] }
@@ -27,3 +25,6 @@ pico-args = "0.4.2"
 reqwest = { version = "0.11.4", features = ["multipart", "stream"] }
 tokio = { version = "1.11.0", features = ["fs", "rt", "rt-multi-thread", "sync", "io-std"] }
 tokio-util = { version = "0.6.7", features = ["codec"] }
+
+[workspace]
+members = ["crate/*"]

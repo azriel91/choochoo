@@ -73,9 +73,8 @@ mod tests {
     use daggy::NodeIndex;
 
     use super::StationSpecs;
-    use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::VisitStatus,
+    use crate::cfg_model::{
+        StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
     };
 
     #[test]

@@ -3,7 +3,7 @@ use std::fmt;
 use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::{cfg_model::StationSpec, rt_model::VisitStatus};
+use crate::{StationSpec, VisitStatus};
 
 /// Station progress to reaching the destination.
 ///
@@ -108,8 +108,7 @@ impl<E> fmt::Display for StationProgressDisplay<'_, E> {
 mod tests {
     use super::StationProgress;
     use crate::{
-        cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns},
-        rt_model::VisitStatus,
+        StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
     };
 
     #[test]

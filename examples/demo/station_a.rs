@@ -2,12 +2,11 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-        StationSpecFns,
+        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
+        StationProgress, StationSpec, StationSpecFns, VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs, VisitStatus},
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
 };
-use indicatif::ProgressStyle;
 use reqwest::{
     multipart::{Form, Part},
     redirect::Policy,

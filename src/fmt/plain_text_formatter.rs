@@ -7,7 +7,10 @@ use futures::{stream, StreamExt, TryStreamExt};
 use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::rt_model::{error::AsDiagnostic, Destination, Files, RwFiles, TrainReport, VisitStatus};
+use crate::{
+    cfg_model::VisitStatus,
+    rt_model::{error::AsDiagnostic, Destination, Files, RwFiles, TrainReport},
+};
 
 /// Format trait for plain text.
 #[derive(Debug)]
@@ -182,11 +185,10 @@ mod tests {
     use super::PlainTextFormatter;
     use crate::{
         cfg_model::{
-            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
+            StationSpecFns, VisitStatus,
         },
-        rt_model::{
-            Destination, StationProgresses, StationRtId, StationSpecs, TrainReport, VisitStatus,
-        },
+        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, TrainReport},
     };
 
     #[test]

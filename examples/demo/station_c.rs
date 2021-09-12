@@ -3,13 +3,12 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-        StationSpecFns,
+        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
+        StationProgress, StationSpec, StationSpecFns, VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs, VisitStatus},
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
-use indicatif::ProgressStyle;
 use srcerr::{
     codespan::{FileId, Span},
     codespan_reporting::diagnostic::Severity,

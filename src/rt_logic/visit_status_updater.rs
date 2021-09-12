@@ -2,7 +2,10 @@ use std::marker::PhantomData;
 
 use daggy::Walker;
 
-use crate::rt_model::{Destination, StationRtId, VisitStatus};
+use crate::{
+    cfg_model::VisitStatus,
+    rt_model::{Destination, StationRtId},
+};
 
 /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
 ///
@@ -212,9 +215,9 @@ mod tests {
     use crate::{
         cfg_model::{
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-            StationSpecFns, Workload,
+            StationSpecFns, VisitStatus, Workload,
         },
-        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs},
     };
 
     #[test]

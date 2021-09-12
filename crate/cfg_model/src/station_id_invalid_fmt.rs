@@ -15,7 +15,7 @@ impl<'s> StationIdInvalidFmt<'s> {
 
     /// Returns the value that failed to be parsed as a [`StationId`].
     ///
-    /// [`StationId`]: crate::cfg_model::StationId
+    /// [`StationId`]: crate::StationId
     pub fn value(&self) -> &Cow<'s, str> {
         &self.value
     }

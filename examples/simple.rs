@@ -3,11 +3,11 @@ use std::{borrow::Cow, path::Path};
 use choochoo::{
     cfg_model::{
         StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+        VisitStatus,
     },
     fmt::PlainTextFormatter,
     rt_model::{
         error::StationSpecError, Destination, StationProgresses, StationRtId, StationSpecs,
-        VisitStatus,
     },
     Train,
 };

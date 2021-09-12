@@ -1,12 +1,11 @@
-use indicatif::MultiProgress;
-use resman::Resources;
 use tokio::sync::RwLock;
 
 use crate::{
+    cfg_model::{indicatif::MultiProgress, resman::Resources, VisitStatus},
     rt_logic::{strategy::IntegrityStrat, Driver, VisitStatusUpdater},
     rt_model::{
         error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, Files,
-        RwFiles, TrainReport, VisitStatus,
+        RwFiles, TrainReport,
     },
 };
 
@@ -105,9 +104,10 @@ mod tests {
     use super::Train;
     use crate::{
         cfg_model::{
-            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
+            StationSpecFns, VisitStatus,
         },
-        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, VisitStatus},
+        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs},
     };
 
     #[test]

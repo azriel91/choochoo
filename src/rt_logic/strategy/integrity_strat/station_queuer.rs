@@ -2,12 +2,11 @@ use std::marker::PhantomData;
 
 use crate::rt_model::StationMut;
 use futures::{stream, stream::StreamExt, TryStreamExt};
-use indicatif::ProgressStyle;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
-    cfg_model::StationProgress,
-    rt_model::{Destination, Error, StationRtId, VisitStatus},
+    cfg_model::{indicatif::ProgressStyle, StationProgress, VisitStatus},
+    rt_model::{Destination, Error, StationRtId},
 };
 
 /// Listens to station visit completions and queues more stations.

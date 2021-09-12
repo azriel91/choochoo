@@ -13,7 +13,6 @@ pub use self::{
     station_rt_id::StationRtId,
     station_specs::{StationSpecs, StationsFrozen},
     train_report::TrainReport,
-    visit_status::VisitStatus,
 };
 
 pub mod error;
@@ -27,4 +26,3 @@ mod station_progresses;
 mod station_rt_id;
 mod station_specs;
 mod train_report;
-mod visit_status;

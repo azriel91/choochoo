@@ -1,8 +1,11 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns},
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs, VisitStatus},
+    cfg_model::{
+        CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns,
+        VisitStatus,
+    },
+    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
 };
 use futures::{stream, stream::StreamExt};
 use srcerr::{

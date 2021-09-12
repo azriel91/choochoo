@@ -4,11 +4,10 @@ use futures::{
     stream,
     stream::{StreamExt, TryStreamExt},
 };
-use indicatif::ProgressStyle;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
-    cfg_model::StationProgress,
+    cfg_model::{indicatif::ProgressStyle, StationProgress},
     rt_model::{Destination, Error, StationMut, StationRtId},
 };
 

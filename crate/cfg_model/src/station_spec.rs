@@ -2,7 +2,7 @@ use std::fmt;
 
 use resman::Resources;
 
-use crate::cfg_model::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
+use crate::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
@@ -104,7 +104,7 @@ impl<E> fmt::Display for StationSpec<E> {
 #[cfg(test)]
 mod tests {
     use super::StationSpec;
-    use crate::cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpecFns};
+    use crate::{StationFn, StationId, StationIdInvalidFmt, StationSpecFns};
 
     #[test]
     fn display_returns_readable_informative_message() -> Result<(), StationIdInvalidFmt<'static>> {

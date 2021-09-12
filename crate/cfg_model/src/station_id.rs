@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::cfg_model::StationIdInvalidFmt;
+use crate::StationIdInvalidFmt;
 
 /// Unique identifier for a Station, `Cow<'static, str>` newtype.
 ///
@@ -91,7 +91,7 @@ mod tests {
     use std::{borrow::Cow, convert::TryFrom, str::FromStr};
 
     use super::StationId;
-    use crate::cfg_model::StationIdInvalidFmt;
+    use crate::StationIdInvalidFmt;
 
     #[test]
     fn from_str_returns_ok_owned_for_valid_id() -> Result<(), StationIdInvalidFmt<'static>> {
