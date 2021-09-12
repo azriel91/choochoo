@@ -6,8 +6,8 @@ pub use crate::train::Train;
 
 pub mod fmt;
 pub mod rt_logic;
-pub mod rt_model;
 
 mod train;
 
 pub use choochoo_cfg_model as cfg_model;
+pub use choochoo_rt_model as rt_model;

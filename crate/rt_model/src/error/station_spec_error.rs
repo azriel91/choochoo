@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::cfg_model::StationId;
+use choochoo_cfg_model::StationId;
 
 /// There is a bug with the station specification.
 #[derive(Clone, Debug, PartialEq)]
@@ -9,7 +9,7 @@ pub enum StationSpecError {
     /// [`CheckStatus::VisitRequired`] after the station was visited.
     ///
     /// [`CheckStatus::VisitRequired`]:
-    /// crate::cfg_model::CheckStatus::VisitRequired
+    /// choochoo_cfg_model::CheckStatus::VisitRequired
     VisitRequiredAfterVisit {
         /// Unique identifier of the station.
         id: StationId,

@@ -3,12 +3,16 @@ use std::borrow::Cow;
 use choochoo::{
     cfg_model::Workload,
     fmt::PlainTextFormatter,
-    rt_model::{error::StationSpecError, Destination, StationProgresses, StationSpecs},
+    rt_model::{
+        error::StationSpecError,
+        srcerr::{
+            self,
+            codespan_reporting::diagnostic::{Diagnostic, Severity},
+            SourceError,
+        },
+        Destination, StationProgresses, StationSpecs,
+    },
     Train,
-};
-use srcerr::{
-    codespan_reporting::diagnostic::{Diagnostic, Severity},
-    SourceError,
 };
 use tokio::runtime;
 

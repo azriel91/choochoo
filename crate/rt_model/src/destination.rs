@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{
-    cfg_model::StationId,
-    rt_model::{Station, StationMut, StationProgresses, StationRtId, StationSpecs},
-};
+use choochoo_cfg_model::StationId;
+
+use crate::{Station, StationMut, StationProgresses, StationRtId, StationSpecs};
 
 /// Specification of a desired state.
 #[derive(Debug, Default)]

@@ -7,14 +7,16 @@ use choochoo::{
     },
     fmt::PlainTextFormatter,
     rt_model::{
-        error::StationSpecError, Destination, StationProgresses, StationRtId, StationSpecs,
+        error::StationSpecError,
+        srcerr::{
+            self,
+            codespan::{FileId, Files, Span},
+            codespan_reporting::diagnostic::{Diagnostic, Severity},
+            SourceError,
+        },
+        Destination, StationProgresses, StationRtId, StationSpecs,
     },
     Train,
-};
-use srcerr::{
-    codespan::{FileId, Files, Span},
-    codespan_reporting::diagnostic::{Diagnostic, Severity},
-    SourceError,
 };
 use tokio::{fs, runtime};
 
@@ -172,11 +174,14 @@ fn add_station(
 mod error {
     use std::{borrow::Cow, ops::RangeInclusive};
 
-    use choochoo::rt_model::error::StationSpecError;
-    use srcerr::{
-        codespan::{FileId, Files, Span},
-        codespan_reporting::diagnostic::Label,
-        fmt::Note,
+    use choochoo::rt_model::{
+        error::StationSpecError,
+        srcerr::{
+            self,
+            codespan::{FileId, Files, Span},
+            codespan_reporting::diagnostic::Label,
+            fmt::Note,
+        },
     };
 
     /// Error codes for simple example.

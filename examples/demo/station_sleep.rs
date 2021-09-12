@@ -5,13 +5,15 @@ use choochoo::{
         CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns,
         VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+    },
 };
 use futures::{stream, stream::StreamExt};
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
-};
 use tokio::time::Duration;
 
 use crate::{DemoError, ErrorCode, ErrorDetail};

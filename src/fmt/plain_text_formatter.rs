@@ -4,12 +4,15 @@ use std::{
 };
 
 use futures::{stream, StreamExt, TryStreamExt};
-use srcerr::codespan_reporting::{term, term::termcolor::Buffer};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
 use crate::{
     cfg_model::VisitStatus,
-    rt_model::{error::AsDiagnostic, Destination, Files, RwFiles, TrainReport},
+    rt_model::{
+        error::AsDiagnostic,
+        srcerr::codespan_reporting::{term, term::termcolor::Buffer},
+        Destination, Files, RwFiles, TrainReport,
+    },
 };
 
 /// Format trait for plain text.

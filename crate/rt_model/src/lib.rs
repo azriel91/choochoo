@@ -1,8 +1,13 @@
-//! Runtime data when a train plan is executed.
+//! Runtime data types for the choochoo automation library.
 //!
-//! Types in this module are analogous to build artifacts.
+//! Runtime data when a train plan is executed. Types in this module are
+//! analogous to build artifacts.
 
-pub use self::{
+pub use daggy;
+pub use indexmap;
+pub use srcerr;
+
+pub use crate::{
     destination::Destination,
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,

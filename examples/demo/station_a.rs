@@ -5,15 +5,17 @@ use choochoo::{
         indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
         StationProgress, StationSpec, StationSpecFns, VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+    },
 };
 use reqwest::{
     multipart::{Form, Part},
     redirect::Policy,
-};
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
 };
 use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};

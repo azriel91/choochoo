@@ -5,7 +5,7 @@ use daggy::{
     Dag, NodeWeightsMut,
 };
 
-use crate::cfg_model::{StationSpec, Workload};
+use choochoo_cfg_model::{StationSpec, Workload};
 
 /// Frozen station spec graph.
 pub type StationsFrozen<'s, E> = Frozen<'s, Dag<StationSpec<E>, Workload>>;
@@ -69,11 +69,11 @@ impl<E> DerefMut for StationSpecs<E> {
 mod tests {
     use std::ops::{Deref, DerefMut};
 
-    use crate::rt_model::StationRtId;
+    use crate::StationRtId;
     use daggy::NodeIndex;
 
     use super::StationSpecs;
-    use crate::cfg_model::{
+    use choochoo_cfg_model::{
         StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
     };
 

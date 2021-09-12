@@ -6,13 +6,15 @@ use choochoo::{
         indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
         StationProgress, StationSpec, StationSpecFns, VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, StationSpecs},
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+    },
 };
 use futures::{Stream, StreamExt, TryStreamExt};
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
-};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},

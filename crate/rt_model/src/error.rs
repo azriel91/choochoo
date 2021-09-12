@@ -4,7 +4,7 @@ use std::fmt;
 
 use tokio::task::JoinError;
 
-use crate::cfg_model::StationSpec;
+use choochoo_cfg_model::StationSpec;
 
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
 

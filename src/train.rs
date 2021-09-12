@@ -98,7 +98,6 @@ impl Train {
 
 #[cfg(test)]
 mod tests {
-    use indexmap::IndexMap;
     use tokio::runtime;
 
     use super::Train;
@@ -107,7 +106,7 @@ mod tests {
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
             StationSpecFns, VisitStatus,
         },
-        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs},
+        rt_model::{indexmap::IndexMap, Destination, StationProgresses, StationRtId, StationSpecs},
     };
 
     #[test]
