@@ -1,7 +1,8 @@
 # 🚂 Choo Choo
 
 [![Crates.io](https://img.shields.io/crates/v/choochoo.svg)](https://crates.io/crates/choochoo)
-![CI](https://github.com/azriel91/choochoo/workflows/CI/badge.svg)
+[![docs.rs](https://img.shields.io/docsrs/choochoo)](https://docs.rs/choochoo)
+[![CI](https://github.com/azriel91/credent/workflows/CI/badge.svg)](https://github.com/azriel91/choochoo/actions/workflows/ci.yml)
 [![Coverage Status](https://codecov.io/gh/azriel91/choochoo/branch/main/graph/badge.svg)](https://codecov.io/gh/azriel91/choochoo)
 
 ## Demo
