@@ -4,8 +4,9 @@ use resman::Resources;
 
 use crate::cfg_model::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
 
+// **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct StationSpec<E> {
     /// Unique identifier of the station.
     id: StationId,
@@ -80,6 +81,17 @@ impl<E> StationSpec<E> {
     ) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec_fns.visit_fn.clone();
         visit_fn.0(station_progress, resources)
+    }
+}
+
+impl<E> Clone for StationSpec<E> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
+            station_spec_fns: self.station_spec_fns.clone(),
+        }
     }
 }
 

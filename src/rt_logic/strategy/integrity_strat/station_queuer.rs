@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use crate::rt_model::StationMut;
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use indicatif::ProgressStyle;
-use tokio::sync::mpsc::{error::SendError, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::{
     cfg_model::StationProgress,
-    rt_model::{Destination, StationRtId, VisitStatus},
+    rt_model::{Destination, Error, StationRtId, VisitStatus},
 };
 
 /// Listens to station visit completions and queues more stations.
@@ -26,23 +26,28 @@ impl<E> StationQueuer<E> {
         dest: &'f Destination<E>,
         stations_queued_tx: Sender<StationMut<'f, E>>,
         mut stations_done_rx: Receiver<StationRtId>,
-    ) {
+    ) -> Result<(), Error<E>> {
         let stations_queued_tx_ref = &stations_queued_tx;
         let mut stations_in_progress_count = 0;
 
         loop {
             stations_in_progress_count = stream::iter(Self::stations_queued(dest))
-                .map(Result::<_, SendError<_>>::Ok)
+                .map(Result::<_, Error<E>>::Ok)
                 .try_fold(
                     stations_in_progress_count,
                     |stations_in_progress_count, station| async move {
-                        stations_queued_tx_ref.send(station).await?;
+                        stations_queued_tx_ref
+                            .send(station)
+                            .await
+                            .map_err(|error| {
+                                let station_spec = (*error.0.spec).clone();
+                                Error::StationQueue { station_spec }
+                            })?;
 
                         Ok(stations_in_progress_count + 1)
                     },
                 )
-                .await
-                .unwrap_or_else(|e| panic!("Failed to queue additional station. {}", e)); // TODO: properly propagate this.
+                .await?;
 
             if stations_in_progress_count == 0 {
                 stations_done_rx.close();
@@ -61,6 +66,8 @@ impl<E> StationQueuer<E> {
                 break;
             }
         }
+
+        Ok(())
     }
 
     fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = StationMut<'_, E>> + '_ {

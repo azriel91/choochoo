@@ -2,7 +2,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use tokio::sync::mpsc;
 
-use crate::rt_model::{Destination, StationMut};
+use crate::rt_model::{Destination, Error, StationMut};
 
 use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 
@@ -59,7 +59,7 @@ impl<E> IntegrityStrat<E> {
     /// * `dest`: `Destination` whose stations to visit.
     /// * `seed`: Initial seed for the return value.
     /// * `visit_logic`: Logic to run to visit a `Station`.
-    pub async fn iter<F, R>(dest: &Destination<E>, seed: R, visit_logic: F) -> R
+    pub async fn iter<F, R>(dest: &Destination<E>, seed: R, visit_logic: F) -> Result<R, Error<E>>
     where
         F: for<'a, 'station> Fn(
             &'a Destination<E>,
@@ -82,9 +82,10 @@ impl<E> IntegrityStrat<E> {
             stations_done_tx,
         );
 
-        futures::join!(station_queuer, station_visitor);
+        let (queuer_result, _) = futures::join!(station_queuer, station_visitor);
+        queuer_result?;
 
-        seed
+        Ok(seed)
     }
 }
 
@@ -101,7 +102,7 @@ mod tests {
         cfg_model::{
             StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
         },
-        rt_model::{Destination, StationProgresses, StationSpecs, VisitStatus},
+        rt_model::{Destination, Error, StationProgresses, StationSpecs, VisitStatus},
     };
 
     #[test]
@@ -239,7 +240,7 @@ mod tests {
                     resources
                 })
             })
-            .await;
+            .await?;
             let call_count = *resources.borrow::<u32>();
 
             let mut received_values = Vec::new();
@@ -252,8 +253,8 @@ mod tests {
                 }
             }
 
-            (call_count, received_values)
-        });
+            Result::<_, Error<()>>::Ok((call_count, received_values))
+        })?;
 
         Ok(call_count_and_values)
     }

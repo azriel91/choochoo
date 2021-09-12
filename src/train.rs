@@ -5,8 +5,8 @@ use tokio::sync::RwLock;
 use crate::{
     rt_logic::{strategy::IntegrityStrat, Driver, VisitStatusUpdater},
     rt_model::{
-        error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Files, RwFiles,
-        TrainReport, VisitStatus,
+        error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, Files,
+        RwFiles, TrainReport, VisitStatus,
     },
 };
 
@@ -16,7 +16,7 @@ pub struct Train;
 
 impl Train {
     /// Ensures the given destination is reached.
-    pub async fn reach<E>(dest: &mut Destination<E>) -> TrainReport<E>
+    pub async fn reach<E>(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>>
     where
         E: From<StationSpecError>,
     {
@@ -73,7 +73,7 @@ impl Train {
                 resources
             })
         })
-        .await;
+        .await?;
         train_report.resources = resources;
 
         dest.stations_mut().for_each(|mut station| {
@@ -91,9 +91,9 @@ impl Train {
         });
 
         // Note: This will hang if a progress bar is started but not completed.
-        multi_progress_fut.await.unwrap();
+        multi_progress_fut.await.map_err(Error::MultiProgressJoin)?;
 
-        train_report
+        Ok(train_report)
     }
 }
 
@@ -115,7 +115,7 @@ mod tests {
         let rt = runtime::Builder::new_current_thread().build()?;
         let mut dest = Destination::<()>::default();
 
-        let train_report = rt.block_on(Train::reach(&mut dest));
+        let train_report = rt.block_on(Train::reach(&mut dest))?;
 
         assert!(train_report.errors.is_empty());
         Ok(())
@@ -143,7 +143,7 @@ mod tests {
             )?;
             Destination::new(station_specs, station_progresses)
         };
-        let train_report = rt.block_on(Train::reach(&mut dest));
+        let train_report = rt.block_on(Train::reach(&mut dest))?;
 
         assert!(train_report.errors.is_empty());
         assert!(
@@ -180,7 +180,7 @@ mod tests {
 
             (dest, station_a, station_b)
         };
-        let train_report = rt.block_on(Train::reach(&mut dest));
+        let train_report = rt.block_on(Train::reach(&mut dest))?;
 
         let errors_expected = {
             let mut errors = IndexMap::new();

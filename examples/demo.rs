@@ -52,6 +52,7 @@ mod station_h;
 #[path = "demo/station_sleep.rs"]
 mod station_sleep;
 
+#[derive(Debug)]
 pub struct DemoError(pub SourceError<'static, ErrorCode, ErrorDetail, Files>);
 
 impl DemoError {
@@ -140,7 +141,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
-        let train_report = Train::reach(&mut dest).await;
+        let train_report = Train::reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
         PlainTextFormatter::fmt_errors(&mut stdout, &train_report).await?;

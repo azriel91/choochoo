@@ -12,6 +12,8 @@ use crate::cfg_model::StationProgress;
 /// Return type of the `StationFn`.
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;
 
+// **Note:** `Debug`, `Clone`, `PartialEq` are manually implemented to avoid the
+// trait bound on `E`.
 /// Steps to run for this part of the station's logic.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct StationFn<R, E>(

@@ -1,7 +1,8 @@
 use crate::cfg_model::{CheckStatus, StationFn};
 
+// **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Grouping of a station's behaviours.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct StationSpecFns<E> {
     /// Checks whether a station needs to be visited.
     ///
@@ -24,5 +25,14 @@ impl<E> StationSpecFns<E> {
     pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
         self.check_fn = Some(check_fn);
         self
+    }
+}
+
+impl<E> Clone for StationSpecFns<E> {
+    fn clone(&self) -> Self {
+        Self {
+            check_fn: self.check_fn.clone(),
+            visit_fn: self.visit_fn.clone(),
+        }
     }
 }

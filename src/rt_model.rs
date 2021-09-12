@@ -5,6 +5,7 @@
 pub use self::{
     destination::Destination,
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
+    error::Error,
     files::{Files, RwFiles},
     station::Station,
     station_mut::StationMut,

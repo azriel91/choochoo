@@ -20,6 +20,7 @@ use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
 
+#[derive(Debug)]
 pub struct ExampleError(pub SourceError<'static, ErrorCode, ErrorDetail, Files<Cow<'static, str>>>);
 
 impl choochoo::rt_model::error::AsDiagnostic<'static> for ExampleError {
@@ -61,14 +62,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (dest, station_a, station_b)
         };
-        let train_report = Train::reach(&mut dest).await;
+        let train_report = Train::reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
 
         PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
             .await
             .expect("Failed to format train report.");
-    });
+
+        Result::<(), Box<dyn std::error::Error>>::Ok(())
+    })?;
 
     Ok(())
 }
