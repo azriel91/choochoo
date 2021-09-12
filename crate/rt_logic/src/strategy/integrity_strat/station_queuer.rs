@@ -1,13 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::rt_model::StationMut;
+use choochoo_cfg_model::{indicatif::ProgressStyle, StationProgress, VisitStatus};
+use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{Receiver, Sender};
-
-use crate::{
-    cfg_model::{indicatif::ProgressStyle, StationProgress, VisitStatus},
-    rt_model::{Destination, Error, StationRtId},
-};
 
 /// Listens to station visit completions and queues more stations.
 #[derive(Debug)]

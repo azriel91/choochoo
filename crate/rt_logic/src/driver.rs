@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::{
-    cfg_model::{resman::Resources, CheckStatus},
-    rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, StationMut},
-};
+use choochoo_cfg_model::{resman::Resources, CheckStatus};
+use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, StationMut};
 
 /// Logic that determines whether or not to visit a station.
 #[derive(Debug)]

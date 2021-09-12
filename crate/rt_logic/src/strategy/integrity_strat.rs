@@ -2,7 +2,7 @@ use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use tokio::sync::mpsc;
 
-use crate::rt_model::{Destination, Error, StationMut};
+use choochoo_rt_model::{Destination, Error, StationMut};
 
 use self::{station_queuer::StationQueuer, station_visitor::StationVisitor};
 
@@ -90,19 +90,17 @@ impl<E> IntegrityStrat<E> {
 
 #[cfg(test)]
 mod tests {
+    use choochoo_cfg_model::{
+        resman::Resources, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
+        StationSpecFns, VisitStatus,
+    };
+    use choochoo_rt_model::{Destination, Error, StationProgresses, StationSpecs};
     use tokio::{
         runtime,
         sync::mpsc::{self, Receiver, Sender},
     };
 
     use super::IntegrityStrat;
-    use crate::{
-        cfg_model::{
-            resman::Resources, StationFn, StationId, StationIdInvalidFmt, StationProgress,
-            StationSpec, StationSpecFns, VisitStatus,
-        },
-        rt_model::{Destination, Error, StationProgresses, StationSpecs},
-    };
 
     #[test]
     fn returns_empty_stream_when_no_stations_exist() -> Result<(), Box<dyn std::error::Error>> {

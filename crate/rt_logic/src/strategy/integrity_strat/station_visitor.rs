@@ -1,15 +1,12 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
+use choochoo_cfg_model::{indicatif::ProgressStyle, StationProgress};
+use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
 use futures::{
     stream,
     stream::{StreamExt, TryStreamExt},
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-
-use crate::{
-    cfg_model::{indicatif::ProgressStyle, StationProgress},
-    rt_model::{Destination, Error, StationMut, StationRtId},
-};
 
 /// Listens for queued station and visits them.
 #[derive(Debug)]

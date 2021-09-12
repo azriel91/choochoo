@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-use crate::{
-    cfg_model::VisitStatus,
-    rt_model::{daggy::Walker, Destination, StationRtId},
-};
+use choochoo_cfg_model::VisitStatus;
+use choochoo_rt_model::{daggy::Walker, Destination, StationRtId};
 
 /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
 ///
@@ -209,14 +207,13 @@ impl<E> VisitStatusUpdater<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::VisitStatusUpdater;
-    use crate::{
-        cfg_model::{
-            StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-            StationSpecFns, VisitStatus, Workload,
-        },
-        rt_model::{Destination, StationProgresses, StationRtId, StationSpecs},
+    use choochoo_cfg_model::{
+        StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+        VisitStatus, Workload,
     };
+    use choochoo_rt_model::{Destination, StationProgresses, StationRtId, StationSpecs};
+
+    use super::VisitStatusUpdater;
 
     #[test]
     fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error::Error>> {
