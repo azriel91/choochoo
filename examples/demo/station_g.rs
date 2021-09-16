@@ -20,7 +20,7 @@ impl StationG {
     /// Attaches the domain name to the web server.
     pub fn build(
         station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_progresses: &mut StationProgresses,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("g")?;
         let station_name = String::from("Attach Domain");

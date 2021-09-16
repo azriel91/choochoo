@@ -10,16 +10,14 @@ use crate::{StationSpec, VisitStatus};
 /// This is a high level item that is included in the user facing progress
 /// report.
 #[derive(Clone, Debug)]
-pub struct StationProgress<E> {
+pub struct StationProgress {
     /// Progress bar to display this station's state and progress.
     pub progress_bar: ProgressBar,
-    /// Error returned by this station.
-    pub error: Option<E>,
     /// Whether this station has been visited.
     pub visit_status: VisitStatus,
 }
 
-impl<E> StationProgress<E> {
+impl StationProgress {
     /// Template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
         "❌ {msg:20} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
@@ -49,7 +47,7 @@ impl<E> StationProgress<E> {
     /// * `station_spec`: Behaviour specification for this station.
     /// * `visit_status`: Whether this [`StationProgress`] is ready to be
     ///   visited.
-    pub fn new(station_spec: &StationSpec<E>, visit_status: VisitStatus) -> Self {
+    pub fn new<E>(station_spec: &StationSpec<E>, visit_status: VisitStatus) -> Self {
         let id_style = Style::new().blue().bold();
         let name_style = Style::new().bold().bright();
 
@@ -70,7 +68,6 @@ impl<E> StationProgress<E> {
 
         Self {
             progress_bar,
-            error: None,
             visit_status,
         }
     }
@@ -82,7 +79,7 @@ impl<E> StationProgress<E> {
     }
 
     /// Returns a type that implements [`fmt::Display`] for this progress.
-    pub fn display<'f>(&'f self, station_spec: &'f StationSpec<E>) -> impl fmt::Display + 'f {
+    pub fn display<'f, E>(&'f self, station_spec: &'f StationSpec<E>) -> impl fmt::Display + 'f {
         StationProgressDisplay {
             station_spec,
             station_progress: self,
@@ -93,7 +90,7 @@ impl<E> StationProgress<E> {
 /// Implements `Display`
 struct StationProgressDisplay<'station, E> {
     station_spec: &'station StationSpec<E>,
-    station_progress: &'station StationProgress<E>,
+    station_progress: &'station StationProgress,
 }
 
 impl<E> fmt::Display for StationProgressDisplay<'_, E> {

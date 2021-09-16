@@ -294,7 +294,7 @@ mod tests {
 
     fn add_station(
         station_specs: &mut StationSpecs<()>,
-        station_progresses: &mut StationProgresses<()>,
+        station_progresses: &mut StationProgresses,
         station_id: &'static str,
         station_name: &'static str,
         station_desc: &'static str,

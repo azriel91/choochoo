@@ -80,36 +80,36 @@ impl<E> StationQueuer<E> {
             });
     }
 
-    fn station_progress_bar_update(station_progress: &StationProgress<E>) {
+    fn station_progress_bar_update(station_progress: &StationProgress) {
         if !station_progress.progress_bar.is_finished() {
             match station_progress.visit_status {
                 VisitStatus::NotReady | VisitStatus::Queued => {
                     let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::<E>::STYLE_QUEUED);
+                        ProgressStyle::default_bar().template(StationProgress::STYLE_QUEUED);
                     station_progress.progress_bar.set_style(progress_style);
                 }
                 VisitStatus::ParentFail => {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::<E>::STYLE_PARENT_FAILED);
+                    let progress_style =
+                        ProgressStyle::default_bar().template(StationProgress::STYLE_PARENT_FAILED);
                     station_progress.progress_bar.set_style(progress_style);
                     station_progress.progress_bar.abandon();
                 }
                 VisitStatus::InProgress => {}
                 VisitStatus::VisitSuccess => {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::<E>::STYLE_SUCCESS_BYTES);
+                    let progress_style =
+                        ProgressStyle::default_bar().template(StationProgress::STYLE_SUCCESS_BYTES);
                     station_progress.progress_bar.set_style(progress_style);
                     station_progress.progress_bar.finish();
                 }
                 VisitStatus::VisitUnnecessary => {
                     let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::<E>::STYLE_UNCHANGED_BYTES);
+                        .template(StationProgress::STYLE_UNCHANGED_BYTES);
                     station_progress.progress_bar.set_style(progress_style);
                     station_progress.progress_bar.finish();
                 }
                 VisitStatus::CheckFail | VisitStatus::VisitFail => {
                     let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::<E>::STYLE_FAILED);
+                        ProgressStyle::default_bar().template(StationProgress::STYLE_FAILED);
                     station_progress.progress_bar.set_style(progress_style);
                     station_progress.progress_bar.abandon();
                 }

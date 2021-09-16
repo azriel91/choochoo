@@ -34,7 +34,7 @@ impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build(
         station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_progresses: &mut StationProgresses,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
@@ -51,7 +51,7 @@ impl StationA {
         let station_progress = StationProgress::new(&station_spec, VisitStatus::Queued)
             .with_progress_style(
                 ProgressStyle::default_bar()
-                    .template(StationProgress::<DemoError>::STYLE_IN_PROGRESS_BYTES)
+                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
                     .progress_chars("█▉▊▋▌▍▎▏  "),
             );
         let station_rt_id = station_specs.add_node(station_spec);

@@ -14,7 +14,7 @@ pub struct Destination<E> {
     /// This is the only clone of `StationId`s that we should hold.
     station_id_to_rt_id: HashMap<StationId, StationRtId>,
     /// Progress information for each `Station`.
-    station_progresses: StationProgresses<E>,
+    station_progresses: StationProgresses,
 }
 
 impl<E> Destination<E> {
@@ -24,7 +24,7 @@ impl<E> Destination<E> {
     ///
     /// * `station_specs`: The stations along the way to the destination.
     /// * `station_progresses`: The initial state of the stations.
-    pub fn new(station_specs: StationSpecs<E>, station_progresses: StationProgresses<E>) -> Self {
+    pub fn new(station_specs: StationSpecs<E>, station_progresses: StationProgresses) -> Self {
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
         station_specs
             .iter_with_indices()
@@ -93,12 +93,12 @@ impl<E> Destination<E> {
     }
 
     /// Returns a reference to the station progresses.
-    pub fn station_progresses(&self) -> &StationProgresses<E> {
+    pub fn station_progresses(&self) -> &StationProgresses {
         &self.station_progresses
     }
 
     /// Returns a mutable reference to the station progresses.
-    pub fn station_progresses_mut(&mut self) -> &mut StationProgresses<E> {
+    pub fn station_progresses_mut(&mut self) -> &mut StationProgresses {
         &mut self.station_progresses
     }
 

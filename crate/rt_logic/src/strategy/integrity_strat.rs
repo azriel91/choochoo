@@ -189,7 +189,7 @@ mod tests {
 
     fn add_station(
         station_specs: &mut StationSpecs<()>,
-        station_progresses: &mut StationProgresses<()>,
+        station_progresses: &mut StationProgresses,
         station_id: &'static str,
         visit_status: VisitStatus,
         visit_result: Result<(Sender<u8>, u8), ()>,

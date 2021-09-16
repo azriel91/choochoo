@@ -15,5 +15,5 @@ pub struct StationMut<'s, E> {
     /// Runtime identifier for a station.
     pub rt_id: StationRtId,
     /// Station progress to reaching the destination.
-    pub progress: RefMut<'s, StationProgress<E>>,
+    pub progress: RefMut<'s, StationProgress>,
 }

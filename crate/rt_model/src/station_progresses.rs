@@ -8,9 +8,9 @@ use crate::StationRtId;
 
 /// Map from [`StationRtId`] to the runtime data.
 #[derive(Debug, Default)]
-pub struct StationProgresses<E>(pub RtMap<StationRtId, StationProgress<E>>);
+pub struct StationProgresses(pub RtMap<StationRtId, StationProgress>);
 
-impl<E> StationProgresses<E> {
+impl StationProgresses {
     /// Returns an empty `StationProgresses` map.
     pub fn new() -> Self {
         Self(RtMap::new())
@@ -25,15 +25,15 @@ impl<E> StationProgresses<E> {
     }
 }
 
-impl<E> Deref for StationProgresses<E> {
-    type Target = RtMap<StationRtId, StationProgress<E>>;
+impl Deref for StationProgresses {
+    type Target = RtMap<StationRtId, StationProgress>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<E> DerefMut for StationProgresses<E> {
+impl DerefMut for StationProgresses {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

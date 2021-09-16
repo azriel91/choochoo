@@ -40,8 +40,8 @@ impl<E> StationVisitor<E> {
         stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
             .map(Result::<_, Error<E>>::Ok)
             .try_for_each_concurrent(4, |mut station| async move {
-                let progress_style = ProgressStyle::default_bar()
-                    .template(StationProgress::<E>::STYLE_IN_PROGRESS_BYTES);
+                let progress_style =
+                    ProgressStyle::default_bar().template(StationProgress::STYLE_IN_PROGRESS_BYTES);
                 station.progress.progress_bar.set_style(progress_style);
 
                 visit_logic(dest, &mut station, seed).await;

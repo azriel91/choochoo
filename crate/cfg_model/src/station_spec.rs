@@ -64,7 +64,7 @@ impl<E> StationSpec<E> {
     /// Checks if the station needs to be visited.
     pub fn check<'f>(
         &self,
-        station_progress: &'f mut StationProgress<E>,
+        station_progress: &'f mut StationProgress,
         resources: &'f Resources,
     ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
         self.station_spec_fns
@@ -76,7 +76,7 @@ impl<E> StationSpec<E> {
     /// Returns a task to visit the station.
     pub fn visit<'f>(
         &self,
-        station_progress: &'f mut StationProgress<E>,
+        station_progress: &'f mut StationProgress,
         resources: &'f Resources,
     ) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec_fns.visit_fn.clone();

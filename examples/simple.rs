@@ -85,7 +85,7 @@ async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId
 
 fn station_a(
     station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
+    station_progresses: &mut StationProgresses,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
     let visit_fn = StationFn::new(|_station, _| {
         Box::pin(async move {
@@ -106,7 +106,7 @@ fn station_a(
 
 fn station_b(
     station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
+    station_progresses: &mut StationProgresses,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
     let visit_fn = StationFn::new(move |_station, resources| {
         Box::pin(async move {
@@ -149,7 +149,7 @@ fn value_out_of_range(file_id: FileId) -> ExampleError {
 
 fn add_station(
     station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
+    station_progresses: &mut StationProgresses,
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,

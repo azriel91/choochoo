@@ -20,7 +20,7 @@ impl StationD {
     /// Links the web application to the database.
     pub fn build(
         station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_progresses: &mut StationProgresses,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("d")?;
         let station_name = String::from("Link App to DB");

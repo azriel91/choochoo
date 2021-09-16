@@ -27,7 +27,7 @@ impl StationSleep {
     /// Sleeps to simulate a process
     pub fn new(
         station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_progresses: &mut StationProgresses,
         station_id: StationId,
         station_name: String,
         station_description: String,
