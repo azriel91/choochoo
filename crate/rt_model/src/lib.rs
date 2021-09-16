@@ -13,6 +13,7 @@ pub use crate::{
     error::Error,
     files::{Files, RwFiles},
     station::Station,
+    station_errors::StationErrors,
     station_mut::StationMut,
     station_progresses::StationProgresses,
     station_rt_id::StationRtId,
@@ -26,6 +27,7 @@ mod destination;
 mod ensure_outcome;
 mod files;
 mod station;
+mod station_errors;
 mod station_mut;
 mod station_progresses;
 mod station_rt_id;

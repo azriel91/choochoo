@@ -1,13 +1,12 @@
-use std::marker::PhantomData;
+use std::{fmt, marker::PhantomData};
 
-use tokio::{sync::RwLock, task::JoinHandle};
+use tokio::task::JoinHandle;
 
 use crate::{
-    cfg_model::{indicatif::MultiProgress, resman::Resources, VisitStatus},
+    cfg_model::{indicatif::MultiProgress, VisitStatus},
     rt_logic::{strategy::IntegrityStrat, Driver, VisitStatusUpdater},
     rt_model::{
-        error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, Files,
-        RwFiles, TrainReport,
+        error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
     },
 };
 
@@ -17,14 +16,22 @@ pub struct Train<E>(PhantomData<E>);
 
 impl<E> Train<E>
 where
-    E: From<StationSpecError>,
+    E: From<StationSpecError> + fmt::Debug + Send + Sync + 'static,
 {
     /// Ensures the given destination is reached.
     pub async fn reach(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
         let progress_fut = Self::progress_tracker_init(&dest);
 
-        let resources = Self::stations_visit(dest).await?;
-        let train_report = Self::train_report_build(resources, dest);
+        let train_report = Self::stations_visit(dest).await?;
+        {
+            let station_errors = train_report.station_errors();
+            let mut station_errors = station_errors.write().await;
+            dest.stations_mut().for_each(|mut station| {
+                if let Some(error) = station.progress.error.take() {
+                    station_errors.insert(station.rt_id, error);
+                }
+            });
+        }
 
         Self::progress_tracker_join(dest, progress_fut).await?;
 
@@ -71,20 +78,17 @@ where
         Ok(())
     }
 
-    async fn stations_visit(dest: &mut Destination<E>) -> Result<Resources, Error<E>> {
-        let mut resources = Resources::default();
-        resources.insert(RwFiles::new(RwLock::new(Files::new())));
-
+    async fn stations_visit(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
         // Set `NotReady` stations to `Queued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        IntegrityStrat::iter(dest, resources, |dest, mut station, resources| {
+        IntegrityStrat::iter(dest, TrainReport::new(), |dest, mut station, report| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's
                 // `visit_status` while the `visit()` is `await`ed.
                 station.progress.visit_status = VisitStatus::InProgress;
 
-                match Driver::ensure(&mut station, resources).await {
+                match Driver::ensure(&mut station, report).await {
                     Ok(EnsureOutcomeOk::Changed) => {
                         station.progress.visit_status = VisitStatus::VisitSuccess
                     }
@@ -103,20 +107,10 @@ where
 
                 VisitStatusUpdater::update_children(dest, station.rt_id);
 
-                resources
+                report
             })
         })
         .await
-    }
-
-    fn train_report_build(resources: Resources, dest: &mut Destination<E>) -> TrainReport<E> {
-        let mut train_report = TrainReport::new(resources);
-        dest.stations_mut().for_each(|mut station| {
-            if let Some(error) = station.progress.error.take() {
-                train_report.errors.insert(station.rt_id, error);
-            }
-        });
-        train_report
     }
 }
 
@@ -140,7 +134,13 @@ mod tests {
 
         let train_report = rt.block_on(Train::reach(&mut dest))?;
 
-        assert!(train_report.errors.is_empty());
+        let station_errors = train_report.station_errors();
+        assert!(
+            station_errors
+                .try_read()
+                .expect("Expected to read station_errors.")
+                .is_empty()
+        );
         Ok(())
     }
 
@@ -168,7 +168,13 @@ mod tests {
         };
         let train_report = rt.block_on(Train::reach(&mut dest))?;
 
-        assert!(train_report.errors.is_empty());
+        let station_errors = train_report.station_errors();
+        assert!(
+            station_errors
+                .try_read()
+                .expect("Expected to read station_errors.")
+                .is_empty()
+        );
         assert!(
             dest.station_progresses()
                 .values()
@@ -210,7 +216,14 @@ mod tests {
             errors.insert(station_b, ());
             errors
         };
-        assert_eq!(&errors_expected, &train_report.errors);
+
+        let station_errors = train_report.station_errors();
+        assert_eq!(
+            &errors_expected,
+            &*station_errors
+                .try_read()
+                .expect("Expected to read station_errors.")
+        );
         assert_eq!(
             VisitStatus::VisitSuccess,
             dest.station_progresses()[&station_a].borrow().visit_status

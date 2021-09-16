@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     io::{self, Write},
     marker::PhantomData,
 };
@@ -66,7 +67,7 @@ macro_rules! b_writeln {
 impl<W, E> PlainTextFormatter<W, E>
 where
     W: AsyncWrite + Unpin,
-    E: AsDiagnostic<'static, Files = Files>,
+    E: AsDiagnostic<'static, Files = Files> + fmt::Debug + Send + Sync + 'static,
 {
     /// Formats the value using the given formatter.
     pub async fn fmt(
@@ -88,11 +89,13 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<RwFiles>();
         let files = files.read().await;
         let files = &*files;
 
-        let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
+        let station_errors = train_report.station_errors();
+        let station_rt_id_to_error = station_errors.read().await;
+        let (mut write_buf, _writer) = stream::iter(station_rt_id_to_error.values())
             .map(Result::<&E, io::Error>::Ok)
             .try_fold(
                 (write_buf, writer),
@@ -126,11 +129,13 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.resources.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<RwFiles>();
         let files = files.read().await;
         let files = &*files;
 
-        let (mut write_buf, _writer) = stream::iter(train_report.errors.values())
+        let station_errors = train_report.station_errors();
+        let station_rt_id_to_error = station_errors.read().await;
+        let (mut write_buf, _writer) = stream::iter(station_rt_id_to_error.values())
             .map(Result::<&E, io::Error>::Ok)
             .try_fold(
                 (write_buf, writer),
@@ -182,7 +187,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use choochoo_cfg_model::resman::Resources;
     use tokio::runtime;
 
     use super::PlainTextFormatter;
@@ -267,7 +271,7 @@ mod tests {
             )?;
             Destination::new(station_specs, station_progresses)
         };
-        let train_report = TrainReport::new(Resources::default());
+        let train_report = TrainReport::new();
 
         rt.block_on(PlainTextFormatter::fmt(&mut output, &dest, &train_report))?;
 
