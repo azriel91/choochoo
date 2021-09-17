@@ -27,7 +27,7 @@ bytes = "1.1.0"
 pico-args = "0.4.2"
 reqwest = { version = "0.11.4", features = ["multipart", "stream"] }
 tokio = { version = "1.11.0", features = ["fs", "rt", "rt-multi-thread", "sync", "io-std"] }
-tokio-util = { version = "0.6.7", features = ["codec"] }
+tokio-util = { version = "0.6.8", features = ["codec"] }
 
 [workspace]
 members = ["crate/*", "workspace_tests"]
