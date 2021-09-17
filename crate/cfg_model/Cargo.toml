@@ -10,6 +10,10 @@ readme = "../../README.md"
 keywords = ["automation"]
 license = "MIT OR Apache-2.0"
 
+[lib]
+doctest = false
+test = false
+
 [dependencies]
 console = "0.14.1"
 indicatif = "0.16.2"
