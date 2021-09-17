@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::Workload,
-    fmt::PlainTextFormatter,
+    cli_fmt::PlainTextFormatter,
+    rt_logic::Train,
     rt_model::{
         error::StationSpecError,
         srcerr::{
@@ -12,7 +13,6 @@ use choochoo::{
         },
         Destination, StationProgresses, StationSpecs,
     },
-    Train,
 };
 use tokio::runtime;
 

@@ -10,8 +10,13 @@ readme = "README.md"
 keywords = ["automation"]
 license = "MIT OR Apache-2.0"
 
+[lib]
+doctest = true
+test = false
+
 [dependencies]
 choochoo_cfg_model = { path = "crate/cfg_model", version = "0.1.0" }
+choochoo_cli_fmt = { path = "crate/cli_fmt", version = "0.1.0" }
 choochoo_rt_logic = { path = "crate/rt_logic", version = "0.1.0" }
 choochoo_rt_model = { path = "crate/rt_model", version = "0.1.0" }
 futures = "0.3.17"

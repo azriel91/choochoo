@@ -5,7 +5,8 @@ use choochoo::{
         StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
         VisitStatus,
     },
-    fmt::PlainTextFormatter,
+    cli_fmt::PlainTextFormatter,
+    rt_logic::Train,
     rt_model::{
         error::StationSpecError,
         srcerr::{
@@ -16,7 +17,6 @@ use choochoo::{
         },
         Destination, RwFiles, StationProgresses, StationRtId, StationSpecs,
     },
-    Train,
 };
 use tokio::{fs, runtime};
 
