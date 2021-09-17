@@ -1,14 +1,19 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns},
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, Stations, VisitStatus},
+    cfg_model::{
+        CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns,
+        VisitStatus,
+    },
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+    },
 };
 use futures::{stream, stream::StreamExt};
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
-};
 use tokio::time::Duration;
 
 use crate::{DemoError, ErrorCode, ErrorDetail};
@@ -21,8 +26,8 @@ pub struct StationSleep;
 impl StationSleep {
     /// Sleeps to simulate a process
     pub fn new(
-        stations: &mut Stations<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
+        station_progresses: &mut StationProgresses,
         station_id: StationId,
         station_name: String,
         station_description: String,
@@ -40,7 +45,7 @@ impl StationSleep {
         let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
         station_progress.progress_bar.set_length(PROGRESS_LENGTH);
 
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
 
         station_rt_id

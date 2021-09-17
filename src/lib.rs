@@ -2,11 +2,7 @@
 
 //! Automation that starts where it stops.
 
-pub use crate::train::Train;
-
-pub mod cfg_model;
-pub mod fmt;
-pub mod rt_logic;
-pub mod rt_model;
-
-mod train;
+pub use choochoo_cfg_model as cfg_model;
+pub use choochoo_cli_fmt as cli_fmt;
+pub use choochoo_rt_logic as rt_logic;
+pub use choochoo_rt_model as rt_model;

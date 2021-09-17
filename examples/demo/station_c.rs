@@ -3,17 +3,18 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-        StationSpecFns,
+        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
+        StationProgress, StationSpec, StationSpecFns, VisitStatus,
     },
-    rt_model::{Files, RwFiles, StationProgresses, StationRtId, Stations, VisitStatus},
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+    },
 };
 use futures::{Stream, StreamExt, TryStreamExt};
-use indicatif::ProgressStyle;
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
-};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -32,8 +33,8 @@ pub struct StationC;
 impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
     pub fn build(
-        stations: &mut Stations<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
+        station_progresses: &mut StationProgresses,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
@@ -49,10 +50,10 @@ impl StationC {
         let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady)
             .with_progress_style(
                 ProgressStyle::default_bar()
-                    .template(StationProgress::<DemoError>::STYLE_IN_PROGRESS_BYTES)
+                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
                     .progress_chars("█▉▊▋▌▍▎▏  "),
             );
-        let station_rt_id = stations.add_node(station_spec);
+        let station_rt_id = station_specs.add_node(station_spec);
         station_progresses.insert(station_rt_id, station_progress);
         Ok(station_rt_id)
     }
@@ -176,7 +177,7 @@ impl StationC {
     }
 
     async fn app_zip_write(
-        station_progress: &StationProgress<DemoError>,
+        station_progress: &StationProgress,
         files: &mut Files,
         app_zip_url: String,
         byte_stream: impl Stream<Item = reqwest::Result<Bytes>>,

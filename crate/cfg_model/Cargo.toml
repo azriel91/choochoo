@@ -1,0 +1,20 @@
+[package]
+name = "choochoo_cfg_model"
+version = "0.1.0"
+authors = ["Azriel Hoh <azriel91@gmail.com>"]
+edition = "2018"
+description = "Configuration data types for the choochoo automation library."
+repository = "https://github.com/azriel91/choochoo"
+documentation = "https://docs.rs/choochoo_cfg_model/"
+readme = "../../README.md"
+keywords = ["automation"]
+license = "MIT OR Apache-2.0"
+
+[lib]
+doctest = false
+test = false
+
+[dependencies]
+console = "0.14.1"
+indicatif = "0.16.2"
+resman = { version = "0.5.0", features = ["debug"] }

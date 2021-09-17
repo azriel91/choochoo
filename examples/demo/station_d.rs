@@ -2,11 +2,13 @@ use std::path::Path;
 
 use choochoo::{
     cfg_model::{StationId, StationIdInvalidFmt},
-    rt_model::{StationProgresses, StationRtId, Stations},
-};
-use srcerr::{
-    codespan::{FileId, Span},
-    codespan_reporting::diagnostic::Severity,
+    rt_model::{
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        StationProgresses, StationRtId, StationSpecs,
+    },
 };
 
 use crate::{station_sleep::StationSleep, DemoError, ErrorCode, ErrorDetail};
@@ -17,14 +19,14 @@ pub struct StationD;
 impl StationD {
     /// Links the web application to the database.
     pub fn build(
-        stations: &mut Stations<DemoError>,
-        station_progresses: &mut StationProgresses<DemoError>,
+        station_specs: &mut StationSpecs<DemoError>,
+        station_progresses: &mut StationProgresses,
     ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("d")?;
         let station_name = String::from("Link App to DB");
         let station_description = String::from("Links the web application to the database.");
         let station_rt_id = StationSleep::new(
-            stations,
+            station_specs,
             station_progresses,
             station_id,
             station_name,

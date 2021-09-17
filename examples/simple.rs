@@ -3,22 +3,26 @@ use std::{borrow::Cow, path::Path};
 use choochoo::{
     cfg_model::{
         StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
+        VisitStatus,
     },
-    fmt::PlainTextFormatter,
+    cli_fmt::PlainTextFormatter,
+    rt_logic::Train,
     rt_model::{
-        error::StationSpecError, Destination, StationProgresses, StationRtId, Stations, VisitStatus,
+        error::StationSpecError,
+        srcerr::{
+            self,
+            codespan::{FileId, Files, Span},
+            codespan_reporting::diagnostic::{Diagnostic, Severity},
+            SourceError,
+        },
+        Destination, RwFiles, StationProgresses, StationRtId, StationSpecs,
     },
-    Train,
-};
-use srcerr::{
-    codespan::{FileId, Files, Span},
-    codespan_reporting::diagnostic::{Diagnostic, Severity},
-    SourceError,
 };
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
 
+#[derive(Debug)]
 pub struct ExampleError(pub SourceError<'static, ErrorCode, ErrorDetail, Files<Cow<'static, str>>>);
 
 impl choochoo::rt_model::error::AsDiagnostic<'static> for ExampleError {
@@ -44,30 +48,26 @@ impl From<StationSpecError> for ExampleError {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
-    let mut files = Files::<Cow<'_, str>>::new();
-
     rt.block_on(async move {
-        let file_id = read_simple_toml(&mut files)
-            .await
-            .expect("Failed to read simple.toml");
-
         let (mut dest, _station_a, _station_b) = {
-            let mut stations = Stations::new();
+            let mut station_specs = StationSpecs::new();
             let mut station_progresses = StationProgresses::new();
-            let station_a = station_a(&mut stations, &mut station_progresses);
-            let station_b = station_b(&mut stations, &mut station_progresses, file_id);
-            let dest = Destination::new(stations, station_progresses);
+            let station_a = station_a(&mut station_specs, &mut station_progresses);
+            let station_b = station_b(&mut station_specs, &mut station_progresses);
+            let dest = Destination::new(station_specs, station_progresses);
 
             (dest, station_a, station_b)
         };
-        let train_report = Train::reach(&mut dest).await;
+        let train_report = Train::reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
 
         PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
             .await
             .expect("Failed to format train report.");
-    });
+
+        Result::<(), Box<dyn std::error::Error>>::Ok(())
+    })?;
 
     Ok(())
 }
@@ -84,17 +84,17 @@ async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId
 }
 
 fn station_a(
-    stations: &mut Stations<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
+    station_specs: &mut StationSpecs<ExampleError>,
+    station_progresses: &mut StationProgresses,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(|_station_progress, _| {
+    let visit_fn = StationFn::new(|_station, _| {
         Box::pin(async move {
             eprintln!("Visiting {}.", "Station A");
             Result::<(), ExampleError>::Ok(())
         })
     });
     add_station(
-        stations,
+        station_specs,
         station_progresses,
         "a",
         "Station A",
@@ -105,19 +105,26 @@ fn station_a(
 }
 
 fn station_b(
-    stations: &mut Stations<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
-    file_id: FileId,
+    station_specs: &mut StationSpecs<ExampleError>,
+    station_progresses: &mut StationProgresses,
 ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |_station_progress, _| {
+    let visit_fn = StationFn::new(move |_station, resources| {
         Box::pin(async move {
             eprintln!("Visiting {}.", "Station B");
+
+            let files = resources.borrow_mut::<RwFiles>();
+            let mut files = files.write().await;
+
+            let file_id = read_simple_toml(&mut files)
+                .await
+                .expect("Failed to read simple.toml");
+
             let error = value_out_of_range(file_id);
             Result::<(), ExampleError>::Err(error)
         })
     });
     add_station(
-        stations,
+        station_specs,
         station_progresses,
         "b",
         "Station B",
@@ -141,8 +148,8 @@ fn value_out_of_range(file_id: FileId) -> ExampleError {
 }
 
 fn add_station(
-    stations: &mut Stations<ExampleError>,
-    station_progresses: &mut StationProgresses<ExampleError>,
+    station_specs: &mut StationSpecs<ExampleError>,
+    station_progresses: &mut StationProgresses,
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
@@ -160,7 +167,7 @@ fn add_station(
         station_spec_fns,
     );
     let station_progress = StationProgress::new(&station_spec, visit_status);
-    let station_rt_id = stations.add_node(station_spec);
+    let station_rt_id = station_specs.add_node(station_spec);
     station_progresses.insert(station_rt_id, station_progress);
     Ok(station_rt_id)
 }
@@ -168,11 +175,14 @@ fn add_station(
 mod error {
     use std::{borrow::Cow, ops::RangeInclusive};
 
-    use choochoo::rt_model::error::StationSpecError;
-    use srcerr::{
-        codespan::{FileId, Files, Span},
-        codespan_reporting::diagnostic::Label,
-        fmt::Note,
+    use choochoo::rt_model::{
+        error::StationSpecError,
+        srcerr::{
+            self,
+            codespan::{FileId, Files, Span},
+            codespan_reporting::diagnostic::Label,
+            fmt::Note,
+        },
     };
 
     /// Error codes for simple example.
