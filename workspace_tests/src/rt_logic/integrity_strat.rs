@@ -1,9 +1,9 @@
 use choochoo_cfg_model::{
     resman::Resources, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-    StationSpecFns, VisitStatus,
+    StationSpecFns, StationSpecs, VisitStatus,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
-use choochoo_rt_model::{Destination, Error, StationProgresses, StationSpecs};
+use choochoo_rt_model::{Destination, Error, StationProgresses};
 use tokio::{
     runtime,
     sync::mpsc::{self, Receiver, Sender},

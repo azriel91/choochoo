@@ -2,10 +2,10 @@ use tokio::runtime;
 
 use choochoo_cfg_model::{
     StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
-    VisitStatus,
+    StationSpecs, VisitStatus,
 };
 use choochoo_cli_fmt::PlainTextFormatter;
-use choochoo_rt_model::{Destination, StationProgresses, StationRtId, StationSpecs, TrainReport};
+use choochoo_rt_model::{Destination, StationProgresses, StationRtId, TrainReport};
 
 #[test]
 fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error::Error>> {

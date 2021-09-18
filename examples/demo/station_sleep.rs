@@ -3,14 +3,14 @@ use std::path::Path;
 use choochoo::{
     cfg_model::{
         CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns,
-        VisitStatus,
+        StationSpecs, VisitStatus,
     },
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+        Files, RwFiles, StationProgresses, StationRtId,
     },
 };
 use futures::{stream, stream::StreamExt};

@@ -1,13 +1,13 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt},
+    cfg_model::{StationId, StationIdInvalidFmt, StationSpecs},
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        StationProgresses, StationRtId, StationSpecs,
+        StationProgresses, StationRtId,
     },
 };
 

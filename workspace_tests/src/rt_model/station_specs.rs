@@ -1,9 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use choochoo_cfg_model::{
-    StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
+    daggy::NodeIndex, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    StationSpecs, VisitStatus,
 };
-use choochoo_rt_model::{daggy::NodeIndex, StationRtId, StationSpecs};
+use choochoo_rt_model::StationRtId;
 
 #[test]
 fn iter_with_indices_returns_iterator_with_all_stations() -> Result<(), StationIdInvalidFmt<'static>>

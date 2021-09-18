@@ -1,9 +1,9 @@
 use choochoo_cfg_model::{
     StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
-    VisitStatus, Workload,
+    StationSpecs, VisitStatus, Workload,
 };
 use choochoo_rt_logic::VisitStatusUpdater;
-use choochoo_rt_model::{Destination, StationProgresses, StationRtId, StationSpecs};
+use choochoo_rt_model::{Destination, StationProgresses, StationRtId};
 
 #[test]
 fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error::Error>> {

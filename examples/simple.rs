@@ -3,7 +3,7 @@ use std::{borrow::Cow, path::Path};
 use choochoo::{
     cfg_model::{
         StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
-        VisitStatus,
+        StationSpecs, VisitStatus,
     },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
@@ -15,7 +15,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, RwFiles, StationProgresses, StationRtId, StationSpecs,
+        Destination, RwFiles, StationProgresses, StationRtId,
     },
 };
 use tokio::{fs, runtime};

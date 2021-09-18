@@ -5,7 +5,7 @@ use daggy::{
     Dag, NodeWeightsMut,
 };
 
-use choochoo_cfg_model::{StationSpec, Workload};
+use crate::{StationSpec, Workload};
 
 /// Frozen station spec graph.
 pub type StationsFrozen<'s, E> = Frozen<'s, Dag<StationSpec<E>, Workload>>;

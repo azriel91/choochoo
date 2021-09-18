@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::Workload,
+    cfg_model::{StationSpecs, Workload},
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -11,7 +11,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, StationProgresses, StationSpecs,
+        Destination, StationProgresses,
     },
 };
 use tokio::runtime;
