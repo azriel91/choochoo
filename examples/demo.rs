@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::{StationSpecs, Workload},
+    cfg_model::{ProgressUnit, Workload},
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -11,7 +11,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, StationProgresses,
+        Destination,
     },
 };
 use tokio::runtime;
@@ -111,37 +111,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     rt.block_on(async move {
         let mut dest = {
-            let mut station_specs = StationSpecs::new();
-            let mut station_progresses = StationProgresses::new();
-            let station_a = StationA::build(&mut station_specs, &mut station_progresses)?;
-            let station_b = StationB::build(&mut station_specs, &mut station_progresses)?;
-            let station_c = StationC::build(&mut station_specs, &mut station_progresses)?;
-            let station_d = StationD::build(&mut station_specs, &mut station_progresses)?;
-            let station_e = StationE::build(&mut station_specs, &mut station_progresses)?;
-            let station_f = StationF::build(&mut station_specs, &mut station_progresses)?;
-            let station_g = StationG::build(&mut station_specs, &mut station_progresses)?;
-            let station_h = StationH::build(&mut station_specs, &mut station_progresses)?;
+            let mut builder = Destination::builder();
+
+            let station_a = builder.add_station(StationA::build()?, ProgressUnit::Bytes);
+            let station_b = builder.add_station(StationB::build()?, ProgressUnit::None);
+            let station_c = builder.add_station(StationC::build()?, ProgressUnit::Bytes);
+            let station_d = builder.add_station(StationD::build()?, ProgressUnit::None);
+            let station_e = builder.add_station(StationE::build()?, ProgressUnit::None);
+            let station_f = builder.add_station(StationF::build()?, ProgressUnit::None);
+            let station_g = builder.add_station(StationG::build()?, ProgressUnit::None);
+            let station_h = builder.add_station(StationH::build()?, ProgressUnit::None);
 
             if args.dependency_mode == DependencyMode::Sequential {
-                station_specs.add_edge(station_a, station_b, Workload::default())?;
-                station_specs.add_edge(station_b, station_c, Workload::default())?;
-                station_specs.add_edge(station_c, station_d, Workload::default())?;
-                station_specs.add_edge(station_d, station_e, Workload::default())?;
-                station_specs.add_edge(station_e, station_f, Workload::default())?;
-                station_specs.add_edge(station_f, station_g, Workload::default())?;
-                station_specs.add_edge(station_g, station_h, Workload::default())?;
+                builder.add_edges([
+                    (station_a, station_b, Workload::default()),
+                    (station_b, station_c, Workload::default()),
+                    (station_c, station_d, Workload::default()),
+                    (station_d, station_e, Workload::default()),
+                    (station_e, station_f, Workload::default()),
+                    (station_f, station_g, Workload::default()),
+                    (station_g, station_h, Workload::default()),
+                ])?;
             } else {
-                station_specs.add_edge(station_a, station_b, Workload::default())?;
-                station_specs.add_edge(station_a, station_c, Workload::default())?;
-                station_specs.add_edge(station_b, station_e, Workload::default())?;
-                station_specs.add_edge(station_c, station_d, Workload::default())?;
-                station_specs.add_edge(station_d, station_e, Workload::default())?;
-                station_specs.add_edge(station_e, station_g, Workload::default())?;
-                station_specs.add_edge(station_f, station_g, Workload::default())?;
-                station_specs.add_edge(station_g, station_h, Workload::default())?;
+                builder.add_edges([
+                    (station_a, station_b, Workload::default()),
+                    (station_a, station_c, Workload::default()),
+                    (station_b, station_e, Workload::default()),
+                    (station_c, station_d, Workload::default()),
+                    (station_d, station_e, Workload::default()),
+                    (station_e, station_g, Workload::default()),
+                    (station_f, station_g, Workload::default()),
+                    (station_g, station_h, Workload::default()),
+                ])?;
             }
 
-            let dest = Destination::new(station_specs, station_progresses);
+            let dest = builder.build();
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;

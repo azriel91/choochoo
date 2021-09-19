@@ -18,6 +18,8 @@ pub struct StationProgress {
 }
 
 impl StationProgress {
+    /// Characters to use for the progress bar to have fine grained animation.
+    pub const PROGRESS_CHARS: &'static str = "█▉▊▋▌▍▎▏  ";
     /// Template to apply when the station visit failed.
     pub const STYLE_FAILED: &'static str =
         "❌ {msg:20} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
@@ -63,7 +65,7 @@ impl StationProgress {
         progress_bar.set_style(
             ProgressStyle::default_bar()
                 .template(Self::STYLE_QUEUED)
-                .progress_chars("█▉▊▋▌▍▎▏  "),
+                .progress_chars(Self::PROGRESS_CHARS),
         );
 
         Self {

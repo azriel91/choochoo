@@ -9,6 +9,7 @@ pub use resman;
 
 pub use crate::{
     check_status::CheckStatus,
+    progress_unit::ProgressUnit,
     station_fn::{StationFn, StationFnReturn},
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
@@ -21,6 +22,7 @@ pub use crate::{
 };
 
 mod check_status;
+mod progress_unit;
 mod station_fn;
 mod station_id;
 mod station_id_invalid_fmt;

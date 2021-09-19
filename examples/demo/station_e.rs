@@ -1,13 +1,10 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt, StationSpecs},
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        StationProgresses, StationRtId,
+    cfg_model::{StationId, StationIdInvalidFmt, StationSpec},
+    rt_model::srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
 };
 
@@ -18,16 +15,11 @@ pub struct StationE;
 
 impl StationE {
     /// Starts the web application service.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("e")?;
         let station_name = String::from("Run App");
         let station_description = String::from("Starts the web application service.");
         let station_rt_id = StationSleep::new(
-            station_specs,
-            station_progresses,
             station_id,
             station_name,
             station_description,

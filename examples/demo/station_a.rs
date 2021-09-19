@@ -2,15 +2,14 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::{
-        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
-        StationProgress, StationSpec, StationSpecFns, StationSpecs, VisitStatus,
+        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
     },
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        Files, RwFiles, StationProgresses, StationRtId,
+        Files, RwFiles,
     },
 };
 use reqwest::{
@@ -32,31 +31,19 @@ pub struct StationA;
 
 impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
         let station_description = String::from("Uploads web application to artifact server.");
-        let station_spec = StationSpec::new(
+        Ok(StationSpec::new(
             station_id,
             station_name,
             station_description,
             station_spec_fns,
-        );
-        let station_progress = StationProgress::new(&station_spec, VisitStatus::Queued)
-            .with_progress_style(
-                ProgressStyle::default_bar()
-                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
-                    .progress_chars("█▉▊▋▌▍▎▏  "),
-            );
-        let station_rt_id = station_specs.add_node(station_spec);
-        station_progresses.insert(station_rt_id, station_progress);
-        Ok(station_rt_id)
+        ))
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {

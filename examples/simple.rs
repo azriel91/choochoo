@@ -1,7 +1,10 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload},
+    cfg_model::{
+        ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+        Workload,
+    },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -24,8 +27,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.block_on(async move {
         let mut dest = {
             let mut builder = Destination::builder();
-            let station_a = builder.add_station(station_a()?);
-            let station_b = builder.add_station(station_b()?);
+            let station_a = builder.add_station(station_a()?, ProgressUnit::None);
+            let station_b = builder.add_station(station_b()?, ProgressUnit::None);
             builder.add_edge(station_a, station_b, Workload::default())?;
 
             let dest = builder.build();

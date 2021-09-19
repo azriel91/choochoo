@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
     indicatif::ProgressStyle,
-    StationProgress, StationSpec, StationSpecs, VisitStatus, Workload,
+    ProgressUnit, StationProgress, StationSpec, StationSpecs, VisitStatus, Workload,
 };
 
 use crate::{Destination, StationProgresses, StationRtId};
@@ -28,15 +28,24 @@ impl<E> DestinationBuilder<E> {
     /// through the [`add_edge`] method.
     ///
     /// [`add_edge`]: Self::add_edge
-    pub fn add_station(&mut self, station_spec: StationSpec<E>) -> StationRtId {
-        let station_progress = StationProgress::new(&station_spec, VisitStatus::Queued)
-            // TODO: User specifies which kind of style they want, and we set the `ProgressStyle`
-            // accordingly.
-            .with_progress_style(
-                ProgressStyle::default_bar()
-                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
-                    .progress_chars("█▉▊▋▌▍▎▏  "),
-            );
+    pub fn add_station(
+        &mut self,
+        station_spec: StationSpec<E>,
+        progress_units: ProgressUnit,
+    ) -> StationRtId {
+        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
+
+        match progress_units {
+            ProgressUnit::None => {}
+            ProgressUnit::Bytes => {
+                station_progress = station_progress.with_progress_style(
+                    ProgressStyle::default_bar()
+                        .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
+                        .progress_chars(StationProgress::PROGRESS_CHARS),
+                );
+            }
+        }
+
         let station_rt_id = self.station_specs.add_node(station_spec);
         self.station_progresses
             .insert(station_rt_id, station_progress);
@@ -65,7 +74,7 @@ impl<E> DestinationBuilder<E> {
     }
 
     /// Adds edges between stations.
-    pub fn extend_with_edges<I>(&mut self, edges: I) -> Result<(), WouldCycle<Workload>>
+    pub fn add_edges<I>(&mut self, edges: I) -> Result<(), WouldCycle<Workload>>
     where
         I: IntoIterator<Item = (StationRtId, StationRtId, Workload)>,
     {
