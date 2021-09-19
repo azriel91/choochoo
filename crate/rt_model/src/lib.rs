@@ -8,6 +8,7 @@ pub use srcerr;
 
 pub use crate::{
     destination::Destination,
+    destination_builder::DestinationBuilder,
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,
     files::{Files, RwFiles},
@@ -22,6 +23,7 @@ pub use crate::{
 pub mod error;
 
 mod destination;
+mod destination_builder;
 mod ensure_outcome;
 mod files;
 mod station;

@@ -1,10 +1,7 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{
-        StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
-        StationSpecs, VisitStatus,
-    },
+    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload},
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -15,12 +12,37 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, RwFiles, StationProgresses, StationRtId,
+        Destination, RwFiles,
     },
 };
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let rt = runtime::Builder::new_current_thread().build()?;
+    rt.block_on(async move {
+        let mut dest = {
+            let mut builder = Destination::builder();
+            let station_a = builder.add_station(station_a()?);
+            let station_b = builder.add_station(station_b()?);
+            builder.add_edge(station_a, station_b, Workload::default())?;
+
+            let dest = builder.build();
+
+            dest
+        };
+        let train_report = Train::reach(&mut dest).await?;
+
+        let mut stdout = tokio::io::stdout();
+
+        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
+
+        Result::<(), Box<dyn std::error::Error>>::Ok(())
+    })?;
+
+    Ok(())
+}
 
 #[derive(Debug)]
 pub struct ExampleError(pub SourceError<'static, ErrorCode, ErrorDetail, Files<Cow<'static, str>>>);
@@ -46,30 +68,41 @@ impl From<StationSpecError> for ExampleError {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rt = runtime::Builder::new_current_thread().build()?;
-    rt.block_on(async move {
-        let (mut dest, _station_a, _station_b) = {
-            let mut station_specs = StationSpecs::new();
-            let mut station_progresses = StationProgresses::new();
-            let station_a = station_a(&mut station_specs, &mut station_progresses);
-            let station_b = station_b(&mut station_specs, &mut station_progresses);
-            let dest = Destination::new(station_specs, station_progresses);
+fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
+    new_station(
+        "a",
+        "Station A",
+        "Prints visit.",
+        StationFn::new(|_station, _| {
+            Box::pin(async move {
+                eprintln!("Visiting {}.", "Station A");
+                Result::<(), ExampleError>::Ok(())
+            })
+        }),
+    )
+}
 
-            (dest, station_a, station_b)
-        };
-        let train_report = Train::reach(&mut dest).await?;
+fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
+    new_station(
+        "b",
+        "Station B",
+        "Reads `simple.toml` and reports error.",
+        StationFn::new(move |_station, resources| {
+            Box::pin(async move {
+                eprintln!("Visiting {}.", "Station B");
 
-        let mut stdout = tokio::io::stdout();
+                let files = resources.borrow_mut::<RwFiles>();
+                let mut files = files.write().await;
 
-        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report)
-            .await
-            .expect("Failed to format train report.");
+                let file_id = read_simple_toml(&mut files)
+                    .await
+                    .expect("Failed to read simple.toml");
 
-        Result::<(), Box<dyn std::error::Error>>::Ok(())
-    })?;
-
-    Ok(())
+                let error = value_out_of_range(file_id);
+                Result::<(), ExampleError>::Err(error)
+            })
+        }),
+    )
 }
 
 async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId, std::io::Error> {
@@ -81,57 +114,6 @@ async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId
     let file_id = files.add(path_display.as_str(), Cow::Owned(content));
 
     Ok(file_id)
-}
-
-fn station_a(
-    station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses,
-) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(|_station, _| {
-        Box::pin(async move {
-            eprintln!("Visiting {}.", "Station A");
-            Result::<(), ExampleError>::Ok(())
-        })
-    });
-    add_station(
-        station_specs,
-        station_progresses,
-        "a",
-        "Station A",
-        "Prints visit.",
-        VisitStatus::Queued,
-        visit_fn,
-    )
-}
-
-fn station_b(
-    station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses,
-) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let visit_fn = StationFn::new(move |_station, resources| {
-        Box::pin(async move {
-            eprintln!("Visiting {}.", "Station B");
-
-            let files = resources.borrow_mut::<RwFiles>();
-            let mut files = files.write().await;
-
-            let file_id = read_simple_toml(&mut files)
-                .await
-                .expect("Failed to read simple.toml");
-
-            let error = value_out_of_range(file_id);
-            Result::<(), ExampleError>::Err(error)
-        })
-    });
-    add_station(
-        station_specs,
-        station_progresses,
-        "b",
-        "Station B",
-        "Reads `simple.toml` and reports error.",
-        VisitStatus::Queued,
-        visit_fn,
-    )
 }
 
 fn value_out_of_range(file_id: FileId) -> ExampleError {
@@ -147,29 +129,22 @@ fn value_out_of_range(file_id: FileId) -> ExampleError {
     ExampleError(SourceError::new(error_code, error_detail, severity))
 }
 
-fn add_station(
-    station_specs: &mut StationSpecs<ExampleError>,
-    station_progresses: &mut StationProgresses,
+fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    visit_status: VisitStatus,
     visit_fn: StationFn<(), ExampleError>,
-) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
     let station_spec_fns = StationSpecFns::new(visit_fn);
-    let station_spec = StationSpec::new(
+    Ok(StationSpec::new(
         station_id,
         station_name,
         station_description,
         station_spec_fns,
-    );
-    let station_progress = StationProgress::new(&station_spec, visit_status);
-    let station_rt_id = station_specs.add_node(station_spec);
-    station_progresses.insert(station_rt_id, station_progress);
-    Ok(station_rt_id)
+    ))
 }
 
 mod error {

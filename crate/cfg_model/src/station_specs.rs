@@ -11,13 +11,13 @@ use crate::{StationSpec, Workload};
 pub type StationsFrozen<'s, E> = Frozen<'s, Dag<StationSpec<E>, Workload>>;
 
 /// Directed acyclic graph of [`StationSpec`]s.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct StationSpecs<E>(pub Dag<StationSpec<E>, Workload>);
 
 impl<E> StationSpecs<E> {
     /// Returns an empty graph of [`StationSpec`]s.
     pub fn new() -> Self {
-        Self(Dag::new())
+        Self::default()
     }
 
     /// Returns a frozen stations graph.
@@ -46,6 +46,12 @@ impl<E> StationSpecs<E> {
     pub fn iter_with_indices(&self) -> NodeReferences<StationSpec<E>> {
         use daggy::petgraph::visit::IntoNodeReferences;
         self.0.node_references()
+    }
+}
+
+impl<E> Default for StationSpecs<E> {
+    fn default() -> Self {
+        Self(Dag::new())
     }
 }
 
