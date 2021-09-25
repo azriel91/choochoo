@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-        StationSpecFns,
+        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationProgress,
+        StationSpec, StationSpecFns,
     },
     rt_model::{
         srcerr::{
@@ -43,6 +43,7 @@ impl StationC {
             station_name,
             station_description,
             station_spec_fns,
+            ProgressUnit::Bytes,
         ))
     }
 

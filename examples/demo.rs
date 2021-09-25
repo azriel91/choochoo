@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::{
-    cfg_model::{ProgressUnit, Workload},
+    cfg_model::Workload,
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -113,14 +113,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut builder = Destination::builder();
 
-            let station_a = builder.add_station(StationA::build()?, ProgressUnit::Bytes);
-            let station_b = builder.add_station(StationB::build()?, ProgressUnit::None);
-            let station_c = builder.add_station(StationC::build()?, ProgressUnit::Bytes);
-            let station_d = builder.add_station(StationD::build()?, ProgressUnit::None);
-            let station_e = builder.add_station(StationE::build()?, ProgressUnit::None);
-            let station_f = builder.add_station(StationF::build()?, ProgressUnit::None);
-            let station_g = builder.add_station(StationG::build()?, ProgressUnit::None);
-            let station_h = builder.add_station(StationH::build()?, ProgressUnit::None);
+            let station_a = builder.add_station(StationA::build()?);
+            let station_b = builder.add_station(StationB::build()?);
+            let station_c = builder.add_station(StationC::build()?);
+            let station_d = builder.add_station(StationD::build()?);
+            let station_e = builder.add_station(StationE::build()?);
+            let station_f = builder.add_station(StationF::build()?);
+            let station_g = builder.add_station(StationG::build()?);
+            let station_h = builder.add_station(StationH::build()?);
 
             if args.dependency_mode == DependencyMode::Sequential {
                 builder.add_edges([

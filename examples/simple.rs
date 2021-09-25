@@ -27,8 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     rt.block_on(async move {
         let mut dest = {
             let mut builder = Destination::builder();
-            let station_a = builder.add_station(station_a()?, ProgressUnit::None);
-            let station_b = builder.add_station(station_b()?, ProgressUnit::None);
+            let [station_a, station_b] = builder.add_stations([station_a()?, station_b()?]);
             builder.add_edge(station_a, station_b, Workload::default())?;
 
             let dest = builder.build();
@@ -147,6 +146,7 @@ fn new_station(
         station_name,
         station_description,
         station_spec_fns,
+        ProgressUnit::None,
     ))
 }
 

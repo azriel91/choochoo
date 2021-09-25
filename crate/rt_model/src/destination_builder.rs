@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    mem::{self, MaybeUninit},
+};
 
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
@@ -28,14 +31,10 @@ impl<E> DestinationBuilder<E> {
     /// through the [`add_edge`] method.
     ///
     /// [`add_edge`]: Self::add_edge
-    pub fn add_station(
-        &mut self,
-        station_spec: StationSpec<E>,
-        progress_units: ProgressUnit,
-    ) -> StationRtId {
-        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
+    pub fn add_station(&mut self, station_spec: StationSpec<E>) -> StationRtId {
+        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::Queued);
 
-        match progress_units {
+        match station_spec.progress_unit() {
             ProgressUnit::None => {}
             ProgressUnit::Bytes => {
                 station_progress = station_progress.with_progress_style(
@@ -51,6 +50,53 @@ impl<E> DestinationBuilder<E> {
             .insert(station_rt_id, station_progress);
 
         station_rt_id
+    }
+
+    /// Adds multiple stations to this destination.
+    ///
+    /// The returned station IDs are used to specify dependencies between
+    /// stations through the [`add_edge`] / [`add_edges`] method.
+    ///
+    /// [`add_edge`]: Self::add_edge
+    /// [`add_edges`]: Self::add_edges
+    pub fn add_stations<const N: usize>(
+        &mut self,
+        station_specs: [StationSpec<E>; N],
+    ) -> [StationRtId; N] {
+        // Create an uninitialized array of `MaybeUninit`. The `assume_init` is safe
+        // because the type we are claiming to have initialized here is a bunch of
+        // `MaybeUninit`s, which do not require initialization.
+        //
+        // https://doc.rust-lang.org/stable/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
+        //
+        // Switch this to `MaybeUninit::uninit_array` once it is stable.
+        let mut station_rt_ids: [MaybeUninit<StationRtId>; N] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+
+        IntoIterator::into_iter(station_specs)
+            .map(|station_spec| self.add_station(station_spec))
+            .zip(station_rt_ids.iter_mut())
+            .for_each(|(station_rt_id, station_rt_id_mem)| {
+                station_rt_id_mem.write(station_rt_id);
+            });
+
+        // Everything is initialized. Transmute the array to the initialized type.
+        // Unfortunately we cannot use this, see the following issues:
+        //
+        // * <https://github.com/rust-lang/rust/issues/61956>
+        // * <https://github.com/rust-lang/rust/issues/80908>
+        //
+        // let station_rt_ids = unsafe { mem::transmute::<_, [StationRtId;
+        // N]>(station_rt_ids) };
+
+        let station_rt_ids = {
+            let ptr = &mut station_rt_ids as *mut _ as *mut [StationRtId; N];
+            let array = unsafe { ptr.read() };
+            mem::forget(station_rt_ids);
+            array
+        };
+
+        station_rt_ids
     }
 
     /// Adds an edge from one station to another.
@@ -74,16 +120,46 @@ impl<E> DestinationBuilder<E> {
     }
 
     /// Adds edges between stations.
-    pub fn add_edges<I>(&mut self, edges: I) -> Result<(), WouldCycle<Workload>>
-    where
-        I: IntoIterator<Item = (StationRtId, StationRtId, Workload)>,
-    {
-        edges
-            .into_iter()
-            .try_for_each(|(station_from, station_to, edge)| {
+    pub fn add_edges<const N: usize>(
+        &mut self,
+        edges: [(StationRtId, StationRtId, Workload); N],
+    ) -> Result<[EdgeIndex; N], WouldCycle<Workload>> {
+        // Create an uninitialized array of `MaybeUninit`. The `assume_init` is safe
+        // because the type we are claiming to have initialized here is a bunch of
+        // `MaybeUninit`s, which do not require initialization.
+        //
+        // https://doc.rust-lang.org/stable/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
+        //
+        // Switch this to `MaybeUninit::uninit_array` once it is stable.
+        let mut edge_indicies: [MaybeUninit<EdgeIndex>; N] =
+            unsafe { MaybeUninit::uninit().assume_init() };
+
+        IntoIterator::into_iter(edges)
+            .zip(edge_indicies.iter_mut())
+            .try_for_each(|((station_from, station_to, edge), edge_index_mem)| {
                 self.add_edge(station_from, station_to, edge)
-                    .map(|_edge_index| ())
-            })
+                    .map(|edge_index| {
+                        edge_index_mem.write(edge_index);
+                    })
+            })?;
+
+        // Everything is initialized. Transmute the array to the initialized type.
+        // Unfortunately we cannot use this, see the following issues:
+        //
+        // * <https://github.com/rust-lang/rust/issues/61956>
+        // * <https://github.com/rust-lang/rust/issues/80908>
+        //
+        // let edge_indicies = unsafe { mem::transmute::<_, [EdgeIndex;
+        // N]>(edge_indicies) };
+
+        let edge_indicies = {
+            let ptr = &mut edge_indicies as *mut _ as *mut [EdgeIndex; N];
+            let array = unsafe { ptr.read() };
+            mem::forget(edge_indicies);
+            array
+        };
+
+        Ok(edge_indicies)
     }
 
     /// Builds and returns the [`Destination`].

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, StationFn, StationId, StationSpec, StationSpecFns},
+    cfg_model::{CheckStatus, ProgressUnit, StationFn, StationId, StationSpec, StationSpecFns},
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
@@ -36,6 +36,7 @@ impl StationSleep {
             station_name,
             station_description,
             station_spec_fns,
+            ProgressUnit::None,
         )
     }
 

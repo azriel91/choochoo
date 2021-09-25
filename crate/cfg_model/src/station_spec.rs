@@ -1,25 +1,33 @@
-use std::fmt;
+use std::{convert::TryFrom, fmt};
 
 use resman::Resources;
 
-use crate::{CheckStatus, StationFnReturn, StationId, StationProgress, StationSpecFns};
+use crate::{
+    CheckStatus, ProgressUnit, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
+    StationSpecBuilder, StationSpecFns,
+};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
 #[derive(Debug, PartialEq)]
 pub struct StationSpec<E> {
     /// Unique identifier of the station.
-    id: StationId,
+    pub(crate) id: StationId,
     /// Human readable name of the station.
-    name: String,
+    pub(crate) name: String,
     /// Short description of the station's purpose.
-    description: String,
+    pub(crate) description: String,
     /// Steps to run when this station is visited.
-    station_spec_fns: StationSpecFns<E>,
+    pub(crate) station_spec_fns: StationSpecFns<E>,
+    /// Unit of measurement to display progress information.
+    pub(crate) progress_unit: ProgressUnit,
 }
 
 impl<E> StationSpec<E> {
     /// Returns a new [`StationSpec`].
+    ///
+    /// You may prefer using the [`builder`] method to construct a
+    /// `StationSpec`.
     ///
     /// # Parameters
     ///
@@ -27,18 +35,54 @@ impl<E> StationSpec<E> {
     /// * `name`: Human readable name of the station.
     /// * `description`: Short description of the station's purpose.
     /// * `station_spec_fns`: Steps to run when this station is visited.
+    /// * `progress_unit`: Unit of measurement to display progress information.
+    ///
+    /// [`builder`]: Self::builder
     pub fn new(
         id: StationId,
         name: String,
         description: String,
         station_spec_fns: StationSpecFns<E>,
+        progress_unit: ProgressUnit,
     ) -> Self {
         Self {
             id,
             name,
             description,
             station_spec_fns,
+            progress_unit,
         }
+    }
+
+    /// Returns a new [`StationSpecBuilder`].
+    ///
+    /// # Parameters
+    ///
+    /// * `id`: Unique identifier of the station.
+    /// * `station_spec_fns`: Steps to run when this station is visited.
+    pub fn builder<Id>(
+        id: Id,
+        station_spec_fns: StationSpecFns<E>,
+    ) -> Result<StationSpecBuilder<E>, StationIdInvalidFmt<'static>>
+    where
+        StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
+    {
+        StationSpecBuilder::new(id, station_spec_fns)
+    }
+
+    /// Returns a new [`StationSpecBuilder`] to build a mock [`StationSpec`].
+    ///
+    /// This defaults the [`StationSpecFns`] to be success / no-op functions.
+    ///
+    /// # Parameters
+    ///
+    /// * `id`: Unique identifier of the station.
+    #[cfg(feature = "mock")]
+    pub fn mock<Id>(id: Id) -> Result<StationSpecBuilder<E>, StationIdInvalidFmt<'static>>
+    where
+        StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
+    {
+        StationSpecBuilder::mock(id)
     }
 
     /// Returns the unique identifier of the station.
@@ -59,6 +103,11 @@ impl<E> StationSpec<E> {
     /// Returns this station's behaviours.
     pub fn station_spec_fns(&self) -> &StationSpecFns<E> {
         &self.station_spec_fns
+    }
+
+    /// Returns the unit of measurement used to display progress information.
+    pub fn progress_unit(&self) -> ProgressUnit {
+        self.progress_unit
     }
 
     /// Checks if the station needs to be visited.
@@ -91,6 +140,7 @@ impl<E> Clone for StationSpec<E> {
             name: self.name.clone(),
             description: self.description.clone(),
             station_spec_fns: self.station_spec_fns.clone(),
+            progress_unit: self.progress_unit,
         }
     }
 }

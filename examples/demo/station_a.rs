@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
     rt_model::{
         srcerr::{
@@ -43,6 +44,7 @@ impl StationA {
             station_name,
             station_description,
             station_spec_fns,
+            ProgressUnit::Bytes,
         ))
     }
 

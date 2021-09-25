@@ -1,17 +1,13 @@
 use std::ops::{Deref, DerefMut};
 
-use choochoo_cfg_model::{
-    daggy::NodeIndex, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
-    StationSpecs, VisitStatus,
-};
-use choochoo_rt_model::StationRtId;
+use choochoo_cfg_model::{daggy::NodeIndex, StationIdInvalidFmt, StationSpec, StationSpecs};
 
 #[test]
 fn iter_with_indices_returns_iterator_with_all_stations() -> Result<(), StationIdInvalidFmt<'static>>
 {
     let mut station_specs = StationSpecs::new();
-    let a = add_station(&mut station_specs, "a")?;
-    let b = add_station(&mut station_specs, "b")?;
+    let a = station_specs.add_node(StationSpec::<()>::mock("a")?.build());
+    let b = station_specs.add_node(StationSpec::<()>::mock("b")?.build());
 
     let indicies = station_specs
         .iter_with_indices()
@@ -35,23 +31,4 @@ fn deref_mut() {
         DerefMut::deref_mut(&mut station_specs),
         &mut station_specs.0
     ));
-}
-
-fn add_station(
-    station_specs: &mut StationSpecs<()>,
-    station_id: &'static str,
-) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let name = String::from(station_id);
-    let station_id = StationId::new(station_id)?;
-    let station_spec_fns = {
-        let visit_fn = StationFn::new(|station_progress, _| {
-            Box::pin(async move {
-                station_progress.visit_status = VisitStatus::VisitSuccess;
-                Result::<(), ()>::Ok(())
-            })
-        });
-        StationSpecFns::new(visit_fn)
-    };
-    let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-    Ok(station_specs.add_node(station_spec))
 }
