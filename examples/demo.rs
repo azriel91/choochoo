@@ -111,19 +111,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     rt.block_on(async move {
         let mut dest = {
-            let mut builder = Destination::builder();
+            let mut dest_builder = Destination::builder();
 
-            let station_a = builder.add_station(StationA::build()?);
-            let station_b = builder.add_station(StationB::build()?);
-            let station_c = builder.add_station(StationC::build()?);
-            let station_d = builder.add_station(StationD::build()?);
-            let station_e = builder.add_station(StationE::build()?);
-            let station_f = builder.add_station(StationF::build()?);
-            let station_g = builder.add_station(StationG::build()?);
-            let station_h = builder.add_station(StationH::build()?);
+            // Formatting pending <https://github.com/rust-lang/rustfmt/issues/4530>
+            let [
+                station_a,
+                station_b,
+                station_c,
+                station_d,
+                station_e,
+                station_f,
+                station_g,
+                station_h
+            ] = dest_builder.add_stations([
+                StationA::build()?,
+                StationB::build()?,
+                StationC::build()?,
+                StationD::build()?,
+                StationE::build()?,
+                StationF::build()?,
+                StationG::build()?,
+                StationH::build()?,
+            ]);
 
             if args.dependency_mode == DependencyMode::Sequential {
-                builder.add_edges([
+                dest_builder.add_edges([
                     (station_a, station_b, Workload::default()),
                     (station_b, station_c, Workload::default()),
                     (station_c, station_d, Workload::default()),
@@ -133,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     (station_g, station_h, Workload::default()),
                 ])?;
             } else {
-                builder.add_edges([
+                dest_builder.add_edges([
                     (station_a, station_b, Workload::default()),
                     (station_a, station_c, Workload::default()),
                     (station_b, station_e, Workload::default()),
@@ -145,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ])?;
             }
 
-            let dest = builder.build();
+            let dest = dest_builder.build();
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
