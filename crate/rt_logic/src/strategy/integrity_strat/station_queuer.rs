@@ -5,6 +5,8 @@ use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::VisitStatusUpdater;
+
 /// Listens to station visit completions and queues more stations.
 #[derive(Debug)]
 pub(crate) struct StationQueuer<E>(PhantomData<E>);
@@ -47,8 +49,14 @@ impl<E> StationQueuer<E> {
             if stations_in_progress_count == 0 {
                 stations_done_rx.close();
                 break;
-            } else if let Some(_station_rt_id) = stations_done_rx.recv().await {
+            } else if let Some(station_rt_id) = stations_done_rx.recv().await {
                 stations_in_progress_count -= 1;
+
+                // Need to only call this after the `station` that is visited is dropped --
+                // which is when its iteration completes. Otherwise the station's `VisitStatus`
+                // will not be borrowable, and the station will be missed during calculation of
+                // the child station's `VisitStatus`.
+                VisitStatusUpdater::update_children(dest, station_rt_id);
 
                 // We have to update all progress bars, otherwise the multi progress bar will
                 // interleave redraw operations, causing the output to be non-sensical, e.g. the

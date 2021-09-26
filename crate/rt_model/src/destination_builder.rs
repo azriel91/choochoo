@@ -29,7 +29,7 @@ impl<E> DestinationBuilder<E> {
     ///
     /// [`add_edge`]: Self::add_edge
     pub fn add_station(&mut self, station_spec: StationSpec<E>) -> StationRtId {
-        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::Queued);
+        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
 
         match station_spec.progress_unit() {
             ProgressUnit::None => {}

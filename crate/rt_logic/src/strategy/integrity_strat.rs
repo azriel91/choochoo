@@ -62,7 +62,6 @@ impl<E> IntegrityStrat<E> {
     pub async fn iter<F, R>(dest: &Destination<E>, seed: R, visit_logic: F) -> Result<R, Error<E>>
     where
         F: for<'a, 'station> Fn(
-            &'a Destination<E>,
             &'a mut StationMut<'station, E>,
             &'a R,
         ) -> Pin<Box<dyn Future<Output = &'a R> + 'a>>,
@@ -74,13 +73,8 @@ impl<E> IntegrityStrat<E> {
         let station_queuer = StationQueuer::run(dest, stations_queued_tx, stations_done_rx);
 
         // Process task.
-        let station_visitor = StationVisitor::visit(
-            dest,
-            &visit_logic,
-            &seed,
-            stations_queued_rx,
-            stations_done_tx,
-        );
+        let station_visitor =
+            StationVisitor::visit(&seed, &visit_logic, stations_queued_rx, stations_done_tx);
 
         futures::try_join!(station_queuer, station_visitor)?;
 

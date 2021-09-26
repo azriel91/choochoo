@@ -104,7 +104,7 @@ fn call_iter(
 
     let rt = runtime::Builder::new_current_thread().build()?;
     let call_count_and_values = rt.block_on(async {
-        let resources = IntegrityStrat::iter(&mut dest, resources, |_, station, resources| {
+        let resources = IntegrityStrat::iter(&mut dest, resources, |station, resources| {
             Box::pin(async move {
                 station
                     .spec

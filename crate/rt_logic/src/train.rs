@@ -72,47 +72,40 @@ where
         // Set `NotReady` stations to `Queued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        IntegrityStrat::iter(
-            dest,
-            TrainReport::new(),
-            |dest, mut station, train_report| {
-                Box::pin(async move {
-                    // Because this is in an async block, concurrent tasks may access this station's
-                    // `visit_status` while the `visit()` is `await`ed.
-                    station.progress.visit_status = VisitStatus::InProgress;
+        IntegrityStrat::iter(dest, TrainReport::new(), |mut station, train_report| {
+            Box::pin(async move {
+                // Because this is in an async block, concurrent tasks may access this station's
+                // `visit_status` while the `visit()` is `await`ed.
+                station.progress.visit_status = VisitStatus::InProgress;
 
-                    match Driver::ensure(&mut station, train_report).await {
-                        Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
-                            station.progress.visit_status = VisitStatus::VisitSuccess;
+                match Driver::ensure(&mut station, train_report).await {
+                    Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
+                        station.progress.visit_status = VisitStatus::VisitSuccess;
 
-                            if let Some(station_spec_error) = station_spec_error {
-                                let station_error = E::from(station_spec_error);
-
-                                Self::station_error_insert(train_report, station, station_error)
-                                    .await;
-                            }
-                        }
-                        Ok(EnsureOutcomeOk::Unchanged) => {
-                            station.progress.visit_status = VisitStatus::VisitUnnecessary;
-                        }
-                        Err(EnsureOutcomeErr::CheckFail(station_error)) => {
-                            station.progress.visit_status = VisitStatus::CheckFail;
-
-                            Self::station_error_insert(train_report, station, station_error).await;
-                        }
-                        Err(EnsureOutcomeErr::VisitFail(station_error)) => {
-                            station.progress.visit_status = VisitStatus::VisitFail;
+                        if let Some(station_spec_error) = station_spec_error {
+                            let station_error = E::from(station_spec_error);
 
                             Self::station_error_insert(train_report, station, station_error).await;
                         }
                     }
+                    Ok(EnsureOutcomeOk::Unchanged) => {
+                        station.progress.visit_status = VisitStatus::VisitUnnecessary;
+                    }
+                    Err(EnsureOutcomeErr::CheckFail(station_error)) => {
+                        station.progress.visit_status = VisitStatus::CheckFail;
 
-                    VisitStatusUpdater::update_children(dest, station.rt_id);
+                        Self::station_error_insert(train_report, station, station_error).await;
+                    }
+                    Err(EnsureOutcomeErr::VisitFail(station_error)) => {
+                        station.progress.visit_status = VisitStatus::VisitFail;
 
-                    train_report
-                })
-            },
-        )
+                        Self::station_error_insert(train_report, station, station_error).await;
+                    }
+                }
+
+                train_report
+            })
+        })
         .await
     }
 
