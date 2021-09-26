@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    mem::{self, MaybeUninit},
-};
+use std::{collections::HashMap, mem::MaybeUninit};
 
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
@@ -89,10 +86,14 @@ impl<E> DestinationBuilder<E> {
         // let station_rt_ids = unsafe { mem::transmute::<_, [StationRtId;
         // N]>(station_rt_ids) };
 
+        #[allow(clippy::let_and_return)] // for clarity with `unsafe`
         let station_rt_ids = {
             let ptr = &mut station_rt_ids as *mut _ as *mut [StationRtId; N];
             let array = unsafe { ptr.read() };
-            mem::forget(station_rt_ids);
+
+            // We don't have to `mem::forget` the original because `StationRtId` is `Copy`.
+            // mem::forget(station_rt_ids);
+
             array
         };
 
@@ -152,10 +153,14 @@ impl<E> DestinationBuilder<E> {
         // let edge_indicies = unsafe { mem::transmute::<_, [EdgeIndex;
         // N]>(edge_indicies) };
 
+        #[allow(clippy::let_and_return)] // for clarity with `unsafe`
         let edge_indicies = {
             let ptr = &mut edge_indicies as *mut _ as *mut [EdgeIndex; N];
             let array = unsafe { ptr.read() };
-            mem::forget(edge_indicies);
+
+            // We don't have to `mem::forget` the original because `EdgeIndex` is `Copy`.
+            // mem::forget(edge_indicies);
+
             array
         };
 
