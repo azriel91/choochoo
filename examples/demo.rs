@@ -1,22 +1,10 @@
-use std::borrow::Cow;
-
 use choochoo::{
-    cfg_model::Workload,
-    cli_fmt::PlainTextFormatter,
-    rt_logic::Train,
-    rt_model::{
-        error::StationSpecError,
-        srcerr::{
-            self,
-            codespan_reporting::diagnostic::{Diagnostic, Severity},
-            SourceError,
-        },
-        Destination,
-    },
+    cfg_model::Workload, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
 };
 use tokio::runtime;
 
 use crate::{
+    demo_error::DemoError,
     dependency_mode::DependencyMode,
     error::{ErrorCode, ErrorDetail},
     station_a::StationA,
@@ -31,6 +19,8 @@ use crate::{
 
 #[path = "demo/app_zip.rs"]
 mod app_zip;
+#[path = "demo/demo_error.rs"]
+mod demo_error;
 #[path = "demo/dependency_mode.rs"]
 mod dependency_mode;
 #[path = "demo/error.rs"]
@@ -55,38 +45,6 @@ mod station_g;
 mod station_h;
 #[path = "demo/station_sleep.rs"]
 mod station_sleep;
-
-#[derive(Debug)]
-pub struct DemoError(pub SourceError<'static, ErrorCode, ErrorDetail, Files>);
-
-impl DemoError {
-    pub fn new(code: ErrorCode, detail: ErrorDetail, severity: Severity) -> Self {
-        Self(SourceError::new(code, detail, severity))
-    }
-}
-
-impl choochoo::rt_model::error::AsDiagnostic<'static> for DemoError {
-    type Files = Files;
-
-    fn as_diagnostic(
-        &self,
-        files: &Self::Files,
-    ) -> Diagnostic<<Self::Files as srcerr::codespan_reporting::files::Files<'static>>::FileId>
-    {
-        SourceError::as_diagnostic(&self.0, files)
-    }
-}
-
-impl From<StationSpecError> for DemoError {
-    fn from(error: StationSpecError) -> DemoError {
-        let code = ErrorCode::StationSpecError;
-        let detail = ErrorDetail::StationSpecError(error);
-
-        DemoError::new(code, detail, Severity::Bug)
-    }
-}
-
-type Files = srcerr::codespan::Files<Cow<'static, str>>;
 
 #[derive(Debug)]
 pub struct Args {
