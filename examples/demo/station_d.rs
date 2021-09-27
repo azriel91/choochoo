@@ -29,11 +29,15 @@ impl StationD {
         Ok(station_rt_id)
     }
 
-    fn db_error(db_name_file_id: FileId, db_name_span: Span, error: std::io::Error) -> DemoError {
-        let code = ErrorCode::DatabaseCreate;
-        let detail = ErrorDetail::DatabaseCreate {
-            db_name_file_id,
-            db_name_span,
+    fn db_error(
+        app_db_link_name_file_id: FileId,
+        app_db_link_name_span: Span,
+        error: std::io::Error,
+    ) -> DemoError {
+        let code = ErrorCode::ApplicationDatabaseLink;
+        let detail = ErrorDetail::ApplicationDatabaseLink {
+            app_db_link_name_file_id,
+            app_db_link_name_span,
             error,
         };
 
