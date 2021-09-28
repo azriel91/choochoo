@@ -21,7 +21,10 @@ use tokio::{
 };
 
 use crate::{
-    app_zip::{APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_NAME},
+    app_zip::{
+        APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH,
+        APP_ZIP_NAME,
+    },
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -79,11 +82,20 @@ impl StationC {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
-                let files = files.downgrade();
-                let address = files.source(address_file_id);
+                let address = files.source(address_file_id).clone();
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    Self::get_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    );
+                    Self::get_error(
+                        &SERVER_PARAMS_DEFAULT,
+                        app_zip_dir_file_id,
+                        &address,
+                        address_file_id,
+                        error,
+                    )
                 })?;
 
                 let status_code = response.status();
@@ -124,10 +136,20 @@ impl StationC {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
-                let address = files.source(address_file_id);
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    Self::get_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    );
+                    let address = files.source(address_file_id);
+                    Self::get_error(
+                        &SERVER_PARAMS_DEFAULT,
+                        app_zip_dir_file_id,
+                        address,
+                        address_file_id,
+                        error,
+                    )
                 })?;
 
                 let status_code = response.status();
@@ -264,6 +286,7 @@ impl StationC {
 
     fn get_error(
         server_params: &ServerParams,
+        app_zip_dir_file_id: FileId,
         address: &str,
         address_file_id: FileId,
         error: reqwest::Error,
@@ -284,6 +307,7 @@ impl StationC {
 
         let code = ErrorCode::ArtifactServerConnect;
         let detail = ErrorDetail::ArtifactServerConnect {
+            app_zip_dir_file_id,
             address_file_id,
             address_span,
             host_span,

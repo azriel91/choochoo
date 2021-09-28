@@ -105,6 +105,8 @@ pub enum ErrorDetail {
     },
     /// Failed to open `app.zip` to upload.
     AppZipOpen {
+        /// `app.zip` dir file ID.
+        app_zip_dir_file_id: FileId,
         /// `app.zip` path file ID.
         app_zip_path_file_id: FileId,
         /// Span of the app.zip path.
@@ -114,6 +116,8 @@ pub enum ErrorDetail {
     },
     /// Failed to connect to artifact server.
     ArtifactServerConnect {
+        /// `app.zip` dir file ID.
+        app_zip_dir_file_id: FileId,
         /// Artifact server address file ID.
         address_file_id: FileId,
         /// Span of the full socket address.
@@ -346,6 +350,7 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 String::from("The station file path should not be empty or have trailing slashes."),
             ],
             Self::AppZipOpen {
+                app_zip_dir_file_id,
                 app_zip_path_file_id,
                 app_zip_path_span,
                 ..
@@ -353,6 +358,7 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 let app_zip_path = files
                     .source_slice(*app_zip_path_file_id, *app_zip_path_span)
                     .expect("Expected file to exist.");
+                let app_zip_dir = files.source(*app_zip_dir_file_id);
                 vec![
                     format!(
                         "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
@@ -362,18 +368,22 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                         "Create the file by running:\n\
                         \n\
                         ```bash\n\
+                        mkdir -p {app_zip_dir}\n\
                         for i in {{0..10000}}; do printf \"application contents ${{i}}\\n\"; done | gzip -cf > {app_zip_path}\n\
                         ```",
+                        app_zip_dir = app_zip_dir,
                         app_zip_path = app_zip_path
                     ),
                 ]
             }
             Self::ArtifactServerConnect {
+                app_zip_dir_file_id,
                 address_file_id,
                 host_span,
                 port_span,
                 ..
             } => {
+                let app_zip_dir = files.source(*app_zip_dir_file_id);
                 let host = files
                     .source_slice(*address_file_id, *host_span)
                     .expect("Expected file to exist.");
@@ -381,7 +391,8 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                     .source_slice(*address_file_id, *port_span)
                     .expect("Expected file to exist.");
                 vec![format!(
-                    "Try running `simple-http-server --nocache -u --ip {host} --port {port}`.",
+                    "Try running `cd {app_zip_dir} && simple-http-server --nocache -u --ip {host} --port {port}`.",
+                    app_zip_dir = app_zip_dir,
                     host = host,
                     port = port
                 )]
