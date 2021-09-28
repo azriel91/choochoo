@@ -91,7 +91,12 @@ impl<E> StationQueuer<E> {
     fn station_progress_bar_update(station_progress: &StationProgress) {
         if !station_progress.progress_bar.is_finished() {
             match station_progress.visit_status {
-                VisitStatus::NotReady | VisitStatus::Queued => {
+                VisitStatus::NotReady => {
+                    let progress_style =
+                        ProgressStyle::default_bar().template(StationProgress::STYLE_NOT_READY);
+                    station_progress.progress_bar.set_style(progress_style);
+                }
+                VisitStatus::Queued => {
                     let progress_style =
                         ProgressStyle::default_bar().template(StationProgress::STYLE_QUEUED);
                     station_progress.progress_bar.set_style(progress_style);

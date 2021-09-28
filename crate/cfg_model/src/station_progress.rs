@@ -27,10 +27,13 @@ impl StationProgress {
     pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
     /// Template to apply when the station visit is in progress.
     pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
+    /// Template to apply when the station is not ready to be visited.
+    pub const STYLE_NOT_READY: &'static str =
+        "⏳ {msg:20} [{bar:40.blue.dim/blue}] {pos}/{len} (not ready)";
     /// Template to apply when a parent station has failed.
     pub const STYLE_PARENT_FAILED: &'static str =
         "☠️  {msg:20} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
-    /// Template to apply when the station is still queued.
+    /// Template to apply when the station is queued to be visited.
     pub const STYLE_QUEUED: &'static str =
         "⏳ {msg:20} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
     /// Template to apply when the station visit is successful.
@@ -64,7 +67,7 @@ impl StationProgress {
         progress_bar.set_message(message);
         progress_bar.set_style(
             ProgressStyle::default_bar()
-                .template(Self::STYLE_QUEUED)
+                .template(Self::STYLE_NOT_READY)
                 .progress_chars(Self::PROGRESS_CHARS),
         );
 
