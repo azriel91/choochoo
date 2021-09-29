@@ -2,15 +2,15 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::{
-        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
-        StationProgress, StationSpec, StationSpecFns, VisitStatus,
+        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+        Files, RwFiles,
     },
 };
 use reqwest::{
@@ -21,7 +21,7 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
-    app_zip::{APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
+    app_zip::{APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -32,31 +32,20 @@ pub struct StationA;
 
 impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
         let station_description = String::from("Uploads web application to artifact server.");
-        let station_spec = StationSpec::new(
+        Ok(StationSpec::new(
             station_id,
             station_name,
             station_description,
             station_spec_fns,
-        );
-        let station_progress = StationProgress::new(&station_spec, VisitStatus::Queued)
-            .with_progress_style(
-                ProgressStyle::default_bar()
-                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
-                    .progress_chars("█▉▊▋▌▍▎▏  "),
-            );
-        let station_rt_id = station_specs.add_node(station_spec);
-        station_progresses.insert(station_rt_id, station_progress);
-        Ok(station_rt_id)
+            ProgressUnit::Bytes,
+        ))
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
@@ -89,10 +78,20 @@ impl StationA {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
-                let address = files.source(address_file_id);
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    );
+                    let address = files.source(address_file_id);
+                    Self::connect_error(
+                        &SERVER_PARAMS_DEFAULT,
+                        app_zip_dir_file_id,
+                        address,
+                        address_file_id,
+                        error,
+                    )
                 })?;
 
                 station_progress.progress_bar.tick();
@@ -136,7 +135,7 @@ impl StationA {
 
                 let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
                 let address_file_id = files.add("artifact_server_address", address);
-                let address = files.source(address_file_id);
+                let address = files.source(address_file_id).clone();
 
                 let form = Form::new().part(
                     "files",
@@ -144,19 +143,29 @@ impl StationA {
                         .file_name(APP_ZIP_NAME),
                 );
                 let response = client
-                    .post(&**address)
+                    .post(&*address)
                     .multipart(form)
                     .send()
                     .await
                     .map_err(|error| {
-                        Self::connect_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                        let app_zip_dir_file_id = files.add(
+                            APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                            Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                        );
+                        Self::connect_error(
+                            &SERVER_PARAMS_DEFAULT,
+                            app_zip_dir_file_id,
+                            &address,
+                            address_file_id,
+                            error,
+                        )
                     })?;
 
                 let status_code = response.status();
                 if status_code.as_u16() == 302 {
                     Result::<(), DemoError>::Ok(())
                 } else {
-                    let address_span = Span::from_str(address);
+                    let address_span = Span::from_str(&address);
                     let app_zip_path_file_id =
                         files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
                     let app_zip_path = files.source(app_zip_path_file_id);
@@ -187,6 +196,10 @@ impl StationA {
         let app_zip_read = File::open(APP_ZIP_BUILD_AGENT_PATH)
             .await
             .map_err(|error| {
+                let app_zip_dir_file_id = files.add(
+                    APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                    Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                );
                 let app_zip_path_file_id =
                     files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
                 let app_zip_path = files.source(app_zip_path_file_id);
@@ -194,6 +207,7 @@ impl StationA {
 
                 let code = ErrorCode::AppZipOpen;
                 let detail = ErrorDetail::AppZipOpen {
+                    app_zip_dir_file_id,
                     app_zip_path_file_id,
                     app_zip_path_span,
                     error,
@@ -212,12 +226,17 @@ impl StationA {
     }
 
     fn file_open_error(files: &mut Files, error: std::io::Error) -> DemoError {
+        let app_zip_dir_file_id = files.add(
+            APP_ZIP_BUILD_AGENT_PARENT_PATH,
+            Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+        );
         let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 
         let code = ErrorCode::AppZipOpen;
         let detail = ErrorDetail::AppZipOpen {
+            app_zip_dir_file_id,
             app_zip_path_file_id,
             app_zip_path_span,
             error,
@@ -243,6 +262,7 @@ impl StationA {
 
     fn connect_error(
         server_params: &ServerParams,
+        app_zip_dir_file_id: FileId,
         address: &str,
         address_file_id: FileId,
         error: reqwest::Error,
@@ -263,6 +283,7 @@ impl StationA {
 
         let code = ErrorCode::ArtifactServerConnect;
         let detail = ErrorDetail::ArtifactServerConnect {
+            app_zip_dir_file_id,
             address_file_id,
             address_span,
             host_span,

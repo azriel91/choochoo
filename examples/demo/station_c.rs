@@ -3,15 +3,15 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        indicatif::ProgressStyle, CheckStatus, StationFn, StationId, StationIdInvalidFmt,
-        StationProgress, StationSpec, StationSpecFns, VisitStatus,
+        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationProgress,
+        StationSpec, StationSpecFns,
     },
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+        Files, RwFiles,
     },
 };
 use futures::{Stream, StreamExt, TryStreamExt};
@@ -21,7 +21,10 @@ use tokio::{
 };
 
 use crate::{
-    app_zip::{APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_NAME},
+    app_zip::{
+        APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH,
+        APP_ZIP_NAME,
+    },
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -32,30 +35,19 @@ pub struct StationC;
 
 impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
             StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
         let station_description = String::from("Downloads web application onto web server.");
-        let station_spec = StationSpec::new(
+        Ok(StationSpec::new(
             station_id,
             station_name,
             station_description,
             station_spec_fns,
-        );
-        let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady)
-            .with_progress_style(
-                ProgressStyle::default_bar()
-                    .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
-                    .progress_chars("█▉▊▋▌▍▎▏  "),
-            );
-        let station_rt_id = station_specs.add_node(station_spec);
-        station_progresses.insert(station_rt_id, station_progress);
-        Ok(station_rt_id)
+            ProgressUnit::Bytes,
+        ))
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
@@ -90,11 +82,20 @@ impl StationC {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
-                let files = files.downgrade();
-                let address = files.source(address_file_id);
+                let address = files.source(address_file_id).clone();
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    Self::get_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    );
+                    Self::get_error(
+                        &SERVER_PARAMS_DEFAULT,
+                        app_zip_dir_file_id,
+                        &address,
+                        address_file_id,
+                        error,
+                    )
                 })?;
 
                 let status_code = response.status();
@@ -135,10 +136,20 @@ impl StationC {
                 app_zip_url.push_str(APP_ZIP_NAME);
 
                 let address_file_id = files.add("artifact_server_address", address);
-                let address = files.source(address_file_id);
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    Self::get_error(&SERVER_PARAMS_DEFAULT, address, address_file_id, error)
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    );
+                    let address = files.source(address_file_id);
+                    Self::get_error(
+                        &SERVER_PARAMS_DEFAULT,
+                        app_zip_dir_file_id,
+                        address,
+                        address_file_id,
+                        error,
+                    )
                 })?;
 
                 let status_code = response.status();
@@ -275,6 +286,7 @@ impl StationC {
 
     fn get_error(
         server_params: &ServerParams,
+        app_zip_dir_file_id: FileId,
         address: &str,
         address_file_id: FileId,
         error: reqwest::Error,
@@ -295,6 +307,7 @@ impl StationC {
 
         let code = ErrorCode::ArtifactServerConnect;
         let detail = ErrorDetail::ArtifactServerConnect {
+            app_zip_dir_file_id,
             address_file_id,
             address_span,
             host_span,

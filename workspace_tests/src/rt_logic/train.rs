@@ -1,11 +1,6 @@
-use choochoo_cfg_model::{
-    StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec, StationSpecFns,
-    VisitStatus,
-};
+use choochoo_cfg_model::{StationFn, StationSpec, VisitStatus};
 use choochoo_rt_logic::Train;
-use choochoo_rt_model::{
-    indexmap::IndexMap, Destination, StationProgresses, StationRtId, StationSpecs,
-};
+use choochoo_rt_model::{indexmap::IndexMap, Destination};
 use tokio::runtime;
 
 #[test]
@@ -29,23 +24,18 @@ fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
 fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let mut dest = {
-        let mut station_specs = StationSpecs::new();
-        let mut station_progresses = StationProgresses::new();
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "a",
-            VisitStatus::Queued,
-            Ok(()),
-        )?;
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "b",
-            VisitStatus::Queued,
-            Ok(()),
-        )?;
-        Destination::new(station_specs, station_progresses)
+        let mut dest_builder = Destination::<()>::builder();
+        dest_builder.add_station(
+            StationSpec::mock("a")?
+                .with_visit_fn(StationFn::ok(()))
+                .build(),
+        );
+        dest_builder.add_station(
+            StationSpec::mock("b")?
+                .with_visit_fn(StationFn::ok(()))
+                .build(),
+        );
+        dest_builder.build()
     };
     let train_report = rt.block_on(Train::reach(&mut dest))?;
 
@@ -67,23 +57,18 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
 fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let (mut dest, station_a, station_b) = {
-        let mut station_specs = StationSpecs::new();
-        let mut station_progresses = StationProgresses::new();
-        let station_a = add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "a",
-            VisitStatus::Queued,
-            Ok(()),
-        )?;
-        let station_b = add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "b",
-            VisitStatus::Queued,
-            Err(()),
-        )?;
-        let dest = Destination::new(station_specs, station_progresses);
+        let mut dest_builder = Destination::<()>::builder();
+        let station_a = dest_builder.add_station(
+            StationSpec::mock("a")?
+                .with_visit_fn(StationFn::ok(()))
+                .build(),
+        );
+        let station_b = dest_builder.add_station(
+            StationSpec::mock("b")?
+                .with_visit_fn(StationFn::err(()))
+                .build(),
+        );
+        let dest = dest_builder.build();
 
         (dest, station_a, station_b)
     };
@@ -112,30 +97,4 @@ fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Erro
     );
 
     Ok(())
-}
-
-fn add_station(
-    station_specs: &mut StationSpecs<()>,
-    station_progresses: &mut StationProgresses,
-    station_id: &'static str,
-    visit_status: VisitStatus,
-    visit_result: Result<(), ()>,
-) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
-    let name = String::from(station_id);
-    let station_id = StationId::new(station_id)?;
-    let station_spec_fns = {
-        let visit_fn = if visit_result.is_ok() {
-            StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Ok(()) }))
-        } else {
-            StationFn::new(|_, _| Box::pin(async move { Result::<(), ()>::Err(()) }))
-        };
-        StationSpecFns::new(visit_fn)
-    };
-    let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-    let station_progress = StationProgress::new(&station_spec, visit_status);
-    let station_rt_id = station_specs.add_node(station_spec);
-
-    station_progresses.insert(station_rt_id, station_progress);
-
-    Ok(station_rt_id)
 }

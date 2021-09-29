@@ -1,16 +1,13 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{
-        CheckStatus, StationFn, StationId, StationProgress, StationSpec, StationSpecFns,
-        VisitStatus,
-    },
+    cfg_model::{CheckStatus, ProgressUnit, StationFn, StationId, StationSpec, StationSpecFns},
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        Files, RwFiles, StationProgresses, StationRtId, StationSpecs,
+        Files, RwFiles,
     },
 };
 use futures::{stream, stream::StreamExt};
@@ -26,34 +23,28 @@ pub struct StationSleep;
 impl StationSleep {
     /// Sleeps to simulate a process
     pub fn new(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
         station_id: StationId,
         station_name: String,
         station_description: String,
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
-    ) -> StationRtId {
+    ) -> StationSpec<DemoError> {
         let station_spec_fns = StationSpecFns::new(Self::visit_fn(station_file_path, error_fn))
             .with_check_fn(Self::check_fn(station_file_path));
-        let station_spec = StationSpec::new(
+        StationSpec::new(
             station_id,
             station_name,
             station_description,
             station_spec_fns,
-        );
-        let station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
-        station_progress.progress_bar.set_length(PROGRESS_LENGTH);
-
-        let station_rt_id = station_specs.add_node(station_spec);
-        station_progresses.insert(station_rt_id, station_progress);
-
-        station_rt_id
+            ProgressUnit::None,
+        )
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |_station, _resources| {
+        StationFn::new(move |station, _resources| {
             Box::pin(async move {
+                station.progress_bar.set_length(PROGRESS_LENGTH);
+
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
                 } else {

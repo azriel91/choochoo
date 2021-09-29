@@ -1,13 +1,10 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt},
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        StationProgresses, StationRtId, StationSpecs,
+    cfg_model::{StationId, StationIdInvalidFmt, StationSpec},
+    rt_model::srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
 };
 
@@ -18,16 +15,11 @@ pub struct StationB;
 
 impl StationB {
     /// Creates the database for the web application.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("b")?;
         let station_name = String::from("Create DB");
         let station_description = String::from("Creates the database for the web application.");
         let station_rt_id = StationSleep::new(
-            station_specs,
-            station_progresses,
             station_id,
             station_name,
             station_description,

@@ -8,6 +8,8 @@ use std::{
 use resman::Resources;
 
 use crate::StationProgress;
+#[cfg(feature = "mock")]
+use crate::VisitStatus;
 
 /// Return type of the `StationFn`.
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;
@@ -32,6 +34,36 @@ impl<R, E> StationFn<R, E> {
             + 'static,
     {
         Self(Arc::new(f))
+    }
+
+    /// Returns a `StationFn` that always returns `Result::Ok`.
+    #[cfg(feature = "mock")]
+    pub fn ok(r: R) -> Self
+    where
+        R: Clone + 'static,
+    {
+        StationFn::new(move |station_progress, _| {
+            let r = r.clone();
+            Box::pin(async move {
+                station_progress.visit_status = VisitStatus::VisitSuccess;
+                Result::<R, E>::Ok(r)
+            })
+        })
+    }
+
+    /// Returns a `StationFn` that always returns `Result::Err`.
+    #[cfg(feature = "mock")]
+    pub fn err(e: E) -> Self
+    where
+        E: Clone + 'static,
+    {
+        StationFn::new(move |station_progress, _| {
+            let e = e.clone();
+            Box::pin(async move {
+                station_progress.visit_status = VisitStatus::VisitFail;
+                Result::<R, E>::Err(e)
+            })
+        })
     }
 }
 

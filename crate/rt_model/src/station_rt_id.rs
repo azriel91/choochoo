@@ -1,4 +1,4 @@
-use daggy::{petgraph::graph::DefaultIx, NodeIndex};
+use choochoo_cfg_model::daggy::{petgraph::graph::DefaultIx, NodeIndex};
 
 /// Runtime identifier for a station.
 ///

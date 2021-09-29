@@ -1,9 +1,8 @@
 use choochoo_cfg_model::{
-    resman::Resources, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-    StationSpecFns, VisitStatus,
+    resman::Resources, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
-use choochoo_rt_model::{Destination, Error, StationProgresses, StationSpecs};
+use choochoo_rt_model::{Destination, Error};
 use tokio::{
     runtime,
     sync::mpsc::{self, Receiver, Sender},
@@ -24,32 +23,21 @@ fn returns_empty_stream_when_no_stations_exist() -> Result<(), Box<dyn std::erro
 fn returns_empty_stream_when_station_all_visit_success_or_failed()
 -> Result<(), Box<dyn std::error::Error>> {
     let (tx, _rx) = mpsc::channel(10);
-    let dest = {
-        let mut station_specs = StationSpecs::new();
-        let mut station_progresses = StationProgresses::new();
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "a",
-            VisitStatus::VisitSuccess,
-            Ok((tx, 0)),
-        )?;
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "b",
-            VisitStatus::VisitFail,
-            Err(()),
-        )?;
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "c",
-            VisitStatus::ParentFail,
-            Err(()),
-        )?;
-        Destination::new(station_specs, station_progresses)
+    let (mut dest, [station_a, station_b, station_c]) = {
+        let mut dest_builder = Destination::<()>::builder();
+        let station_ids = dest_builder.add_stations([
+            station("a", Ok((tx, 0)))?,
+            station("b", Err(()))?,
+            station("c", Err(()))?,
+        ]);
+        (dest_builder.build(), station_ids)
     };
+    {
+        let station_progresses = dest.station_progresses_mut();
+        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
+        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitFail;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentFail;
+    }
 
     let (call_count, stations_sequence) = call_iter(dest, None)?;
 
@@ -61,46 +49,33 @@ fn returns_empty_stream_when_station_all_visit_success_or_failed()
 #[test]
 fn returns_queued_stations_and_propagates_queued() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel(10);
-    let dest = {
-        let mut station_specs = StationSpecs::new();
-        let mut station_progresses = StationProgresses::new();
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "a",
-            VisitStatus::Queued,
-            Ok((tx.clone(), 0)),
-        )?;
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "b",
-            VisitStatus::Queued,
-            Ok((tx.clone(), 1)),
-        )?;
-        add_station(
-            &mut station_specs,
-            &mut station_progresses,
-            "c",
-            VisitStatus::Queued,
-            Ok((tx, 2)),
-        )?;
-        Destination::new(station_specs, station_progresses)
+    let (mut dest, [station_a, station_b, station_c]) = {
+        let mut dest_builder = Destination::<()>::builder();
+        let station_ids = dest_builder.add_stations([
+            station("a", Ok((tx.clone(), 0)))?,
+            station("b", Ok((tx.clone(), 1)))?,
+            station("c", Ok((tx, 2)))?,
+        ]);
+        (dest_builder.build(), station_ids)
     };
+    {
+        let station_progresses = dest.station_progresses_mut();
+        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::Queued;
+        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::Queued;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::Queued;
+    }
 
-    let (_call_count, stations_sequence) = call_iter(dest, Some(rx))?;
+    let (call_count, stations_sequence) = call_iter(dest, Some(rx))?;
 
+    assert_eq!(3, call_count);
     assert_eq!(vec![0u8, 1u8, 2u8], stations_sequence);
     Ok(())
 }
 
-fn add_station(
-    station_specs: &mut StationSpecs<()>,
-    station_progresses: &mut StationProgresses,
+fn station(
     station_id: &'static str,
-    visit_status: VisitStatus,
     visit_result: Result<(Sender<u8>, u8), ()>,
-) -> Result<(), StationIdInvalidFmt<'static>> {
+) -> Result<StationSpec<()>, StationIdInvalidFmt<'static>> {
     let station_spec_fns = {
         let visit_fn = match visit_result {
             Ok((tx, n)) => StationFn::new(move |station_progress, _| {
@@ -110,17 +85,14 @@ fn add_station(
                     tx.send(n).await.map_err(|_| ())
                 })
             }),
-            Err(_) => StationFn::new(|_, _| Box::pin(async { Err(()) })),
+            Err(_) => StationFn::err(()),
         };
         StationSpecFns::new(visit_fn)
     };
-    let name = String::from(station_id);
-    let station_id = StationId::new(station_id)?;
-    let station_spec = StationSpec::new(station_id, name, String::from(""), station_spec_fns);
-    let station_progress = StationProgress::new(&station_spec, visit_status);
-    let station_rt_id = station_specs.add_node(station_spec);
-    station_progresses.insert(station_rt_id, station_progress);
-    Ok(())
+    let station_spec = StationSpec::mock(station_id)?
+        .with_station_spec_fns(station_spec_fns)
+        .build();
+    Ok(station_spec)
 }
 
 fn call_iter(
@@ -132,7 +104,7 @@ fn call_iter(
 
     let rt = runtime::Builder::new_current_thread().build()?;
     let call_count_and_values = rt.block_on(async {
-        let resources = IntegrityStrat::iter(&mut dest, resources, |_, station, resources| {
+        let resources = IntegrityStrat::iter(&mut dest, resources, |station, resources| {
             Box::pin(async move {
                 station
                     .spec

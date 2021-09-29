@@ -1,13 +1,10 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt},
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        StationProgresses, StationRtId, StationSpecs,
+    cfg_model::{StationId, StationIdInvalidFmt, StationSpec},
+    rt_model::srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
 };
 
@@ -18,16 +15,11 @@ pub struct StationD;
 
 impl StationD {
     /// Links the web application to the database.
-    pub fn build(
-        station_specs: &mut StationSpecs<DemoError>,
-        station_progresses: &mut StationProgresses,
-    ) -> Result<StationRtId, StationIdInvalidFmt<'static>> {
+    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_id = StationId::new("d")?;
         let station_name = String::from("Link App to DB");
         let station_description = String::from("Links the web application to the database.");
         let station_rt_id = StationSleep::new(
-            station_specs,
-            station_progresses,
             station_id,
             station_name,
             station_description,
@@ -37,11 +29,15 @@ impl StationD {
         Ok(station_rt_id)
     }
 
-    fn db_error(db_name_file_id: FileId, db_name_span: Span, error: std::io::Error) -> DemoError {
-        let code = ErrorCode::DatabaseCreate;
-        let detail = ErrorDetail::DatabaseCreate {
-            db_name_file_id,
-            db_name_span,
+    fn db_error(
+        app_db_link_name_file_id: FileId,
+        app_db_link_name_span: Span,
+        error: std::io::Error,
+    ) -> DemoError {
+        let code = ErrorCode::ApplicationDatabaseLink;
+        let detail = ErrorDetail::ApplicationDatabaseLink {
+            app_db_link_name_file_id,
+            app_db_link_name_span,
             error,
         };
 

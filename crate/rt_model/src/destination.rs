@@ -1,42 +1,26 @@
 use std::collections::HashMap;
 
-use choochoo_cfg_model::StationId;
+use choochoo_cfg_model::{StationId, StationSpecs};
 
-use crate::{Station, StationMut, StationProgresses, StationRtId, StationSpecs};
+use crate::{DestinationBuilder, Station, StationMut, StationProgresses, StationRtId};
 
 /// Specification of a desired state.
 #[derive(Debug, Default)]
 pub struct Destination<E> {
     /// The stations along the way to the destination.
-    station_specs: StationSpecs<E>,
+    pub(crate) station_specs: StationSpecs<E>,
     /// Map from station ID to station runtime ID.
     ///
     /// This is the only clone of `StationId`s that we should hold.
-    station_id_to_rt_id: HashMap<StationId, StationRtId>,
+    pub(crate) station_id_to_rt_id: HashMap<StationId, StationRtId>,
     /// Progress information for each `Station`.
-    station_progresses: StationProgresses,
+    pub(crate) station_progresses: StationProgresses,
 }
 
 impl<E> Destination<E> {
-    /// Returns a new `Destination`.
-    ///
-    /// # Parameters
-    ///
-    /// * `station_specs`: The stations along the way to the destination.
-    /// * `station_progresses`: The initial state of the stations.
-    pub fn new(station_specs: StationSpecs<E>, station_progresses: StationProgresses) -> Self {
-        let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
-        station_specs
-            .iter_with_indices()
-            .for_each(|(node_index, station_spec)| {
-                station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
-            });
-
-        Self {
-            station_specs,
-            station_id_to_rt_id,
-            station_progresses,
-        }
+    /// Returns a new `DestinationBuilder`.
+    pub fn builder() -> DestinationBuilder<E> {
+        DestinationBuilder::new()
     }
 
     /// Returns an iterator over the [`StationMut`]s in this destination.
