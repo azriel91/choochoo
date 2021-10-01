@@ -1,6 +1,9 @@
 use std::convert::TryFrom;
 
-use crate::{ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns};
+use crate::{
+    CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+    StationSpecFns,
+};
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
 ///
@@ -92,6 +95,12 @@ impl<E> StationSpecBuilder<E> {
     /// Sets the [`StationSpecFns`] of the [`StationSpec`].
     pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
         self.station_spec_fns = station_spec_fns;
+        self
+    }
+
+    /// Sets the check function for the [`StationSpec`].
+    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
+        self.station_spec_fns.check_fn = Some(check_fn);
         self
     }
 
