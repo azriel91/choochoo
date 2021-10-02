@@ -138,6 +138,7 @@ impl<E> VisitStatusUpdater<E> {
                 match station_progress.visit_status {
                     VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
                     VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
+                    | VisitStatus::SetupFail
                     | VisitStatus::CheckFail
                     | VisitStatus::InProgress
                     | VisitStatus::ParentFail
@@ -179,7 +180,8 @@ impl<E> VisitStatusUpdater<E> {
                             // Short circuits:
 
                             // If parent / ancestor has failed, indicate it in this station.
-                            VisitStatus::CheckFail
+                            VisitStatus::SetupFail
+                            | VisitStatus::CheckFail
                             | VisitStatus::VisitFail
                             | VisitStatus::ParentFail => {
                                 return Err(Some(VisitStatus::ParentFail));

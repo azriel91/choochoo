@@ -10,6 +10,7 @@ pub use resman;
 pub use crate::{
     check_status::CheckStatus,
     progress_limit::ProgressLimit,
+    setup_fn::{SetupFn, SetupFnReturn},
     station_fn::{StationFn, StationFnReturn},
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
@@ -24,6 +25,7 @@ pub use crate::{
 
 mod check_status;
 mod progress_limit;
+mod setup_fn;
 mod station_fn;
 mod station_id;
 mod station_id_invalid_fmt;

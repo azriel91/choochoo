@@ -1,5 +1,6 @@
 use choochoo_cfg_model::{
-    resman::Resources, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
+    resman::Resources, ProgressLimit, SetupFn, StationFn, StationIdInvalidFmt, StationSpec,
+    StationSpecFns, VisitStatus,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
 use choochoo_rt_model::{Destination, Error};
@@ -87,7 +88,7 @@ fn station(
             }),
             Err(_) => StationFn::err(()),
         };
-        StationSpecFns::new(visit_fn)
+        StationSpecFns::new(SetupFn::ok(ProgressLimit::Steps(10)), visit_fn)
     };
     let station_spec = StationSpec::mock(station_id)?
         .with_station_spec_fns(station_spec_fns)

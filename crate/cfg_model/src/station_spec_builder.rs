@@ -54,9 +54,12 @@ impl<E> StationSpecBuilder<E> {
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
+        use crate::{ProgressLimit, SetupFn};
+
         let station_spec_fns = {
+            let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
             let visit_fn = StationFn::ok(());
-            StationSpecFns::new(visit_fn)
+            StationSpecFns::new(setup_fn, visit_fn)
         };
 
         Self::new(id, station_spec_fns)

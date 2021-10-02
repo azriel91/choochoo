@@ -166,7 +166,9 @@ where
                     VisitStatus::Queued => "⏳",
                     VisitStatus::InProgress => "⏳",
                     VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::CheckFail | VisitStatus::VisitFail => "❌",
+                    VisitStatus::SetupFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
+                        "❌"
+                    }
                 };
 
                 b_writeln!(

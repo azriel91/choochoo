@@ -1,7 +1,10 @@
 use std::{borrow::Cow, path::Path};
 
 use choochoo::{
-    cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload},
+    cfg_model::{
+        ProgressLimit, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns, Workload,
+    },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{
@@ -137,7 +140,7 @@ fn new_station(
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let station_spec_fns = StationSpecFns::new(visit_fn);
+    let station_spec_fns = StationSpecFns::new(SetupFn::ok(ProgressLimit::Steps(1)), visit_fn);
     Ok(StationSpec::new(
         station_id,
         station_name,

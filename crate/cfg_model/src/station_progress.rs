@@ -97,6 +97,7 @@ impl StationProgress {
 
     fn progress_style_template(visit_status: VisitStatus, progress_limit: ProgressLimit) -> String {
         let (symbol, status) = match visit_status {
+            VisitStatus::SetupFail => ("❌", "setup fail"),
             VisitStatus::NotReady => ("🎫", "not ready"),
             VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
             VisitStatus::Queued => ("⏳", "queued"),
@@ -111,6 +112,7 @@ impl StationProgress {
             console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").blue()
         } else {
             let progress_bar = match visit_status {
+                VisitStatus::SetupFail => "{bar:40.black.bright/red}",
                 VisitStatus::NotReady => "{bar:40.blue.dim/blue}",
                 VisitStatus::ParentFail => "{bar:40.red/red.dim}",
                 VisitStatus::Queued => "{bar:40.blue.dim/blue}",

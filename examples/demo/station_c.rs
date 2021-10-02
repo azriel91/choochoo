@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
-        StationSpecFns,
+        CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationProgress,
+        StationSpec, StationSpecFns,
     },
     rt_model::{
         srcerr::{
@@ -14,6 +14,7 @@ use choochoo::{
         Files, RwFiles,
     },
 };
+use choochoo_cfg_model::ProgressLimit;
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::{
     fs::File,
@@ -22,8 +23,8 @@ use tokio::{
 
 use crate::{
     app_zip::{
-        APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH,
-        APP_ZIP_NAME,
+        AppZipFileLength, APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH,
+        APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_NAME,
     },
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
@@ -37,7 +38,7 @@ impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
-            StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
+            StationSpecFns::new(Self::setup_fn(), Self::visit_fn()).with_check_fn(Self::check_fn());
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
         let station_description = String::from("Downloads web application onto web server.");
@@ -47,6 +48,15 @@ impl StationC {
             station_description,
             station_spec_fns,
         ))
+    }
+
+    fn setup_fn() -> SetupFn<DemoError> {
+        SetupFn::new(move |_station_progress, resources| {
+            Box::pin(async move {
+                let app_zip_file_length = resources.borrow::<AppZipFileLength>().0;
+                Ok(ProgressLimit::Bytes(app_zip_file_length))
+            })
+        })
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {

@@ -3,6 +3,8 @@
 /// [`StationMut`]: crate::rt_model::StationMut
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum VisitStatus {
+    /// Station setup function failed.
+    SetupFail,
     /// Station has at least one parent that hasn't been visited.
     NotReady,
     /// At least one of this station's parents failed to be visited.
