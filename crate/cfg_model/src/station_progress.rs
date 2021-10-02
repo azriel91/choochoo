@@ -30,7 +30,7 @@ impl StationProgress {
     /// * `station_spec`: Behaviour specification of the station.
     /// * `progress_limit`: Unit of measurement and limit to indicate progress.
     pub fn new<E>(station_spec: &StationSpec<E>, progress_limit: ProgressLimit) -> Self {
-        let visit_status = VisitStatus::NotReady;
+        let visit_status = VisitStatus::ParentPending;
         let progress_bar = ProgressBar::hidden();
 
         let message = {
@@ -98,7 +98,7 @@ impl StationProgress {
     fn progress_style_template(visit_status: VisitStatus, progress_limit: ProgressLimit) -> String {
         let (symbol, status) = match visit_status {
             VisitStatus::SetupFail => ("❌", "setup fail"),
-            VisitStatus::NotReady => ("🎫", "not ready"),
+            VisitStatus::ParentPending => ("🎫", "parent pending"),
             VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
             VisitStatus::Queued => ("⏳", "queued"),
             VisitStatus::CheckFail => ("❌", "check fail"),
@@ -113,7 +113,7 @@ impl StationProgress {
         } else {
             let progress_bar = match visit_status {
                 VisitStatus::SetupFail => "{bar:40.black.bright/red}",
-                VisitStatus::NotReady => "{bar:40.blue.dim/blue}",
+                VisitStatus::ParentPending => "{bar:40.blue.dim/blue}",
                 VisitStatus::ParentFail => "{bar:40.red/red.dim}",
                 VisitStatus::Queued => "{bar:40.blue.dim/blue}",
                 VisitStatus::CheckFail => "{bar:40.black.bright/red}",

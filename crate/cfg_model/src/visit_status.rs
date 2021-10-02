@@ -6,7 +6,7 @@ pub enum VisitStatus {
     /// Station setup function failed.
     SetupFail,
     /// Station has at least one parent that hasn't been visited.
-    NotReady,
+    ParentPending,
     /// At least one of this station's parents failed to be visited.
     ///
     /// There will not be an attempt to visit this station.

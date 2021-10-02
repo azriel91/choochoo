@@ -10,7 +10,7 @@ use choochoo_rt_model::{Destination, StationRtId};
 ///
 /// # `VisitStatus` State Machine
 ///
-/// ## `NotReady` Stations
+/// ## `ParentPending` Stations
 ///
 /// * If all parents are `VisitSuccess`, switch to `Queued`.
 /// * If at least one parent has `VisitFailed` or `ParentFail`, switch to
@@ -136,7 +136,7 @@ impl<E> VisitStatusUpdater<E> {
             .and_then(|station_progress| station_progress.try_borrow())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
-                    VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
+                    VisitStatus::ParentPending => Self::transition_not_ready(dest, station_rt_id),
                     VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
                     | VisitStatus::SetupFail
                     | VisitStatus::CheckFail
@@ -187,7 +187,7 @@ impl<E> VisitStatusUpdater<E> {
                                 return Err(Some(VisitStatus::ParentFail));
                             }
                             // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                            VisitStatus::NotReady
+                            VisitStatus::ParentPending
                             | VisitStatus::Queued
                             | VisitStatus::InProgress => {
                                 return Err(None);

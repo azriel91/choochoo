@@ -161,7 +161,7 @@ where
             .map(Result::<_, io::Error>::Ok)
             .try_fold(write_buf, |mut write_buf, station| async move {
                 let icon = match station.progress.visit_status {
-                    VisitStatus::NotReady => "⏰",
+                    VisitStatus::ParentPending => "⏰",
                     VisitStatus::ParentFail => "☠️",
                     VisitStatus::Queued => "⏳",
                     VisitStatus::InProgress => "⏳",

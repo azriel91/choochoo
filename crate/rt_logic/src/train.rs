@@ -69,7 +69,7 @@ where
     }
 
     async fn stations_visit(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
-        // Set `NotReady` stations to `Queued` if they have no dependencies.
+        // Set `ParentPending` stations to `Queued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
         IntegrityStrat::iter(dest, TrainReport::new(), |mut station, train_report| {
