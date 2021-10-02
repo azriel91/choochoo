@@ -36,8 +36,8 @@ where
             .node_indices()
             .filter_map(|station_rt_id| dest.station_progresses().get(&station_rt_id))
             .for_each(|station_progress| {
-                let progress_bar = station_progress.borrow().progress_bar.clone();
-                let progress_bar_for_tick = station_progress.borrow().progress_bar.clone();
+                let progress_bar = station_progress.borrow().progress_bar().clone();
+                let progress_bar_for_tick = progress_bar.clone();
                 multi_progress.add(progress_bar);
 
                 // Needed to render all progress bars.
@@ -55,8 +55,8 @@ where
         // We need to finish / abandon all progress bars, otherwise the `MultiProgress`
         // will never finish.
         dest.stations_mut().for_each(|station| {
-            if !station.progress.progress_bar.is_finished() {
-                station.progress.progress_bar.finish_at_current_pos();
+            if !station.progress.progress_bar().is_finished() {
+                station.progress.progress_bar().finish_at_current_pos();
             }
         });
 

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, ProgressUnit, StationFn, StationId, StationSpec, StationSpecFns},
+    cfg_model::{CheckStatus, StationFn, StationId, StationSpec, StationSpecFns},
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
@@ -36,14 +36,13 @@ impl StationSleep {
             station_name,
             station_description,
             station_spec_fns,
-            ProgressUnit::None,
         )
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
         StationFn::new(move |station, _resources| {
             Box::pin(async move {
-                station.progress_bar.set_length(PROGRESS_LENGTH);
+                station.progress_bar().set_length(PROGRESS_LENGTH);
 
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
@@ -62,10 +61,10 @@ impl StationSleep {
         StationFn::new(move |station_progress, resources| {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
-                station_progress.progress_bar.reset();
+                station_progress.progress_bar().reset();
                 stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
-                        station_progress.progress_bar.inc(1);
+                        station_progress.progress_bar().inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     })
                     .await;

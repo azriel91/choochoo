@@ -1,6 +1,4 @@
-use choochoo_cfg_model::{
-    ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
-};
+use choochoo_cfg_model::{StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns};
 
 #[test]
 fn display_returns_readable_informative_message() -> Result<(), StationIdInvalidFmt<'static>> {
@@ -11,13 +9,7 @@ fn display_returns_readable_informative_message() -> Result<(), StationIdInvalid
         let visit_fn = StationFn::new(|_, _| Box::pin(async { Result::<(), ()>::Ok(()) }));
         StationSpecFns::new(visit_fn)
     };
-    let station_spec = StationSpec::new(
-        station_id,
-        name,
-        description,
-        station_spec_fns,
-        ProgressUnit::None,
-    );
+    let station_spec = StationSpec::new(station_id, name, description, station_spec_fns);
 
     assert_eq!("Station Name: One liner.", station_spec.to_string());
     Ok(())

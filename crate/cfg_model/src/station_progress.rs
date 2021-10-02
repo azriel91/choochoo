@@ -3,7 +3,7 @@ use std::fmt;
 use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::{StationSpec, VisitStatus};
+use crate::{ProgressLimit, StationSpec, VisitStatus};
 
 /// Station progress to reaching the destination.
 ///
@@ -11,76 +11,59 @@ use crate::{StationSpec, VisitStatus};
 /// report.
 #[derive(Clone, Debug)]
 pub struct StationProgress {
-    /// Progress bar to display this station's state and progress.
-    pub progress_bar: ProgressBar,
     /// Whether this station has been visited.
     pub visit_status: VisitStatus,
+    /// Progress bar to display this station's state and progress.
+    progress_bar: ProgressBar,
+    /// Unit of measurement and limit to indicate progress.
+    progress_limit: ProgressLimit,
 }
 
 impl StationProgress {
     /// Characters to use for the progress bar to have fine grained animation.
     pub const PROGRESS_CHARS: &'static str = "█▉▊▋▌▍▎▏  ";
-    /// Template to apply when the station visit failed.
-    pub const STYLE_FAILED: &'static str =
-        "❌ {msg:20} [{bar:40.black.bright/red}] {bytes}/{total_bytes} ({elapsed:.yellow})";
-    /// Template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {pos}/{len} ({elapsed:.yellow} {eta})";
-    /// Template to apply when the station visit is in progress.
-    pub const STYLE_IN_PROGRESS_BYTES: &'static str = "{spinner:.green}{spinner:.green} {msg:20} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({elapsed:.yellow} {eta})";
-    /// Template to apply when the station is not ready to be visited.
-    pub const STYLE_NOT_READY: &'static str =
-        "⏳ {msg:20} [{bar:40.blue.dim/blue}] {pos}/{len} (not ready)";
-    /// Template to apply when a parent station has failed.
-    pub const STYLE_PARENT_FAILED: &'static str =
-        "☠️  {msg:20} [{bar:40.red/red.dim}] {pos}/{len} (parent failed)";
-    /// Template to apply when the station is queued to be visited.
-    pub const STYLE_QUEUED: &'static str =
-        "⏳ {msg:20} [{bar:40.blue.dim/blue}] {pos}/{len} (queued)";
-    /// Template to apply when the station visit is successful.
-    pub const STYLE_SUCCESS: &'static str =
-        "✅ {msg:20} [{bar:40.green/green}] {pos}/{len} ({elapsed:.yellow} Ok!)";
-    /// Template to apply when the station visit is successful.
-    pub const STYLE_SUCCESS_BYTES: &'static str =
-        "✅ {msg:20} [{bar:40.green/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Ok!)";
-    /// Template to apply when the station was not necessary to visit.
-    pub const STYLE_UNCHANGED_BYTES: &'static str = "✅ {msg:20} [{bar:40.green.dim/green}] {bytes}/{total_bytes} ({elapsed:.yellow} Unchanged)";
 
     /// Returns a new [`StationProgress`].
     ///
     /// # Parameters
     ///
-    /// * `station_spec`: Behaviour specification for this station.
-    /// * `visit_status`: Whether this [`StationProgress`] is ready to be
-    ///   visited.
-    pub fn new<E>(station_spec: &StationSpec<E>, visit_status: VisitStatus) -> Self {
-        let id_style = Style::new().blue().bold();
-        let name_style = Style::new().bold().bright();
-
-        let message = format!(
-            "{id} {name}",
-            id = id_style.apply_to(station_spec.id()),
-            name = name_style.apply_to(station_spec.name())
-        );
-
+    /// * `station_spec`: Behaviour specification of the station.
+    /// * `progress_limit`: Unit of measurement and limit to indicate progress.
+    pub fn new<E>(station_spec: &StationSpec<E>, progress_limit: ProgressLimit) -> Self {
+        let visit_status = VisitStatus::NotReady;
         let progress_bar = ProgressBar::hidden();
-        progress_bar.set_length(100);
-        progress_bar.set_message(message);
-        progress_bar.set_style(
-            ProgressStyle::default_bar()
-                .template(Self::STYLE_NOT_READY)
-                .progress_chars(Self::PROGRESS_CHARS),
-        );
 
-        Self {
-            progress_bar,
+        let message = {
+            let id_style = Style::new().blue().bold();
+            let name_style = Style::new().bold().bright();
+
+            format!(
+                "{id} {name}",
+                id = id_style.apply_to(station_spec.id()),
+                name = name_style.apply_to(station_spec.name())
+            )
+        };
+        progress_bar.set_message(message);
+
+        let station_progress = Self {
             visit_status,
-        }
+            progress_bar,
+            progress_limit,
+        };
+
+        station_progress.progress_style_update();
+
+        station_progress
     }
 
-    /// Sets the [`ProgressStyle`] for this station's [`ProgressBar`].
-    pub fn with_progress_style(self, progress_style: ProgressStyle) -> Self {
-        self.progress_bar.set_style(progress_style);
-        self
+    /// Returns a reference to the [`ProgressBar`].
+    pub fn progress_bar(&self) -> &ProgressBar {
+        &self.progress_bar
+    }
+
+    /// Steps the progress by 1.
+    pub fn tick(&mut self) {
+        self.progress_bar.tick();
     }
 
     /// Returns a type that implements [`fmt::Display`] for this progress.
@@ -89,6 +72,71 @@ impl StationProgress {
             station_spec,
             station_progress: self,
         }
+    }
+
+    /// Updates the style of the progress bar.
+    pub fn progress_style_update(&self) {
+        let progress_length = match self.progress_limit {
+            ProgressLimit::Unknown => 0, // indicatif uses `0` for spinner type progress bars.
+            ProgressLimit::Steps(n) | ProgressLimit::Bytes(n) => n,
+        };
+
+        let progress_style_template =
+            Self::progress_style_template(self.visit_status, self.progress_limit);
+        self.progress_bar.set_length(progress_length);
+
+        self.progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template(progress_style_template.as_str())
+                .progress_chars(StationProgress::PROGRESS_CHARS),
+        );
+
+        // Redraw the progress bar
+        self.progress_bar.tick();
+    }
+
+    fn progress_style_template(visit_status: VisitStatus, progress_limit: ProgressLimit) -> String {
+        let (symbol, status) = match visit_status {
+            VisitStatus::NotReady => ("🎫", "not ready"),
+            VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
+            VisitStatus::Queued => ("⏳", "queued"),
+            VisitStatus::CheckFail => ("❌", "check fail"),
+            VisitStatus::InProgress => ("{spinner:.green}{spinner:.green}", "in progress"),
+            VisitStatus::VisitUnnecessary => ("✅", "visit unnecessary"),
+            VisitStatus::VisitSuccess => ("✅", "visit success"),
+            VisitStatus::VisitFail => ("❌", "visit fail"),
+        };
+
+        let progress_bar = if progress_limit == ProgressLimit::Unknown {
+            console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").blue()
+        } else {
+            let progress_bar = match visit_status {
+                VisitStatus::NotReady => "{bar:40.blue.dim/blue}",
+                VisitStatus::ParentFail => "{bar:40.red/red.dim}",
+                VisitStatus::Queued => "{bar:40.blue.dim/blue}",
+                VisitStatus::CheckFail => "{bar:40.black.bright/red}",
+                VisitStatus::InProgress => "{bar:40.blue.dim/blue}",
+                VisitStatus::VisitUnnecessary => "{bar:40.green.dim/green}",
+                VisitStatus::VisitSuccess => "{bar:40.green/green}",
+                VisitStatus::VisitFail => "{bar:40.black.bright/red}",
+            };
+            // Hack to return the same type.
+            console::style(progress_bar)
+        };
+
+        let units = match progress_limit {
+            ProgressLimit::Unknown => "",
+            ProgressLimit::Steps(_) => "{pos}/{len}",
+            ProgressLimit::Bytes(_) => "{bytes}/{total_bytes}",
+        };
+
+        format!(
+            "{symbol} {{msg:20}} [{progress_bar}] {units} ({status})",
+            symbol = symbol,
+            progress_bar = progress_bar,
+            units = units,
+            status = status,
+        )
     }
 }
 

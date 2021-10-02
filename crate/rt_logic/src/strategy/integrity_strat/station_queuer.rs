@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use choochoo_cfg_model::{indicatif::ProgressStyle, StationProgress, VisitStatus};
+use choochoo_cfg_model::{StationProgress, VisitStatus};
 use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -89,42 +89,15 @@ impl<E> StationQueuer<E> {
     }
 
     fn station_progress_bar_update(station_progress: &StationProgress) {
-        if !station_progress.progress_bar.is_finished() {
+        if !station_progress.progress_bar().is_finished() {
+            station_progress.progress_style_update();
             match station_progress.visit_status {
-                VisitStatus::NotReady => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_NOT_READY);
-                    station_progress.progress_bar.set_style(progress_style);
+                VisitStatus::NotReady | VisitStatus::Queued | VisitStatus::InProgress => {}
+                VisitStatus::ParentFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
+                    station_progress.progress_bar().abandon();
                 }
-                VisitStatus::Queued => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_QUEUED);
-                    station_progress.progress_bar.set_style(progress_style);
-                }
-                VisitStatus::ParentFail => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_PARENT_FAILED);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.abandon();
-                }
-                VisitStatus::InProgress => {}
-                VisitStatus::VisitSuccess => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_SUCCESS_BYTES);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.finish();
-                }
-                VisitStatus::VisitUnnecessary => {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::STYLE_UNCHANGED_BYTES);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.finish();
-                }
-                VisitStatus::CheckFail | VisitStatus::VisitFail => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_FAILED);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.abandon();
+                VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {
+                    station_progress.progress_bar().finish();
                 }
             }
         }

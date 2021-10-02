@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationProgress,
-        StationSpec, StationSpecFns,
+        CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationProgress, StationSpec,
+        StationSpecFns,
     },
     rt_model::{
         srcerr::{
@@ -46,7 +46,6 @@ impl StationC {
             station_name,
             station_description,
             station_spec_fns,
-            ProgressUnit::Bytes,
         ))
     }
 
@@ -102,7 +101,9 @@ impl StationC {
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
                     if let Some(remote_file_length) = response.content_length() {
-                        station_progress.progress_bar.set_length(remote_file_length);
+                        station_progress
+                            .progress_bar()
+                            .set_length(remote_file_length);
                         if local_file_length == remote_file_length {
                             CheckStatus::VisitNotRequired
                         } else {
@@ -125,7 +126,7 @@ impl StationC {
         StationFn::new(|station_progress, resources| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station_progress.progress_bar.reset();
+                station_progress.progress_bar().reset();
                 let files = resources.borrow::<RwFiles>();
                 let mut files = files.write().await;
 
@@ -221,7 +222,7 @@ impl StationC {
                 })
             })
             .try_fold(buffer, |mut buffer, bytes| async move {
-                station_progress.progress_bar.inc(bytes.len() as u64);
+                station_progress.progress_bar().inc(bytes.len() as u64);
                 buffer.write_all(&bytes).await.map_err(|error| {
                     Self::write_error(app_zip_path_file_id, app_zip_path, error)
                 })?;
