@@ -100,7 +100,7 @@ impl StationProgress {
             VisitStatus::SetupFail => ("❌", "setup fail"),
             VisitStatus::ParentPending => ("🎫", "parent pending"),
             VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
-            VisitStatus::Queued => ("⏳", "queued"),
+            VisitStatus::VisitQueued => ("⏳", "visit queued"),
             VisitStatus::CheckFail => ("❌", "check fail"),
             VisitStatus::InProgress => ("{spinner:.green}{spinner:.green}", "in progress"),
             VisitStatus::VisitUnnecessary => ("✅", "visit unnecessary"),
@@ -115,7 +115,7 @@ impl StationProgress {
                 VisitStatus::SetupFail => "{bar:40.black.bright/red}",
                 VisitStatus::ParentPending => "{bar:40.blue.dim/blue}",
                 VisitStatus::ParentFail => "{bar:40.red/red.dim}",
-                VisitStatus::Queued => "{bar:40.blue.dim/blue}",
+                VisitStatus::VisitQueued => "{bar:40.blue.dim/blue}",
                 VisitStatus::CheckFail => "{bar:40.black.bright/red}",
                 VisitStatus::InProgress => "{bar:40.blue.dim/blue}",
                 VisitStatus::VisitUnnecessary => "{bar:40.green.dim/green}",

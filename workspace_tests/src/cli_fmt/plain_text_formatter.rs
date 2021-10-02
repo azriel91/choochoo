@@ -58,7 +58,7 @@ fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::SetupFail;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::ParentPending;
         station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentFail;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::Queued;
+        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::VisitQueued;
         station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::InProgress;
         station_progresses[&station_f].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_g].borrow_mut().visit_status = VisitStatus::VisitUnnecessary;

@@ -12,7 +12,7 @@ pub enum VisitStatus {
     /// There will not be an attempt to visit this station.
     ParentFail,
     /// Station is ready to be visited, but has not been.
-    Queued,
+    VisitQueued,
     /// Station check function failed.
     CheckFail,
     /// Station visit is in progress.

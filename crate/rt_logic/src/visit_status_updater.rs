@@ -12,7 +12,7 @@ use choochoo_rt_model::{Destination, StationRtId};
 ///
 /// ## `ParentPending` Stations
 ///
-/// * If all parents are `VisitSuccess`, switch to `Queued`.
+/// * If all parents are `VisitSuccess`, switch to `VisitQueued`.
 /// * If at least one parent has `VisitFailed` or `ParentFail`, switch to
 ///   `ParentFail`.
 ///
@@ -20,7 +20,7 @@ use choochoo_rt_model::{Destination, StationRtId};
 ///
 /// No transitions.
 ///
-/// ## `Queued` Stations
+/// ## `VisitQueued` Stations
 ///
 /// No transitions -- [`Train::reach`] sets this to `InProgress` when visiting
 /// the station.
@@ -137,7 +137,7 @@ impl<E> VisitStatusUpdater<E> {
             .and_then(|station_progress| {
                 match station_progress.visit_status {
                     VisitStatus::ParentPending => Self::transition_not_ready(dest, station_rt_id),
-                    VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
+                    VisitStatus::VisitQueued // TODO: VisitQueued stations may need to transition to `ParentPending`
                     | VisitStatus::SetupFail
                     | VisitStatus::CheckFail
                     | VisitStatus::InProgress
@@ -170,7 +170,7 @@ impl<E> VisitStatusUpdater<E> {
                     .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
             })
             .try_fold(
-                Some(VisitStatus::Queued),
+                Some(VisitStatus::VisitQueued),
                 |visit_status, parent_station_progress| {
                     if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
                         match parent_station_progress.visit_status {
@@ -188,7 +188,7 @@ impl<E> VisitStatusUpdater<E> {
                             }
                             // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
                             VisitStatus::ParentPending
-                            | VisitStatus::Queued
+                            | VisitStatus::VisitQueued
                             | VisitStatus::InProgress => {
                                 return Err(None);
                             }

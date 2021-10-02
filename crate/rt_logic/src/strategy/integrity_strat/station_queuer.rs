@@ -75,7 +75,7 @@ impl<E> StationQueuer<E> {
 
     fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = StationMut<'_, E>> + '_ {
         dest.stations_mut()
-            .filter(move |station| station.progress.visit_status == VisitStatus::Queued)
+            .filter(move |station| station.progress.visit_status == VisitStatus::VisitQueued)
     }
 
     fn progress_bar_update_all(dest: &Destination<E>) {
@@ -92,7 +92,8 @@ impl<E> StationQueuer<E> {
         if !station_progress.progress_bar().is_finished() {
             station_progress.progress_style_update();
             match station_progress.visit_status {
-                VisitStatus::ParentPending | VisitStatus::Queued | VisitStatus::InProgress => {}
+                VisitStatus::ParentPending | VisitStatus::VisitQueued | VisitStatus::InProgress => {
+                }
                 VisitStatus::SetupFail
                 | VisitStatus::ParentFail
                 | VisitStatus::CheckFail

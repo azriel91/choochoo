@@ -163,7 +163,7 @@ where
                 let icon = match station.progress.visit_status {
                     VisitStatus::ParentPending => "⏰",
                     VisitStatus::ParentFail => "☠️",
-                    VisitStatus::Queued => "⏳",
+                    VisitStatus::VisitQueued => "⏳",
                     VisitStatus::InProgress => "⏳",
                     VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
                     VisitStatus::SetupFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
