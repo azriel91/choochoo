@@ -136,8 +136,9 @@ impl<E> VisitStatusUpdater<E> {
             .and_then(|station_progress| station_progress.try_borrow())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
-                    VisitStatus::ParentPending => Self::transition_not_ready(dest, station_rt_id),
+                    VisitStatus::ParentPending => Self::transition_parent_pending(dest, station_rt_id),
                     VisitStatus::VisitQueued // TODO: VisitQueued stations may need to transition to `ParentPending`
+                    | VisitStatus::SetupQueued
                     | VisitStatus::SetupFail
                     | VisitStatus::CheckFail
                     | VisitStatus::InProgress
@@ -149,7 +150,7 @@ impl<E> VisitStatusUpdater<E> {
             })
     }
 
-    fn transition_not_ready(
+    fn transition_parent_pending(
         dest: &Destination<E>,
         station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
@@ -187,7 +188,8 @@ impl<E> VisitStatusUpdater<E> {
                                 return Err(Some(VisitStatus::ParentFail));
                             }
                             // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                            VisitStatus::ParentPending
+                            VisitStatus::SetupQueued
+                            | VisitStatus::ParentPending
                             | VisitStatus::VisitQueued
                             | VisitStatus::InProgress => {
                                 return Err(None);

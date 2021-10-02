@@ -92,8 +92,10 @@ impl<E> StationQueuer<E> {
         if !station_progress.progress_bar().is_finished() {
             station_progress.progress_style_update();
             match station_progress.visit_status {
-                VisitStatus::ParentPending | VisitStatus::VisitQueued | VisitStatus::InProgress => {
-                }
+                VisitStatus::SetupQueued
+                | VisitStatus::ParentPending
+                | VisitStatus::VisitQueued
+                | VisitStatus::InProgress => {}
                 VisitStatus::SetupFail
                 | VisitStatus::ParentFail
                 | VisitStatus::CheckFail
