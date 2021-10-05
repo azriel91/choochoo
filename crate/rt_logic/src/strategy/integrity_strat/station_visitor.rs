@@ -55,4 +55,41 @@ impl<E> StationVisitor<E> {
 
         Ok(())
     }
+
+    pub async fn visit_sequential<'f, F, R>(
+        seed: &mut R,
+        visit_logic: &F,
+        mut stations_queued_rx: Receiver<StationMut<'f, E>>,
+        stations_done_tx: Sender<StationRtId>,
+    ) -> Result<(), Error<E>>
+    where
+        F: for<'a, 'station> Fn(
+            &'a mut StationMut<'station, E>,
+            &'a mut R,
+        ) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
+    {
+        let stations_done_tx_ref = &stations_done_tx;
+
+        stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
+            .map(Result::<_, Error<E>>::Ok)
+            .try_fold(seed, |seed, mut station| async move {
+                station.progress.progress_style_update();
+
+                visit_logic(&mut station, seed).await;
+
+                stations_done_tx_ref
+                    .send(station.rt_id)
+                    .await
+                    .map_err(|_error| Error::StationVisitNotify {
+                        station_spec: station.spec.clone(),
+                    })?;
+
+                Ok(seed)
+            })
+            .await?;
+
+        stations_queued_rx.close();
+
+        Ok(())
+    }
 }

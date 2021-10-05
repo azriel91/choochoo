@@ -1,3 +1,5 @@
+use std::fmt;
+
 use choochoo::rt_model::{
     error::StationSpecError,
     srcerr::{
@@ -37,5 +39,17 @@ impl From<StationSpecError> for DemoError {
         let detail = ErrorDetail::StationSpecError(error);
 
         DemoError::new(code, detail, Severity::Bug)
+    }
+}
+
+impl fmt::Display for DemoError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for DemoError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
     }
 }

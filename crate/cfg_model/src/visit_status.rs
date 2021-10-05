@@ -5,6 +5,8 @@
 pub enum VisitStatus {
     /// Station setup function has not been run.
     SetupQueued,
+    /// Station setup function ran successfully.
+    SetupSuccess,
     /// Station setup function failed.
     SetupFail,
     /// Station has at least one parent that hasn't been visited.

@@ -74,6 +74,12 @@ impl StationProgress {
         }
     }
 
+    /// Updates the progress limit.
+    pub fn progress_limit_set(&mut self, progress_limit: ProgressLimit) {
+        self.progress_limit = progress_limit;
+        self.progress_style_update();
+    }
+
     /// Updates the style of the progress bar.
     pub fn progress_style_update(&self) {
         let progress_length = match self.progress_limit {
@@ -98,6 +104,7 @@ impl StationProgress {
     fn progress_style_template(visit_status: VisitStatus, progress_limit: ProgressLimit) -> String {
         let (symbol, status) = match visit_status {
             VisitStatus::SetupQueued => ("⏳", "setup queued"),
+            VisitStatus::SetupSuccess => ("⏳", "setup success"),
             VisitStatus::SetupFail => ("❌", "setup fail"),
             VisitStatus::ParentPending => ("⏰", "parent pending"),
             VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
@@ -114,6 +121,7 @@ impl StationProgress {
         } else {
             let progress_bar = match visit_status {
                 VisitStatus::SetupQueued => "{bar:40.blue.dim/blue}",
+                VisitStatus::SetupSuccess => "{bar:40.blue.dim/blue}",
                 VisitStatus::SetupFail => "{bar:40.black.bright/red}",
                 VisitStatus::ParentPending => "{bar:40.blue.dim/blue}",
                 VisitStatus::ParentFail => "{bar:40.red/red.dim}",

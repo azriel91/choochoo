@@ -3,7 +3,7 @@ use std::{convert::TryFrom, fmt};
 use resman::Resources;
 
 use crate::{
-    CheckStatus, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
+    CheckStatus, SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
     StationSpecBuilder, StationSpecFns,
 };
 
@@ -98,6 +98,16 @@ impl<E> StationSpec<E> {
     /// Returns this station's behaviours.
     pub fn station_spec_fns(&self) -> &StationSpecFns<E> {
         &self.station_spec_fns
+    }
+
+    /// Verifies input, calculates progress limit, and inserts resources.
+    pub fn setup<'f>(
+        &self,
+        station_progress: &'f mut StationProgress,
+        resources: &'f mut Resources,
+    ) -> SetupFnReturn<'f, E> {
+        let setup_fn = self.station_spec_fns.setup_fn.clone();
+        setup_fn.0(station_progress, resources)
     }
 
     /// Checks if the station needs to be visited.

@@ -16,7 +16,7 @@ pub type SetupFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<ProgressLimit
 
 // **Note:** `Debug`, `Clone`, `PartialEq` are manually implemented to avoid the
 // trait bound on `E`.
-/// Verifies input parameters, calculates progress limit, and inserts resources.
+/// Verifies input, calculates progress limit, and inserts resources.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct SetupFn<E>(
     pub Arc<dyn for<'f> Fn(&'f mut StationProgress, &'f mut Resources) -> SetupFnReturn<'f, E>>,

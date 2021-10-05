@@ -23,11 +23,11 @@ impl<E> Destination<E> {
         DestinationBuilder::new()
     }
 
-    /// Returns an iterator over the [`StationMut`]s in this destination.
+    /// Returns an iterator over the [`Station`]s in this destination.
     ///
     /// This uses runtime borrowing ([`RtMap::try_borrow`]) to retrieve the
-    /// station progress, so if a station's progress is already accessed, then
-    /// it will not be returned by the iterator.
+    /// station progress, so if a station's progress is already accessed
+    /// mutably, then it will not be returned by the iterator.
     ///
     /// [`RtMap::try_borrow`]: rt_map::RtMap::try_borrow
     pub fn stations(&self) -> impl Iterator<Item = Station<'_, E>> + '_ {

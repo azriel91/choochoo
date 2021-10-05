@@ -162,6 +162,7 @@ where
             .try_fold(write_buf, |mut write_buf, station| async move {
                 let icon = match station.progress.visit_status {
                     VisitStatus::SetupQueued => "⏳",
+                    VisitStatus::SetupSuccess => "⏳",
                     VisitStatus::ParentPending => "⏰",
                     VisitStatus::ParentFail => "☠️",
                     VisitStatus::VisitQueued => "⏳",

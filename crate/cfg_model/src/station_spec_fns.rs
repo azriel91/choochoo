@@ -4,11 +4,7 @@ use crate::{CheckStatus, SetupFn, StationFn};
 /// Grouping of a station's behaviours.
 #[derive(Debug, PartialEq)]
 pub struct StationSpecFns<E> {
-    /// Checks whether a station needs to be visited.
-    ///
-    /// If this is `None`, then the station will always be visited.
-    ///
-    /// This is run before and after `visit_fn` is executed.
+    /// Verifies input, calculates progress limit, and inserts resources.
     pub setup_fn: SetupFn<E>,
     /// Checks whether a station needs to be visited.
     ///
