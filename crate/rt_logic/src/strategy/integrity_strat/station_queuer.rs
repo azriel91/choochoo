@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use choochoo_cfg_model::{indicatif::ProgressStyle, StationProgress, VisitStatus};
+use choochoo_cfg_model::{StationProgress, VisitStatus};
 use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -23,28 +23,34 @@ impl<E> StationQueuer<E> {
         dest: &'f Destination<E>,
         stations_queued_tx: Sender<StationMut<'f, E>>,
         mut stations_done_rx: Receiver<StationRtId>,
+        visit_status_queued: VisitStatus,
+        queue_limit: usize,
     ) -> Result<(), Error<E>> {
         let stations_queued_tx_ref = &stations_queued_tx;
         let mut stations_in_progress_count = 0;
 
         loop {
-            stations_in_progress_count = stream::iter(Self::stations_queued(dest))
-                .map(Result::<_, Error<E>>::Ok)
-                .try_fold(
-                    stations_in_progress_count,
-                    |stations_in_progress_count, station| async move {
-                        stations_queued_tx_ref
-                            .send(station)
-                            .await
-                            .map_err(|error| {
-                                let station_spec = (*error.0.spec).clone();
-                                Error::StationQueue { station_spec }
-                            })?;
+            stations_in_progress_count = stream::iter(Self::stations_queued(
+                dest,
+                visit_status_queued,
+                queue_limit,
+            ))
+            .map(Result::<_, Error<E>>::Ok)
+            .try_fold(
+                stations_in_progress_count,
+                |stations_in_progress_count, station| async move {
+                    stations_queued_tx_ref
+                        .send(station)
+                        .await
+                        .map_err(|error| {
+                            let station_spec = (*error.0.spec).clone();
+                            Error::StationQueue { station_spec }
+                        })?;
 
-                        Ok(stations_in_progress_count + 1)
-                    },
-                )
-                .await?;
+                    Ok(stations_in_progress_count + 1)
+                },
+            )
+            .await?;
 
             if stations_in_progress_count == 0 {
                 stations_done_rx.close();
@@ -73,9 +79,14 @@ impl<E> StationQueuer<E> {
         Ok(())
     }
 
-    fn stations_queued(dest: &Destination<E>) -> impl Iterator<Item = StationMut<'_, E>> + '_ {
+    fn stations_queued(
+        dest: &Destination<E>,
+        visit_status_queued: VisitStatus,
+        queue_limit: usize,
+    ) -> impl Iterator<Item = StationMut<'_, E>> + '_ {
         dest.stations_mut()
-            .filter(move |station| station.progress.visit_status == VisitStatus::Queued)
+            .filter(move |station| station.progress.visit_status == visit_status_queued)
+            .take(queue_limit)
     }
 
     fn progress_bar_update_all(dest: &Destination<E>) {
@@ -89,42 +100,22 @@ impl<E> StationQueuer<E> {
     }
 
     fn station_progress_bar_update(station_progress: &StationProgress) {
-        if !station_progress.progress_bar.is_finished() {
+        if !station_progress.progress_bar().is_finished() {
+            station_progress.progress_style_update();
             match station_progress.visit_status {
-                VisitStatus::NotReady => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_NOT_READY);
-                    station_progress.progress_bar.set_style(progress_style);
+                VisitStatus::SetupQueued
+                | VisitStatus::SetupSuccess
+                | VisitStatus::ParentPending
+                | VisitStatus::VisitQueued
+                | VisitStatus::InProgress => {}
+                VisitStatus::SetupFail
+                | VisitStatus::ParentFail
+                | VisitStatus::CheckFail
+                | VisitStatus::VisitFail => {
+                    station_progress.progress_bar().abandon();
                 }
-                VisitStatus::Queued => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_QUEUED);
-                    station_progress.progress_bar.set_style(progress_style);
-                }
-                VisitStatus::ParentFail => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_PARENT_FAILED);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.abandon();
-                }
-                VisitStatus::InProgress => {}
-                VisitStatus::VisitSuccess => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_SUCCESS_BYTES);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.finish();
-                }
-                VisitStatus::VisitUnnecessary => {
-                    let progress_style = ProgressStyle::default_bar()
-                        .template(StationProgress::STYLE_UNCHANGED_BYTES);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.finish();
-                }
-                VisitStatus::CheckFail | VisitStatus::VisitFail => {
-                    let progress_style =
-                        ProgressStyle::default_bar().template(StationProgress::STYLE_FAILED);
-                    station_progress.progress_bar.set_style(progress_style);
-                    station_progress.progress_bar.abandon();
+                VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {
+                    station_progress.progress_bar().finish();
                 }
             }
         }

@@ -1,5 +1,6 @@
 use choochoo_cfg_model::{
-    resman::Resources, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns, VisitStatus,
+    resman::Resources, ProgressLimit, SetupFn, StationFn, StationIdInvalidFmt, StationSpec,
+    StationSpecFns, VisitStatus, Workload,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
 use choochoo_rt_model::{Destination, Error};
@@ -47,22 +48,27 @@ fn returns_empty_stream_when_station_all_visit_success_or_failed()
 }
 
 #[test]
-fn returns_queued_stations_and_propagates_queued() -> Result<(), Box<dyn std::error::Error>> {
+fn returns_visit_queued_stations_and_propagates_visit_queued()
+-> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel(10);
     let (mut dest, [station_a, station_b, station_c]) = {
         let mut dest_builder = Destination::<()>::builder();
-        let station_ids = dest_builder.add_stations([
+        let [station_a, station_b, station_c] = dest_builder.add_stations([
             station("a", Ok((tx.clone(), 0)))?,
             station("b", Ok((tx.clone(), 1)))?,
             station("c", Ok((tx, 2)))?,
         ]);
-        (dest_builder.build(), station_ids)
+        dest_builder.add_edges([
+            (station_a, station_c, Workload::default()),
+            (station_b, station_c, Workload::default()),
+        ])?;
+        (dest_builder.build(), [station_a, station_b, station_c])
     };
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::Queued;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::Queued;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::Queued;
+        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitQueued;
+        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitQueued;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     let (call_count, stations_sequence) = call_iter(dest, Some(rx))?;
@@ -87,7 +93,7 @@ fn station(
             }),
             Err(_) => StationFn::err(()),
         };
-        StationSpecFns::new(visit_fn)
+        StationSpecFns::new(SetupFn::ok(ProgressLimit::Steps(10)), visit_fn)
     };
     let station_spec = StationSpec::mock(station_id)?
         .with_station_spec_fns(station_spec_fns)

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use crate::{ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns};
+use crate::{CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns};
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
 ///
@@ -17,8 +17,6 @@ pub struct StationSpecBuilder<E> {
     description: Option<String>,
     /// Steps to run when this station is visited.
     station_spec_fns: StationSpecFns<E>,
-    /// Unit of measurement to display progress information.
-    progress_unit: ProgressUnit,
 }
 
 impl<E> StationSpecBuilder<E> {
@@ -41,7 +39,6 @@ impl<E> StationSpecBuilder<E> {
             name: None,
             description: None,
             station_spec_fns,
-            progress_unit: ProgressUnit::None,
         })
     }
 
@@ -57,9 +54,12 @@ impl<E> StationSpecBuilder<E> {
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
+        use crate::{ProgressLimit, SetupFn};
+
         let station_spec_fns = {
+            let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
             let visit_fn = StationFn::ok(());
-            StationSpecFns::new(visit_fn)
+            StationSpecFns::new(setup_fn, visit_fn)
         };
 
         Self::new(id, station_spec_fns)
@@ -83,15 +83,15 @@ impl<E> StationSpecBuilder<E> {
         self
     }
 
-    /// Sets the progress unit of the [`StationSpec`].
-    pub fn with_progress_unit(mut self, progress_unit: ProgressUnit) -> Self {
-        self.progress_unit = progress_unit;
-        self
-    }
-
     /// Sets the [`StationSpecFns`] of the [`StationSpec`].
     pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
         self.station_spec_fns = station_spec_fns;
+        self
+    }
+
+    /// Sets the check function for the [`StationSpec`].
+    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
+        self.station_spec_fns.check_fn = Some(check_fn);
         self
     }
 
@@ -108,7 +108,6 @@ impl<E> StationSpecBuilder<E> {
             name,
             description,
             station_spec_fns,
-            progress_unit,
         } = self;
 
         let id_ref = &*id;
@@ -120,7 +119,6 @@ impl<E> StationSpecBuilder<E> {
             name,
             description,
             station_spec_fns,
-            progress_unit,
         }
     }
 }

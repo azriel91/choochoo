@@ -16,8 +16,8 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
         .add_stations([
             StationSpec::mock("a")?.build(),
             StationSpec::mock("b")?.build(),
-            StationSpec::mock("c")?.build(), // Should become `Queued`
-            StationSpec::mock("d")?.build(), // Should become `Queued`
+            StationSpec::mock("c")?.build(), // Should become `VisitQueued`
+            StationSpec::mock("d")?.build(), // Should become `VisitQueued`
             StationSpec::mock("e")?.build(),
             StationSpec::mock("f")?.build(), // Should become `ParentFail`
         ]);
@@ -32,10 +32,10 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::ParentPending;
         station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_f].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_f].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     VisitStatusUpdater::update(&mut dest);
@@ -49,8 +49,8 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     let station_f = &station_progresses[&station_f];
     assert_eq!(VisitStatus::VisitSuccess, station_a.borrow().visit_status);
     assert_eq!(VisitStatus::VisitSuccess, station_b.borrow().visit_status);
-    assert_eq!(VisitStatus::Queued, station_c.borrow().visit_status);
-    assert_eq!(VisitStatus::Queued, station_d.borrow().visit_status);
+    assert_eq!(VisitStatus::VisitQueued, station_c.borrow().visit_status);
+    assert_eq!(VisitStatus::VisitQueued, station_d.borrow().visit_status);
     assert_eq!(VisitStatus::VisitFail, station_e.borrow().visit_status);
     assert_eq!(VisitStatus::ParentFail, station_f.borrow().visit_status);
     Ok(())
@@ -80,9 +80,9 @@ fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error:
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::InProgress;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::NotReady;
-        station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     VisitStatusUpdater::update(&mut dest);
@@ -101,22 +101,23 @@ fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error:
 }
 
 #[test]
-fn updates_not_ready_to_queued_when_no_parents_exist() -> Result<(), Box<dyn std::error::Error>> {
+fn updates_parent_pending_to_visit_queued_when_no_parents_exist()
+-> Result<(), Box<dyn std::error::Error>> {
     let mut dest_builder = Destination::<()>::builder();
     let station_a = dest_builder.add_station(StationSpec::mock("a")?.build());
     let mut dest = dest_builder.build();
     dest.station_progresses_mut()[&station_a]
         .borrow_mut()
-        .visit_status = VisitStatus::NotReady;
+        .visit_status = VisitStatus::ParentPending;
 
     let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
 
-    assert_eq!(Some(VisitStatus::Queued), visit_status_next);
+    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
     Ok(())
 }
 
 #[test]
-fn updates_not_ready_to_queued_when_all_parents_visit_success()
+fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success()
 -> Result<(), Box<dyn std::error::Error>> {
     // a -> c
     //      ^
@@ -136,17 +137,17 @@ fn updates_not_ready_to_queued_when_all_parents_visit_success()
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::Queued), visit_status_next);
+    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
     Ok(())
 }
 
 #[test]
-fn updates_not_ready_to_queued_when_all_parents_visit_success_or_unnecessary()
+fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success_or_unnecessary()
 -> Result<(), Box<dyn std::error::Error>> {
     // a -> c
     //      ^
@@ -166,17 +167,17 @@ fn updates_not_ready_to_queued_when_all_parents_visit_success_or_unnecessary()
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitUnnecessary;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::Queued), visit_status_next);
+    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
     Ok(())
 }
 
 #[test]
-fn updates_not_ready_to_parent_fail_when_any_parents_visit_fail()
+fn updates_parent_pending_to_parent_fail_when_any_parents_visit_fail()
 -> Result<(), Box<dyn std::error::Error>> {
     // a -> c
     //      ^
@@ -196,7 +197,7 @@ fn updates_not_ready_to_parent_fail_when_any_parents_visit_fail()
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
@@ -206,7 +207,7 @@ fn updates_not_ready_to_parent_fail_when_any_parents_visit_fail()
 }
 
 #[test]
-fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
+fn updates_parent_pending_to_parent_fail_when_any_parents_parent_fail()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut dest_builder = Destination::<()>::builder();
     let [station_a, station_b, station_c] = dest_builder.add_stations([
@@ -223,7 +224,7 @@ fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
         let station_progresses = dest.station_progresses_mut();
         station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
         station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::ParentFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
+        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
     }
 
     let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
@@ -233,11 +234,11 @@ fn updates_not_ready_to_parent_fail_when_any_parents_parent_fail()
 }
 
 #[test]
-fn no_change_to_not_ready_when_any_parents_on_other_status()
+fn no_change_to_parent_pending_when_any_parents_on_other_status()
 -> Result<(), Box<dyn std::error::Error>> {
     IntoIterator::into_iter([
-        VisitStatus::NotReady,
-        VisitStatus::Queued,
+        VisitStatus::ParentPending,
+        VisitStatus::VisitQueued,
         VisitStatus::InProgress,
     ])
     .try_for_each(|visit_status_parent| {
@@ -256,7 +257,7 @@ fn no_change_to_not_ready_when_any_parents_on_other_status()
             let station_progresses = dest.station_progresses_mut();
             station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
             station_progresses[&station_b].borrow_mut().visit_status = visit_status_parent;
-            station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::NotReady;
+            station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
         }
 
         let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);

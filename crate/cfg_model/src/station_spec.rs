@@ -3,7 +3,7 @@ use std::{convert::TryFrom, fmt};
 use resman::Resources;
 
 use crate::{
-    CheckStatus, ProgressUnit, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
+    CheckStatus, SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
     StationSpecBuilder, StationSpecFns,
 };
 
@@ -19,8 +19,6 @@ pub struct StationSpec<E> {
     pub(crate) description: String,
     /// Steps to run when this station is visited.
     pub(crate) station_spec_fns: StationSpecFns<E>,
-    /// Unit of measurement to display progress information.
-    pub(crate) progress_unit: ProgressUnit,
 }
 
 impl<E> StationSpec<E> {
@@ -35,7 +33,6 @@ impl<E> StationSpec<E> {
     /// * `name`: Human readable name of the station.
     /// * `description`: Short description of the station's purpose.
     /// * `station_spec_fns`: Steps to run when this station is visited.
-    /// * `progress_unit`: Unit of measurement to display progress information.
     ///
     /// [`builder`]: Self::builder
     pub fn new(
@@ -43,14 +40,12 @@ impl<E> StationSpec<E> {
         name: String,
         description: String,
         station_spec_fns: StationSpecFns<E>,
-        progress_unit: ProgressUnit,
     ) -> Self {
         Self {
             id,
             name,
             description,
             station_spec_fns,
-            progress_unit,
         }
     }
 
@@ -105,9 +100,14 @@ impl<E> StationSpec<E> {
         &self.station_spec_fns
     }
 
-    /// Returns the unit of measurement used to display progress information.
-    pub fn progress_unit(&self) -> ProgressUnit {
-        self.progress_unit
+    /// Verifies input, calculates progress limit, and inserts resources.
+    pub fn setup<'f>(
+        &self,
+        station_progress: &'f mut StationProgress,
+        resources: &'f mut Resources,
+    ) -> SetupFnReturn<'f, E> {
+        let setup_fn = self.station_spec_fns.setup_fn.clone();
+        setup_fn.0(station_progress, resources)
     }
 
     /// Checks if the station needs to be visited.
@@ -140,7 +140,6 @@ impl<E> Clone for StationSpec<E> {
             name: self.name.clone(),
             description: self.description.clone(),
             station_spec_fns: self.station_spec_fns.clone(),
-            progress_unit: self.progress_unit,
         }
     }
 }

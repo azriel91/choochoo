@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::{
-    cfg_model::{CheckStatus, ProgressUnit, StationFn, StationId, StationSpec, StationSpecFns},
+    cfg_model::{CheckStatus, SetupFn, StationFn, StationId, StationSpec, StationSpecFns},
     rt_model::{
         srcerr::{
             codespan::{FileId, Span},
@@ -10,6 +10,7 @@ use choochoo::{
         Files, RwFiles,
     },
 };
+use choochoo_cfg_model::ProgressLimit;
 use futures::{stream, stream::StreamExt};
 use tokio::time::Duration;
 
@@ -29,22 +30,28 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationSpec<DemoError> {
-        let station_spec_fns = StationSpecFns::new(Self::visit_fn(station_file_path, error_fn))
-            .with_check_fn(Self::check_fn(station_file_path));
+        let station_spec_fns = StationSpecFns::new(
+            Self::setup_fn(),
+            Self::visit_fn(station_file_path, error_fn),
+        )
+        .with_check_fn(Self::check_fn(station_file_path));
         StationSpec::new(
             station_id,
             station_name,
             station_description,
             station_spec_fns,
-            ProgressUnit::None,
         )
     }
 
-    fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |station, _resources| {
-            Box::pin(async move {
-                station.progress_bar.set_length(PROGRESS_LENGTH);
+    fn setup_fn() -> SetupFn<DemoError> {
+        SetupFn::new(move |_station_progress, _resources| {
+            Box::pin(async move { Ok(ProgressLimit::Steps(PROGRESS_LENGTH)) })
+        })
+    }
 
+    fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
+        StationFn::new(move |_station_progress, _resources| {
+            Box::pin(async move {
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
                 } else {
@@ -62,10 +69,10 @@ impl StationSleep {
         StationFn::new(move |station_progress, resources| {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
-                station_progress.progress_bar.reset();
+                station_progress.progress_bar().reset();
                 stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
-                        station_progress.progress_bar.inc(1);
+                        station_progress.progress_bar().inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     })
                     .await;

@@ -161,12 +161,16 @@ where
             .map(Result::<_, io::Error>::Ok)
             .try_fold(write_buf, |mut write_buf, station| async move {
                 let icon = match station.progress.visit_status {
-                    VisitStatus::NotReady => "⏰",
+                    VisitStatus::SetupQueued => "⏳",
+                    VisitStatus::SetupSuccess => "⏳",
+                    VisitStatus::ParentPending => "⏰",
                     VisitStatus::ParentFail => "☠️",
-                    VisitStatus::Queued => "⏳",
+                    VisitStatus::VisitQueued => "⏳",
                     VisitStatus::InProgress => "⏳",
                     VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::CheckFail | VisitStatus::VisitFail => "❌",
+                    VisitStatus::SetupFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
+                        "❌"
+                    }
                 };
 
                 b_writeln!(

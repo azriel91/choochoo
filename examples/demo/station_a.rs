@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use choochoo::{
     cfg_model::{
-        CheckStatus, ProgressUnit, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+        CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
         StationSpecFns,
     },
     rt_model::{
@@ -13,6 +13,7 @@ use choochoo::{
         Files, RwFiles,
     },
 };
+use choochoo_cfg_model::ProgressLimit;
 use reqwest::{
     multipart::{Form, Part},
     redirect::Policy,
@@ -21,7 +22,9 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
-    app_zip::{APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME},
+    app_zip::{
+        AppZipFileLength, APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME,
+    },
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -34,7 +37,7 @@ impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
-            StationSpecFns::new(Self::visit_fn()).with_check_fn(Self::check_fn());
+            StationSpecFns::new(Self::setup_fn(), Self::visit_fn()).with_check_fn(Self::check_fn());
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
@@ -44,21 +47,16 @@ impl StationA {
             station_name,
             station_description,
             station_spec_fns,
-            ProgressUnit::Bytes,
         ))
     }
 
-    fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(|station_progress, resources| {
-            let client = reqwest::Client::new();
+    fn setup_fn() -> SetupFn<DemoError> {
+        SetupFn::new(|_station_progress, resources| {
             Box::pin(async move {
-                let files = resources.borrow::<RwFiles>();
-                let mut files = files.write().await;
-
-                // TODO: Hash the file and compare with server file hash.
-                // Currently we only compare file size
-                station_progress.progress_bar.tick();
                 let local_file_length = {
+                    let files = resources.borrow::<RwFiles>();
+                    let mut files = files.write().await;
+
                     let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
                         .await
                         .map_err(|error| Self::file_open_error(&mut files, error))?;
@@ -68,11 +66,27 @@ impl StationA {
                         .map_err(|error| Self::file_metadata_error(&mut files, error))?;
                     metadata.len()
                 };
-                station_progress.progress_bar.set_length(local_file_length);
+
+                resources.insert(AppZipFileLength(local_file_length));
+
+                Ok(ProgressLimit::Bytes(local_file_length))
+            })
+        })
+    }
+
+    fn check_fn() -> StationFn<CheckStatus, DemoError> {
+        StationFn::new(|_station_progress, resources| {
+            let client = reqwest::Client::new();
+            Box::pin(async move {
+                let files = resources.borrow::<RwFiles>();
+                let mut files = files.write().await;
+
+                // TODO: Hash the file and compare with server file hash.
+                // Currently we only compare file size
+                let local_file_length = resources.borrow::<AppZipFileLength>().0;
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
-                station_progress.progress_bar.tick();
                 let mut app_zip_url = address.to_string();
                 app_zip_url.push('/');
                 app_zip_url.push_str(APP_ZIP_NAME);
@@ -94,7 +108,6 @@ impl StationA {
                     )
                 })?;
 
-                station_progress.progress_bar.tick();
                 let status_code = response.status();
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
@@ -113,15 +126,15 @@ impl StationA {
                     CheckStatus::VisitRequired
                 };
 
-                Result::<CheckStatus, DemoError>::Ok(check_status)
+                Ok(check_status)
             })
         })
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
         StationFn::new(|station_progress, resources| {
-            station_progress.progress_bar.reset();
-            station_progress.progress_bar.tick();
+            station_progress.progress_bar().reset();
+            station_progress.tick();
             Box::pin(async move {
                 let client = reqwest::Client::builder()
                     .redirect(Policy::none())

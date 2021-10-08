@@ -1,4 +1,4 @@
-use std::{fmt, marker::PhantomData};
+use std::{fmt, marker::PhantomData, ops::DerefMut};
 
 use choochoo_cfg_model::{indicatif::MultiProgress, VisitStatus};
 use choochoo_rt_model::{
@@ -21,7 +21,12 @@ where
     pub async fn reach(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
         let progress_fut = Self::progress_tracker_init(dest);
 
-        let train_report = Self::stations_visit(dest).await?;
+        let mut train_report = TrainReport::new();
+        train_report = Self::stations_setup(dest, train_report).await?;
+
+        if train_report.station_errors().read().await.is_empty() {
+            train_report = Self::stations_visit(dest, train_report).await?;
+        }
 
         Self::progress_tracker_join(dest, progress_fut).await?;
 
@@ -36,8 +41,8 @@ where
             .node_indices()
             .filter_map(|station_rt_id| dest.station_progresses().get(&station_rt_id))
             .for_each(|station_progress| {
-                let progress_bar = station_progress.borrow().progress_bar.clone();
-                let progress_bar_for_tick = station_progress.borrow().progress_bar.clone();
+                let progress_bar = station_progress.borrow().progress_bar().clone();
+                let progress_bar_for_tick = progress_bar.clone();
                 multi_progress.add(progress_bar);
 
                 // Needed to render all progress bars.
@@ -55,8 +60,8 @@ where
         // We need to finish / abandon all progress bars, otherwise the `MultiProgress`
         // will never finish.
         dest.stations_mut().for_each(|station| {
-            if !station.progress.progress_bar.is_finished() {
-                station.progress.progress_bar.finish_at_current_pos();
+            if !station.progress.progress_bar().is_finished() {
+                station.progress.progress_bar().finish_at_current_pos();
             }
         });
 
@@ -68,17 +73,46 @@ where
         Ok(())
     }
 
-    async fn stations_visit(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
-        // Set `NotReady` stations to `Queued` if they have no dependencies.
+    async fn stations_setup(
+        dest: &mut Destination<E>,
+        train_report: TrainReport<E>,
+    ) -> Result<TrainReport<E>, Error<E>> {
+        IntegrityStrat::iter_sequential(dest, train_report, |station, train_report| {
+            Box::pin(async move {
+                let setup_result = station
+                    .spec
+                    .setup(&mut station.progress, train_report.deref_mut())
+                    .await;
+
+                match setup_result {
+                    Ok(progress_limit) => {
+                        station.progress.visit_status = VisitStatus::SetupSuccess;
+                        station.progress.progress_limit_set(progress_limit);
+                    }
+                    Err(station_error) => {
+                        station.progress.visit_status = VisitStatus::SetupFail;
+                        Self::station_error_insert(train_report, station, station_error).await;
+                    }
+                }
+            })
+        })
+        .await
+    }
+
+    async fn stations_visit(
+        dest: &mut Destination<E>,
+        train_report: TrainReport<E>,
+    ) -> Result<TrainReport<E>, Error<E>> {
+        // Set `ParentPending` stations to `VisitQueued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        IntegrityStrat::iter(dest, TrainReport::new(), |mut station, train_report| {
+        IntegrityStrat::iter(dest, &train_report, |station, train_report| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's
                 // `visit_status` while the `visit()` is `await`ed.
                 station.progress.visit_status = VisitStatus::InProgress;
 
-                match Driver::ensure(&mut station, train_report).await {
+                match Driver::ensure(station, train_report).await {
                     Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
                         station.progress.visit_status = VisitStatus::VisitSuccess;
 
@@ -106,7 +140,9 @@ where
                 train_report
             })
         })
-        .await
+        .await?;
+
+        Ok(train_report)
     }
 
     async fn station_error_insert(

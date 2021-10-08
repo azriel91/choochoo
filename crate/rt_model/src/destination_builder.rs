@@ -2,8 +2,7 @@ use std::{collections::HashMap, mem::MaybeUninit};
 
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
-    indicatif::ProgressStyle,
-    ProgressUnit, StationProgress, StationSpec, StationSpecs, VisitStatus, Workload,
+    ProgressLimit, StationProgress, StationSpec, StationSpecs, Workload,
 };
 
 use crate::{Destination, StationProgresses, StationRtId};
@@ -29,19 +28,7 @@ impl<E> DestinationBuilder<E> {
     ///
     /// [`add_edge`]: Self::add_edge
     pub fn add_station(&mut self, station_spec: StationSpec<E>) -> StationRtId {
-        let mut station_progress = StationProgress::new(&station_spec, VisitStatus::NotReady);
-
-        match station_spec.progress_unit() {
-            ProgressUnit::None => {}
-            ProgressUnit::Bytes => {
-                station_progress = station_progress.with_progress_style(
-                    ProgressStyle::default_bar()
-                        .template(StationProgress::STYLE_IN_PROGRESS_BYTES)
-                        .progress_chars(StationProgress::PROGRESS_CHARS),
-                );
-            }
-        }
-
+        let station_progress = StationProgress::new(&station_spec, ProgressLimit::Unknown);
         let station_rt_id = self.station_specs.add_node(station_spec);
         self.station_progresses
             .insert(station_rt_id, station_progress);

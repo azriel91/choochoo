@@ -1,6 +1,5 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use choochoo_cfg_model::{indicatif::ProgressStyle, StationProgress};
 use choochoo_rt_model::{Error, StationMut, StationRtId};
 use futures::{
     stream,
@@ -38,9 +37,7 @@ impl<E> StationVisitor<E> {
         stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
             .map(Result::<_, Error<E>>::Ok)
             .try_for_each_concurrent(4, |mut station| async move {
-                let progress_style =
-                    ProgressStyle::default_bar().template(StationProgress::STYLE_IN_PROGRESS_BYTES);
-                station.progress.progress_bar.set_style(progress_style);
+                station.progress.progress_style_update();
 
                 visit_logic(&mut station, seed).await;
 
@@ -51,6 +48,43 @@ impl<E> StationVisitor<E> {
                         station_spec: station.spec.clone(),
                     })?;
                 Ok(())
+            })
+            .await?;
+
+        stations_queued_rx.close();
+
+        Ok(())
+    }
+
+    pub async fn visit_sequential<'f, F, R>(
+        seed: &mut R,
+        visit_logic: &F,
+        mut stations_queued_rx: Receiver<StationMut<'f, E>>,
+        stations_done_tx: Sender<StationRtId>,
+    ) -> Result<(), Error<E>>
+    where
+        F: for<'a, 'station> Fn(
+            &'a mut StationMut<'station, E>,
+            &'a mut R,
+        ) -> Pin<Box<dyn Future<Output = ()> + 'a>>,
+    {
+        let stations_done_tx_ref = &stations_done_tx;
+
+        stream::poll_fn(|context| stations_queued_rx.poll_recv(context))
+            .map(Result::<_, Error<E>>::Ok)
+            .try_fold(seed, |seed, mut station| async move {
+                station.progress.progress_style_update();
+
+                visit_logic(&mut station, seed).await;
+
+                stations_done_tx_ref
+                    .send(station.rt_id)
+                    .await
+                    .map_err(|_error| Error::StationVisitNotify {
+                        station_spec: station.spec.clone(),
+                    })?;
+
+                Ok(seed)
             })
             .await?;
 

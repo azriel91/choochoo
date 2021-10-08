@@ -18,6 +18,11 @@ pub enum Error<E> {
     MultiProgressTaskJoin(JoinError),
     /// Failed to join the multi-progress bar.
     MultiProgressJoin(std::io::Error),
+    /// Station setup failed.
+    ///
+    /// Details of failures are recorded in the TrainReport instead of this
+    /// variant.
+    StationSetup,
     /// Failed to queue a station for visiting.
     StationQueue {
         /// The specification of the station that failed to be queued.
@@ -38,6 +43,7 @@ impl<E> fmt::Display for Error<E> {
                 write!(f, "Failed to join the multi-progress bar task.")
             }
             Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar."),
+            Self::StationSetup => write!(f, "Station setup failed"),
             Self::StationQueue { station_spec } => write!(
                 f,
                 "Failed to queue station: `{id}: {name}`",
@@ -62,6 +68,7 @@ where
         match self {
             Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
+            Self::StationSetup => None,
             Self::StationQueue { .. } => None,
             Self::StationVisitNotify { .. } => None,
         }

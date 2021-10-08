@@ -10,9 +10,9 @@ use choochoo_rt_model::{Destination, StationRtId};
 ///
 /// # `VisitStatus` State Machine
 ///
-/// ## `NotReady` Stations
+/// ## `ParentPending` Stations
 ///
-/// * If all parents are `VisitSuccess`, switch to `Queued`.
+/// * If all parents are `VisitSuccess`, switch to `VisitQueued`.
 /// * If at least one parent has `VisitFailed` or `ParentFail`, switch to
 ///   `ParentFail`.
 ///
@@ -20,7 +20,7 @@ use choochoo_rt_model::{Destination, StationRtId};
 ///
 /// No transitions.
 ///
-/// ## `Queued` Stations
+/// ## `VisitQueued` Stations
 ///
 /// No transitions -- [`Train::reach`] sets this to `InProgress` when visiting
 /// the station.
@@ -136,8 +136,11 @@ impl<E> VisitStatusUpdater<E> {
             .and_then(|station_progress| station_progress.try_borrow())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
-                    VisitStatus::NotReady => Self::transition_not_ready(dest, station_rt_id),
-                    VisitStatus::Queued // TODO: Queued stations may need to transition to `NotReady`
+                    VisitStatus::SetupQueued => Self::transition_setup_queued(dest, station_rt_id),
+                    VisitStatus::SetupSuccess => Some(Self::transition_setup_success(dest, station_rt_id)),
+                    VisitStatus::ParentPending => Self::transition_parent_pending(dest, station_rt_id),
+                    VisitStatus::VisitQueued // TODO: VisitQueued stations may need to transition to `ParentPending`
+                    | VisitStatus::SetupFail
                     | VisitStatus::CheckFail
                     | VisitStatus::InProgress
                     | VisitStatus::ParentFail
@@ -148,7 +151,70 @@ impl<E> VisitStatusUpdater<E> {
             })
     }
 
-    fn transition_not_ready(
+    fn transition_setup_queued(
+        dest: &Destination<E>,
+        station_rt_id: StationRtId,
+    ) -> Option<VisitStatus> {
+        let station_specs = dest.station_specs();
+        let station_progresses = dest.station_progresses();
+        let station_id_to_rt_id = dest.station_id_to_rt_id();
+
+        let parents_walker = station_specs.parents(station_rt_id);
+        let visit_status_next = parents_walker
+            .iter(station_specs)
+            .filter_map(|(_, parent_station_rt_id)| station_specs.node_weight(parent_station_rt_id))
+            .filter_map(|parent_station| {
+                station_id_to_rt_id
+                    .get(parent_station.id())
+                    .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
+            })
+            .try_fold(None, |visit_status, parent_station_progress| {
+                if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                    match parent_station_progress.visit_status {
+                        // If parent is already done, we keep checking other parents.
+                        VisitStatus::SetupQueued | VisitStatus::SetupSuccess => {}
+
+                        // Short circuits:
+
+                        // If parent / ancestor has failed, indicate it in this station.
+                        VisitStatus::SetupFail | VisitStatus::ParentFail => {
+                            return Err(Some(VisitStatus::ParentFail));
+                        }
+                        // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
+                        VisitStatus::CheckFail
+                        | VisitStatus::VisitQueued
+                        | VisitStatus::VisitFail
+                        | VisitStatus::ParentPending
+                        | VisitStatus::VisitUnnecessary
+                        | VisitStatus::VisitSuccess
+                        | VisitStatus::InProgress => unreachable!(
+                            "Parent station status should not be {:?} during setup phase. This is a bug.",
+                            parent_station_progress.visit_status
+                        ),
+                    }
+                    Ok(visit_status)
+                } else {
+                    // Parent is probably being processed.
+                    Ok(None)
+                }
+            });
+
+        match visit_status_next {
+            Ok(visit_status_next) | Err(visit_status_next) => visit_status_next,
+        }
+    }
+
+    fn transition_setup_success(dest: &Destination<E>, station_rt_id: StationRtId) -> VisitStatus {
+        let station_specs = dest.station_specs();
+        let parents_walker = station_specs.parents(station_rt_id);
+        if parents_walker.iter(station_specs).next().is_some() {
+            VisitStatus::ParentPending
+        } else {
+            VisitStatus::VisitQueued
+        }
+    }
+
+    fn transition_parent_pending(
         dest: &Destination<E>,
         station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
@@ -169,11 +235,11 @@ impl<E> VisitStatusUpdater<E> {
                     .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
             })
             .try_fold(
-                Some(VisitStatus::Queued),
+                Some(VisitStatus::VisitQueued),
                 |visit_status, parent_station_progress| {
                     if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
                         match parent_station_progress.visit_status {
-                            // If parent is already done, we keep going.
+                            // If parent is already done, we keep checking other parents.
                             VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}
 
                             // Short circuits:
@@ -185,11 +251,18 @@ impl<E> VisitStatusUpdater<E> {
                                 return Err(Some(VisitStatus::ParentFail));
                             }
                             // Don't change `VisitStatus` if parent is on any other `VisitStatus`.
-                            VisitStatus::NotReady
-                            | VisitStatus::Queued
+                            VisitStatus::ParentPending
+                            | VisitStatus::VisitQueued
                             | VisitStatus::InProgress => {
                                 return Err(None);
                             }
+
+                            VisitStatus::SetupQueued
+                            | VisitStatus::SetupSuccess
+                            | VisitStatus::SetupFail => unreachable!(
+                                "Parent station status should not be {:?} during visit phase. This is a bug.",
+                                parent_station_progress.visit_status
+                            )
                         }
                         Ok(visit_status)
                     } else {
