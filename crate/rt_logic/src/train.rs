@@ -91,7 +91,7 @@ where
                     }
                     Err(station_error) => {
                         station.progress.visit_status = VisitStatus::SetupFail;
-                        Self::station_error_insert(train_report, &station, station_error).await;
+                        Self::station_error_insert(train_report, station, station_error).await;
                     }
                 }
             })
@@ -106,13 +106,13 @@ where
         // Set `ParentPending` stations to `VisitQueued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        IntegrityStrat::iter(dest, &train_report, |mut station, train_report| {
+        IntegrityStrat::iter(dest, &train_report, |station, train_report| {
             Box::pin(async move {
                 // Because this is in an async block, concurrent tasks may access this station's
                 // `visit_status` while the `visit()` is `await`ed.
                 station.progress.visit_status = VisitStatus::InProgress;
 
-                match Driver::ensure(&mut station, train_report).await {
+                match Driver::ensure(station, train_report).await {
                     Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
                         station.progress.visit_status = VisitStatus::VisitSuccess;
 
