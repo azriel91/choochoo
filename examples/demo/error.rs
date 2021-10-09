@@ -116,8 +116,8 @@ pub enum ErrorDetail {
     },
     /// Failed to connect to artifact server.
     ArtifactServerConnect {
-        /// `app.zip` dir file ID.
-        app_zip_dir_file_id: FileId,
+        /// Artifact server directory file ID.
+        artifact_server_dir_file_id: FileId,
         /// Artifact server address file ID.
         address_file_id: FileId,
         /// Span of the full socket address.
@@ -377,13 +377,13 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 ]
             }
             Self::ArtifactServerConnect {
-                app_zip_dir_file_id,
+                artifact_server_dir_file_id,
                 address_file_id,
                 host_span,
                 port_span,
                 ..
             } => {
-                let app_zip_dir = files.source(*app_zip_dir_file_id);
+                let artifact_server_dir = files.source(*artifact_server_dir_file_id);
                 let host = files
                     .source_slice(*address_file_id, *host_span)
                     .expect("Expected file to exist.");
@@ -391,8 +391,8 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                     .source_slice(*address_file_id, *port_span)
                     .expect("Expected file to exist.");
                 vec![format!(
-                    "Try running `cd {app_zip_dir} && simple-http-server --nocache -u --ip {host} --port {port}`.",
-                    app_zip_dir = app_zip_dir,
+                    "Try running `cd {artifact_server_dir} && simple-http-server --nocache -u --ip {host} --port {port}`.",
+                    artifact_server_dir = artifact_server_dir,
                     host = host,
                     port = port
                 )]
