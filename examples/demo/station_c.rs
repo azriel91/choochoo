@@ -24,7 +24,7 @@ use tokio::{
 use crate::{
     app_zip::{
         AppZipFileLength, APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH,
-        APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_NAME,
+        APP_ZIP_ARTIFACT_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_NAME,
     },
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
@@ -94,13 +94,13 @@ impl StationC {
                 let address = files.source(address_file_id).clone();
 
                 let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    let app_zip_dir_file_id = files.add(
-                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
-                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    let artifact_server_dir_file_id = files.add(
+                        APP_ZIP_ARTIFACT_SERVER_PATH,
+                        Cow::Borrowed(APP_ZIP_ARTIFACT_SERVER_PATH),
                     );
                     Self::get_error(
                         &SERVER_PARAMS_DEFAULT,
-                        app_zip_dir_file_id,
+                        artifact_server_dir_file_id,
                         &address,
                         address_file_id,
                         error,
@@ -297,7 +297,7 @@ impl StationC {
 
     fn get_error(
         server_params: &ServerParams,
-        app_zip_dir_file_id: FileId,
+        artifact_server_dir_file_id: FileId,
         address: &str,
         address_file_id: FileId,
         error: reqwest::Error,
@@ -318,7 +318,7 @@ impl StationC {
 
         let code = ErrorCode::ArtifactServerConnect;
         let detail = ErrorDetail::ArtifactServerConnect {
-            app_zip_dir_file_id,
+            artifact_server_dir_file_id,
             address_file_id,
             address_span,
             host_span,
