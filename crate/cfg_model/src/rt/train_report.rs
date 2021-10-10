@@ -6,7 +6,7 @@ use std::{
 
 use resman::{Ref, Resources};
 
-use crate::rt::{RwFiles, StationErrors};
+use crate::rt::{FilesRw, StationErrors};
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]
@@ -40,7 +40,7 @@ where
 {
     fn default() -> Self {
         let mut resources = Resources::default();
-        resources.insert(RwFiles::new());
+        resources.insert(FilesRw::new());
         resources.insert(StationErrors::<E>::new());
 
         Self(resources, PhantomData)

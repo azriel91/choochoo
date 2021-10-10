@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{ProgressLimit, RwFiles},
+        rt::{FilesRw, ProgressLimit},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -90,7 +90,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
             Box::pin(async move {
                 eprintln!("Visiting {}.", "Station B");
 
-                let files = resources.borrow_mut::<RwFiles>();
+                let files = resources.borrow_mut::<FilesRw>();
                 let mut files = files.write().await;
 
                 let file_id = read_simple_toml(&mut files)

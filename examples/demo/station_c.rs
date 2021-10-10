@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use bytes::Bytes;
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, ProgressLimit, RwFiles, StationProgress},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationProgress},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -62,7 +62,7 @@ impl StationC {
                     return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
                 }
 
-                let files = train_report.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
@@ -132,7 +132,7 @@ impl StationC {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 station.progress.progress_bar().reset();
-                let files = train_report.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());

@@ -5,7 +5,7 @@ use std::{
 };
 
 use choochoo_cfg_model::{
-    rt::{Files, RwFiles, TrainReport, VisitStatus},
+    rt::{Files, FilesRw, TrainReport, VisitStatus},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
 };
 use choochoo_rt_model::{error::AsDiagnostic, Destination};
@@ -85,7 +85,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 
@@ -125,7 +125,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 

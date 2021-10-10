@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, ProgressLimit, RwFiles},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -79,7 +79,7 @@ impl StationSleep {
                     let detail = ErrorDetail::StationDirDiscover { station_file_path };
                     DemoError::new(code, detail, Severity::Bug)
                 })?;
-                let files = train_report.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
                 tokio::fs::create_dir_all(station_dir)
                     .await

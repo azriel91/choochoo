@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, ProgressLimit, RwFiles},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -49,7 +49,7 @@ impl StationA {
         SetupFn::new(|_station, train_report| {
             Box::pin(async move {
                 let local_file_length = {
-                    let files = train_report.borrow::<RwFiles>();
+                    let files = train_report.borrow::<FilesRw>();
                     let mut files = files.write().await;
 
                     let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
@@ -73,7 +73,7 @@ impl StationA {
         StationFn::new(|_station, train_report| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                let files = train_report.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
@@ -136,7 +136,7 @@ impl StationA {
                     .build()
                     .map_err(|error| Self::client_build_error(error))?;
 
-                let files = train_report.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
