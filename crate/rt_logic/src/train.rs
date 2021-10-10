@@ -76,9 +76,9 @@ where
         dest: &mut Destination<E>,
         train_report: TrainReport<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
-        IntegrityStrat::iter_sequential(dest, train_report, |mut station, mut train_report| {
+        IntegrityStrat::iter_sequential(dest, train_report, |station, train_report| {
             Box::pin(async move {
-                let setup_result = station.spec.setup(&mut station, &mut train_report).await;
+                let setup_result = station.spec.setup(station, train_report).await;
 
                 match setup_result {
                     Ok(progress_limit) => {
