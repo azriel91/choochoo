@@ -4,12 +4,11 @@ use std::{
     marker::PhantomData,
 };
 
-use choochoo_cfg_model::VisitStatus;
-use choochoo_rt_model::{
-    error::AsDiagnostic,
+use choochoo_cfg_model::{
+    rt::{Files, FilesRw, TrainReport, VisitStatus},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
-    Destination, Files, RwFiles, TrainReport,
 };
+use choochoo_rt_model::{error::AsDiagnostic, Destination};
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -86,7 +85,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 
@@ -126,7 +125,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<RwFiles>();
+        let files = &*train_report.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 

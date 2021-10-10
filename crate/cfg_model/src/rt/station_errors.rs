@@ -6,7 +6,7 @@ use std::{
 use indexmap::IndexMap;
 use tokio::sync::RwLock;
 
-use crate::StationRtId;
+use crate::rt::StationRtId;
 
 /// Errors encountered when visiting stations.
 #[derive(Clone, Debug)]

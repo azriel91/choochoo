@@ -2,21 +2,18 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        ProgressLimit, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns, Workload,
-    },
-    cli_fmt::PlainTextFormatter,
-    rt_logic::Train,
-    rt_model::{
-        error::StationSpecError,
+        rt::{FilesRw, ProgressLimit},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, RwFiles,
+        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
     },
+    cli_fmt::PlainTextFormatter,
+    rt_logic::Train,
+    rt_model::{error::StationSpecError, Destination},
 };
 use tokio::{fs, runtime};
 
@@ -93,7 +90,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
             Box::pin(async move {
                 eprintln!("Visiting {}.", "Station B");
 
-                let files = resources.borrow_mut::<RwFiles>();
+                let files = resources.borrow_mut::<FilesRw>();
                 let mut files = files.write().await;
 
                 let file_id = read_simple_toml(&mut files)
@@ -152,14 +149,14 @@ fn new_station(
 mod error {
     use std::{borrow::Cow, ops::RangeInclusive};
 
-    use choochoo::rt_model::{
-        error::StationSpecError,
-        srcerr::{
+    use choochoo::{
+        cfg_model::srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::Label,
             fmt::Note,
         },
+        rt_model::error::StationSpecError,
     };
 
     /// Error codes for simple example.

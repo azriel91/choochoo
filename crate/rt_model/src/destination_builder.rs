@@ -2,10 +2,11 @@ use std::{collections::HashMap, mem::MaybeUninit};
 
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
-    ProgressLimit, StationProgress, StationSpec, StationSpecs, Workload,
+    rt::{ProgressLimit, StationProgress, StationRtId},
+    StationSpec, StationSpecs, Workload,
 };
 
-use crate::{Destination, StationProgresses, StationRtId};
+use crate::{Destination, StationProgresses};
 
 #[derive(Debug)]
 pub struct DestinationBuilder<E> {

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use choochoo_cfg_model::{StationProgress, VisitStatus};
-use choochoo_rt_model::{Destination, Error, StationMut, StationRtId};
+use choochoo_cfg_model::rt::{StationMut, StationProgress, StationRtId, VisitStatus};
+use choochoo_rt_model::{Destination, Error};
 use futures::{stream, stream::StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{Receiver, Sender};
 

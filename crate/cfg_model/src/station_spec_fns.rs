@@ -1,4 +1,4 @@
-use crate::{CheckStatus, SetupFn, StationFn};
+use crate::{rt::CheckStatus, SetupFn, StationFn};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Grouping of a station's behaviours.

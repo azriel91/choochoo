@@ -1,5 +1,6 @@
 use choochoo_cfg_model::{
-    ProgressLimit, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    rt::ProgressLimit, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+    StationSpecFns,
 };
 
 #[test]

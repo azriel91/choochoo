@@ -5,11 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use resman::Resources;
-
 #[cfg(feature = "mock")]
-use crate::VisitStatus;
-use crate::{ProgressLimit, StationProgress};
+use crate::rt::VisitStatus;
+use crate::rt::{ProgressLimit, StationMut, TrainReport};
 
 /// Return type of the `SetupFn`.
 pub type SetupFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<ProgressLimit, E>> + 'f>>;
@@ -19,7 +17,7 @@ pub type SetupFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<ProgressLimit
 /// Verifies input, calculates progress limit, and inserts resources.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct SetupFn<E>(
-    pub Arc<dyn for<'f> Fn(&'f mut StationProgress, &'f mut Resources) -> SetupFnReturn<'f, E>>,
+    pub Arc<dyn for<'f> Fn(&'f mut StationMut<E>, &'f mut TrainReport<E>) -> SetupFnReturn<'f, E>>,
 );
 
 impl<E> SetupFn<E> {
@@ -30,7 +28,8 @@ impl<E> SetupFn<E> {
     /// * `f`: Logic to run.
     pub fn new<F>(f: F) -> Self
     where
-        F: for<'f> Fn(&'f mut StationProgress, &'f mut Resources) -> SetupFnReturn<'f, E> + 'static,
+        F: for<'f> Fn(&'f mut StationMut<E>, &'f mut TrainReport<E>) -> SetupFnReturn<'f, E>
+            + 'static,
     {
         Self(Arc::new(f))
     }
@@ -49,10 +48,10 @@ impl<E> SetupFn<E> {
     where
         E: Clone + 'static,
     {
-        SetupFn::new(move |station_progress, _| {
+        SetupFn::new(move |station, _| {
             let e = e.clone();
             Box::pin(async move {
-                station_progress.visit_status = VisitStatus::SetupFail;
+                station.progress.visit_status = VisitStatus::SetupFail;
                 Result::<ProgressLimit, E>::Err(e)
             })
         })

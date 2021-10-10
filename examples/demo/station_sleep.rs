@@ -1,16 +1,13 @@
 use std::path::Path;
 
-use choochoo::{
-    cfg_model::{CheckStatus, SetupFn, StationFn, StationId, StationSpec, StationSpecFns},
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        Files, RwFiles,
+use choochoo::cfg_model::{
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit},
+    srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
+    SetupFn, StationFn, StationId, StationSpec, StationSpecFns,
 };
-use choochoo_cfg_model::ProgressLimit;
 use futures::{stream, stream::StreamExt};
 use tokio::time::Duration;
 
@@ -44,13 +41,13 @@ impl StationSleep {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(move |_station_progress, _resources| {
+        SetupFn::new(move |_station, _train_report| {
             Box::pin(async move { Ok(ProgressLimit::Steps(PROGRESS_LENGTH)) })
         })
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |_station_progress, _resources| {
+        StationFn::new(move |_station, _train_report| {
             Box::pin(async move {
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
@@ -66,13 +63,13 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {
-        StationFn::new(move |station_progress, resources| {
+        StationFn::new(move |station, train_report| {
             Box::pin(async move {
                 // Sleep to simulate starting up the application.
-                station_progress.progress_bar().reset();
+                station.progress.progress_bar().reset();
                 stream::iter(0..PROGRESS_LENGTH)
                     .for_each(|_| async {
-                        station_progress.progress_bar().inc(1);
+                        station.progress.progress_bar().inc(1);
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     })
                     .await;
@@ -82,7 +79,7 @@ impl StationSleep {
                     let detail = ErrorDetail::StationDirDiscover { station_file_path };
                     DemoError::new(code, detail, Severity::Bug)
                 })?;
-                let files = resources.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
                 tokio::fs::create_dir_all(station_dir)
                     .await

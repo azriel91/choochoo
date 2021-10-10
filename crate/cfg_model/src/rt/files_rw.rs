@@ -1,28 +1,24 @@
 use std::{
-    borrow::Cow,
     ops::{Deref, DerefMut},
     sync::Arc,
 };
 
 use tokio::sync::RwLock;
 
-/// Stores source data strings for [`codespan`] to render.
-///
-/// [`codespan`]: srcerr::codespan
-pub type Files = srcerr::codespan::Files<Cow<'static, str>>;
+use crate::rt::Files;
 
 /// Atomic RW access to `Files`.
 #[derive(Debug, Default)]
-pub struct RwFiles(Arc<RwLock<Files>>);
+pub struct FilesRw(Arc<RwLock<Files>>);
 
-impl RwFiles {
-    /// Returns new [`RwFiles`].
+impl FilesRw {
+    /// Returns new [`FilesRw`].
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl Deref for RwFiles {
+impl Deref for FilesRw {
     type Target = Arc<RwLock<Files>>;
 
     fn deref(&self) -> &Self::Target {
@@ -30,7 +26,7 @@ impl Deref for RwFiles {
     }
 }
 
-impl DerefMut for RwFiles {
+impl DerefMut for FilesRw {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

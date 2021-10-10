@@ -1,8 +1,9 @@
 use rt_map::Ref;
 
-use choochoo_cfg_model::{StationProgress, StationSpec};
-
-use crate::StationRtId;
+use crate::{
+    rt::{StationProgress, StationRtId},
+    StationSpec,
+};
 
 /// Station runtime information.
 ///

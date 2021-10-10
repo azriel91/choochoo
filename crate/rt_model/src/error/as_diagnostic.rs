@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
-use srcerr::{
+use choochoo_cfg_model::srcerr::{
+    self,
     codespan_reporting::{diagnostic::Diagnostic, files::Files},
     ErrorCode, ErrorDetail, SourceError,
 };

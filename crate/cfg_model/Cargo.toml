@@ -17,8 +17,12 @@ test = false
 [dependencies]
 console = "0.14.1"
 daggy = { version = "0.7.0", default-features = false }
+indexmap = "1.7.0"
 indicatif = "0.16.2"
 resman = { version = "0.5.0", features = ["debug"] }
+rt_map = "0.4.0"
+srcerr = { version = "0.4.0", features = ["codespan"] }
+tokio = { version = "1.11.0", features = ["io-util", "rt", "sync"] }
 
 [features]
 default = ["mock"]

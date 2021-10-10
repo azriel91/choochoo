@@ -1,6 +1,8 @@
 use std::convert::TryFrom;
 
-use crate::{CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns};
+use crate::{
+    rt::CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+};
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
 ///
@@ -54,7 +56,7 @@ impl<E> StationSpecBuilder<E> {
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
-        use crate::{ProgressLimit, SetupFn};
+        use crate::{rt::ProgressLimit, SetupFn};
 
         let station_spec_fns = {
             let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));

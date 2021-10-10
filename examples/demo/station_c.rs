@@ -1,20 +1,14 @@
 use std::{borrow::Cow, path::Path};
 
 use bytes::Bytes;
-use choochoo::{
-    cfg_model::{
-        CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationProgress,
-        StationSpec, StationSpecFns,
+use choochoo::cfg_model::{
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationProgress},
+    srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        Files, RwFiles,
-    },
+    SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
 };
-use choochoo_cfg_model::ProgressLimit;
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::{
     fs::File,
@@ -51,16 +45,16 @@ impl StationC {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(move |_station_progress, resources| {
+        SetupFn::new(move |_station, train_report| {
             Box::pin(async move {
-                let app_zip_file_length = resources.borrow::<AppZipFileLength>().0;
+                let app_zip_file_length = train_report.borrow::<AppZipFileLength>().0;
                 Ok(ProgressLimit::Bytes(app_zip_file_length))
             })
         })
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |station_progress, resources| {
+        StationFn::new(move |station, train_report| {
             let client = reqwest::Client::new();
             Box::pin(async move {
                 // Short circuit in case the file doesn't exist locally.
@@ -68,7 +62,7 @@ impl StationC {
                     return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
                 }
 
-                let files = resources.borrow::<RwFiles>();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
@@ -111,7 +105,8 @@ impl StationC {
                 let check_status = if status_code.is_success() {
                     // We only care about the content length here, so we ignore the response body.
                     if let Some(remote_file_length) = response.content_length() {
-                        station_progress
+                        station
+                            .progress
                             .progress_bar()
                             .set_length(remote_file_length);
                         if local_file_length == remote_file_length {
@@ -133,11 +128,11 @@ impl StationC {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|station_progress, resources| {
+        StationFn::new(|station, train_report| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                station_progress.progress_bar().reset();
-                let files = resources.borrow::<RwFiles>();
+                station.progress.progress_bar().reset();
+                let files = train_report.borrow::<FilesRw>();
                 let mut files = files.write().await;
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
@@ -166,7 +161,7 @@ impl StationC {
                 let status_code = response.status();
                 if status_code.is_success() {
                     Self::app_zip_write(
-                        &station_progress,
+                        &station.progress,
                         &mut files,
                         app_zip_url,
                         response.bytes_stream(),

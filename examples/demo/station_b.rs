@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use choochoo::{
-    cfg_model::{StationId, StationIdInvalidFmt, StationSpec},
-    rt_model::srcerr::{
+use choochoo::cfg_model::{
+    srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
     },
+    StationId, StationIdInvalidFmt, StationSpec,
 };
 
 use crate::{station_sleep::StationSleep, DemoError, ErrorCode, ErrorDetail};
