@@ -1,6 +1,7 @@
 use choochoo_cfg_model::{
-    resman::Resources, ProgressLimit, SetupFn, StationFn, StationIdInvalidFmt, StationSpec,
-    StationSpecFns, TrainReport, VisitStatus, Workload,
+    resman::Resources,
+    rt::{ProgressLimit, TrainReport, VisitStatus},
+    SetupFn, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
 use choochoo_rt_model::{Destination, Error};

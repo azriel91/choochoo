@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use choochoo_cfg_model::{Station, StationId, StationMut, StationRtId, StationSpecs};
+use choochoo_cfg_model::{
+    rt::{Station, StationMut, StationRtId},
+    StationId, StationSpecs,
+};
 
 use crate::{DestinationBuilder, StationProgresses};
 

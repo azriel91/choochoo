@@ -1,6 +1,9 @@
 use rt_map::Ref;
 
-use crate::{StationProgress, StationRtId, StationSpec};
+use crate::{
+    rt::{StationProgress, StationRtId},
+    StationSpec,
+};
 
 /// Station runtime information.
 ///

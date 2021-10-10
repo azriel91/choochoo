@@ -2,7 +2,8 @@ use std::{collections::HashMap, mem::MaybeUninit};
 
 use choochoo_cfg_model::{
     daggy::{EdgeIndex, WouldCycle},
-    ProgressLimit, StationProgress, StationRtId, StationSpec, StationSpecs, Workload,
+    rt::{ProgressLimit, StationProgress, StationRtId},
+    StationSpec, StationSpecs, Workload,
 };
 
 use crate::{Destination, StationProgresses};

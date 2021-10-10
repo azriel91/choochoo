@@ -1,6 +1,9 @@
 use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::{indicatif::MultiProgress, StationMut, TrainReport, VisitStatus};
+use choochoo_cfg_model::{
+    indicatif::MultiProgress,
+    rt::{StationMut, TrainReport, VisitStatus},
+};
 use choochoo_rt_model::{
     error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
 };

@@ -6,8 +6,8 @@ use std::{
 };
 
 #[cfg(feature = "mock")]
-use crate::VisitStatus;
-use crate::{StationMut, TrainReport};
+use crate::rt::VisitStatus;
+use crate::rt::{StationMut, TrainReport};
 
 /// Return type of the `StationFn`.
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;

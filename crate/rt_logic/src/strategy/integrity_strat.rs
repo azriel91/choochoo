@@ -1,6 +1,6 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use choochoo_cfg_model::{StationMut, VisitStatus};
+use choochoo_cfg_model::rt::{StationMut, VisitStatus};
 use choochoo_rt_model::{Destination, Error};
 use tokio::sync::mpsc;
 

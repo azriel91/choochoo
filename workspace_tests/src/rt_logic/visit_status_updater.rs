@@ -1,4 +1,4 @@
-use choochoo_cfg_model::{StationSpec, VisitStatus, Workload};
+use choochoo_cfg_model::{rt::VisitStatus, StationSpec, Workload};
 use choochoo_rt_logic::VisitStatusUpdater;
 use choochoo_rt_model::Destination;
 

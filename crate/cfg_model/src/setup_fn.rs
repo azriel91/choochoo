@@ -6,8 +6,8 @@ use std::{
 };
 
 #[cfg(feature = "mock")]
-use crate::VisitStatus;
-use crate::{ProgressLimit, StationMut, TrainReport};
+use crate::rt::VisitStatus;
+use crate::rt::{ProgressLimit, StationMut, TrainReport};
 
 /// Return type of the `SetupFn`.
 pub type SetupFnReturn<'f, E> = Pin<Box<dyn Future<Output = Result<ProgressLimit, E>> + 'f>>;

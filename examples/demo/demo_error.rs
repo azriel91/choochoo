@@ -2,12 +2,12 @@ use std::fmt;
 
 use choochoo::{
     cfg_model::{
+        rt::Files,
         srcerr::{
             self,
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Files,
     },
     rt_model::error::StationSpecError,
 };

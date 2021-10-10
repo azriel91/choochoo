@@ -1,6 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
-use choochoo_cfg_model::{rt_map::RtMap, StationProgress, StationRtId};
+use choochoo_cfg_model::{
+    rt::{StationProgress, StationRtId},
+    rt_map::RtMap,
+};
 
 /// Map from [`StationRtId`] to the runtime data.
 #[derive(Debug, Default)]

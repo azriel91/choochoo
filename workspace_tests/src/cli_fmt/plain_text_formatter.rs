@@ -1,6 +1,9 @@
 use tokio::runtime;
 
-use choochoo_cfg_model::{StationSpec, TrainReport, VisitStatus};
+use choochoo_cfg_model::{
+    rt::{TrainReport, VisitStatus},
+    StationSpec,
+};
 use choochoo_cli_fmt::PlainTextFormatter;
 use choochoo_rt_model::Destination;
 

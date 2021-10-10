@@ -1,6 +1,6 @@
 use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::{CheckStatus, StationMut, TrainReport};
+use choochoo_cfg_model::rt::{CheckStatus, StationMut, TrainReport};
 use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk};
 
 /// Logic that determines whether or not to visit a station.

@@ -3,7 +3,10 @@ use std::fmt;
 use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::{ProgressLimit, StationSpec, VisitStatus};
+use crate::{
+    rt::{ProgressLimit, VisitStatus},
+    StationSpec,
+};
 
 /// Station progress to reaching the destination.
 ///

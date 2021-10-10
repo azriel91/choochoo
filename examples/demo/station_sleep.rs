@@ -1,13 +1,13 @@
 use std::path::Path;
 
 use choochoo::cfg_model::{
+    rt::{CheckStatus, Files, ProgressLimit, RwFiles},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
     },
-    CheckStatus, Files, RwFiles, SetupFn, StationFn, StationId, StationSpec, StationSpecFns,
+    SetupFn, StationFn, StationId, StationSpec, StationSpecFns,
 };
-use choochoo_cfg_model::ProgressLimit;
 use futures::{stream, stream::StreamExt};
 use tokio::time::Duration;
 

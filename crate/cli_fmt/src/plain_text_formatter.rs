@@ -5,8 +5,8 @@ use std::{
 };
 
 use choochoo_cfg_model::{
+    rt::{Files, RwFiles, TrainReport, VisitStatus},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
-    Files, RwFiles, TrainReport, VisitStatus,
 };
 use choochoo_rt_model::{error::AsDiagnostic, Destination};
 use futures::{stream, StreamExt, TryStreamExt};

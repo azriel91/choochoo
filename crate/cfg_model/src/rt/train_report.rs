@@ -6,7 +6,7 @@ use std::{
 
 use resman::{Ref, Resources};
 
-use crate::{RwFiles, StationErrors};
+use crate::rt::{RwFiles, StationErrors};
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]

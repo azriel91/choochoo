@@ -2,14 +2,14 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
+        rt::{ProgressLimit, RwFiles},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        ProgressLimit, RwFiles, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns, Workload,
+        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
     },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,

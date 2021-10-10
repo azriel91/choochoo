@@ -1,14 +1,13 @@
 use std::borrow::Cow;
 
 use choochoo::cfg_model::{
+    rt::{CheckStatus, Files, ProgressLimit, RwFiles},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
     },
-    CheckStatus, Files, RwFiles, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-    StationSpecFns,
+    SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
 };
-use choochoo_cfg_model::ProgressLimit;
 use reqwest::{
     multipart::{Form, Part},
     redirect::Policy,
