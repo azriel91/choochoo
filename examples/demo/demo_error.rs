@@ -1,13 +1,15 @@
 use std::fmt;
 
-use choochoo::rt_model::{
-    error::StationSpecError,
-    srcerr::{
-        self,
-        codespan_reporting::diagnostic::{Diagnostic, Severity},
-        SourceError,
+use choochoo::{
+    cfg_model::{
+        srcerr::{
+            self,
+            codespan_reporting::diagnostic::{Diagnostic, Severity},
+            SourceError,
+        },
+        Files,
     },
-    Files,
+    rt_model::error::StationSpecError,
 };
 
 use crate::{ErrorCode, ErrorDetail};

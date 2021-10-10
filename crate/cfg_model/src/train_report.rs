@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use choochoo_cfg_model::resman::{Ref, Resources};
+use resman::{Ref, Resources};
 
 use crate::{RwFiles, StationErrors};
 

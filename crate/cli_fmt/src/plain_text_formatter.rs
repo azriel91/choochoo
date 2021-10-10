@@ -4,12 +4,11 @@ use std::{
     marker::PhantomData,
 };
 
-use choochoo_cfg_model::VisitStatus;
-use choochoo_rt_model::{
-    error::AsDiagnostic,
+use choochoo_cfg_model::{
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
-    Destination, Files, RwFiles, TrainReport,
+    Files, RwFiles, TrainReport, VisitStatus,
 };
+use choochoo_rt_model::{error::AsDiagnostic, Destination};
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 

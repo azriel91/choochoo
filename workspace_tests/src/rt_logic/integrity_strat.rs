@@ -1,6 +1,6 @@
 use choochoo_cfg_model::{
     resman::Resources, ProgressLimit, SetupFn, StationFn, StationIdInvalidFmt, StationSpec,
-    StationSpecFns, VisitStatus, Workload,
+    StationSpecFns, TrainReport, VisitStatus, Workload,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
 use choochoo_rt_model::{Destination, Error};
@@ -84,10 +84,10 @@ fn station(
 ) -> Result<StationSpec<()>, StationIdInvalidFmt<'static>> {
     let station_spec_fns = {
         let visit_fn = match visit_result {
-            Ok((tx, n)) => StationFn::new(move |station_progress, _| {
+            Ok((tx, n)) => StationFn::new(move |station, _| {
                 let tx = tx.clone();
                 Box::pin(async move {
-                    station_progress.visit_status = VisitStatus::VisitSuccess;
+                    station.progress.visit_status = VisitStatus::VisitSuccess;
                     tx.send(n).await.map_err(|_| ())
                 })
             }),
@@ -114,7 +114,7 @@ fn call_iter(
             Box::pin(async move {
                 station
                     .spec
-                    .visit(&mut station.progress, &Resources::default())
+                    .visit(station, &TrainReport::default())
                     .await
                     .expect("Failed to visit station.");
 

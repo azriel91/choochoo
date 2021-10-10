@@ -1,9 +1,8 @@
-use std::{fmt, marker::PhantomData, ops::DerefMut};
+use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::{indicatif::MultiProgress, VisitStatus};
+use choochoo_cfg_model::{indicatif::MultiProgress, StationMut, TrainReport, VisitStatus};
 use choochoo_rt_model::{
-    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, StationMut,
-    TrainReport,
+    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
 };
 use tokio::task::JoinHandle;
 
@@ -77,12 +76,9 @@ where
         dest: &mut Destination<E>,
         train_report: TrainReport<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
-        IntegrityStrat::iter_sequential(dest, train_report, |station, train_report| {
+        IntegrityStrat::iter_sequential(dest, train_report, |mut station, mut train_report| {
             Box::pin(async move {
-                let setup_result = station
-                    .spec
-                    .setup(&mut station.progress, train_report.deref_mut())
-                    .await;
+                let setup_result = station.spec.setup(&mut station, &mut train_report).await;
 
                 match setup_result {
                     Ok(progress_limit) => {

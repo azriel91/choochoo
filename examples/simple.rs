@@ -2,21 +2,18 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        ProgressLimit, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns, Workload,
-    },
-    cli_fmt::PlainTextFormatter,
-    rt_logic::Train,
-    rt_model::{
-        error::StationSpecError,
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        Destination, RwFiles,
+        ProgressLimit, RwFiles, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns, Workload,
     },
+    cli_fmt::PlainTextFormatter,
+    rt_logic::Train,
+    rt_model::{error::StationSpecError, Destination},
 };
 use tokio::{fs, runtime};
 
@@ -152,14 +149,14 @@ fn new_station(
 mod error {
     use std::{borrow::Cow, ops::RangeInclusive};
 
-    use choochoo::rt_model::{
-        error::StationSpecError,
-        srcerr::{
+    use choochoo::{
+        cfg_model::srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::Label,
             fmt::Note,
         },
+        rt_model::error::StationSpecError,
     };
 
     /// Error codes for simple example.

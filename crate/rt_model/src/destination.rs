@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use choochoo_cfg_model::{StationId, StationSpecs};
+use choochoo_cfg_model::{Station, StationId, StationMut, StationRtId, StationSpecs};
 
-use crate::{DestinationBuilder, Station, StationMut, StationProgresses, StationRtId};
+use crate::{DestinationBuilder, StationProgresses};
 
 /// Specification of a desired state.
 #[derive(Debug, Default)]

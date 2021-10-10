@@ -5,11 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use resman::Resources;
-
-use crate::StationProgress;
 #[cfg(feature = "mock")]
 use crate::VisitStatus;
+use crate::{StationMut, TrainReport};
 
 /// Return type of the `StationFn`.
 pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> + 'f>>;
@@ -19,7 +17,7 @@ pub type StationFnReturn<'f, R, E> = Pin<Box<dyn Future<Output = Result<R, E>> +
 /// Steps to run for this part of the station's logic.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct StationFn<R, E>(
-    pub Arc<dyn for<'f> Fn(&'f mut StationProgress, &'f Resources) -> StationFnReturn<'f, R, E>>,
+    pub Arc<dyn for<'f> Fn(&'f mut StationMut<E>, &'f TrainReport<E>) -> StationFnReturn<'f, R, E>>,
 );
 
 impl<R, E> StationFn<R, E> {
@@ -30,7 +28,7 @@ impl<R, E> StationFn<R, E> {
     /// * `f`: Logic to run.
     pub fn new<F>(f: F) -> Self
     where
-        F: for<'f> Fn(&'f mut StationProgress, &'f Resources) -> StationFnReturn<'f, R, E>
+        F: for<'f> Fn(&'f mut StationMut<E>, &'f TrainReport<E>) -> StationFnReturn<'f, R, E>
             + 'static,
     {
         Self(Arc::new(f))
@@ -42,10 +40,10 @@ impl<R, E> StationFn<R, E> {
     where
         R: Clone + 'static,
     {
-        StationFn::new(move |station_progress, _| {
+        StationFn::new(move |station, _| {
             let r = r.clone();
             Box::pin(async move {
-                station_progress.visit_status = VisitStatus::VisitSuccess;
+                station.progress.visit_status = VisitStatus::VisitSuccess;
                 Result::<R, E>::Ok(r)
             })
         })
@@ -57,10 +55,10 @@ impl<R, E> StationFn<R, E> {
     where
         E: Clone + 'static,
     {
-        StationFn::new(move |station_progress, _| {
+        StationFn::new(move |station, _| {
             let e = e.clone();
             Box::pin(async move {
-                station_progress.visit_status = VisitStatus::VisitFail;
+                station.progress.visit_status = VisitStatus::VisitFail;
                 Result::<R, E>::Err(e)
             })
         })

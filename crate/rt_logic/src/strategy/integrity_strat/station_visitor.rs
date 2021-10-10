@@ -1,6 +1,7 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
-use choochoo_rt_model::{Error, StationMut, StationRtId};
+use choochoo_cfg_model::{StationMut, StationRtId};
+use choochoo_rt_model::Error;
 use futures::{
     stream,
     stream::{StreamExt, TryStreamExt},

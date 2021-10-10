@@ -1,9 +1,7 @@
 use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::CheckStatus;
-use choochoo_rt_model::{
-    error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk, StationMut, TrainReport,
-};
+use choochoo_cfg_model::{CheckStatus, StationMut, TrainReport};
+use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk};
 
 /// Logic that determines whether or not to visit a station.
 #[derive(Debug)]
@@ -42,9 +40,7 @@ where
     where
         E: From<StationSpecError>,
     {
-        let visit_required = if let Some(check_status) =
-            station.spec.check(&mut station.progress, train_report)
-        {
+        let visit_required = if let Some(check_status) = station.spec.check(station, train_report) {
             check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
         } else {
             // if there is no check function, always visit the station.
@@ -54,24 +50,24 @@ where
         if visit_required {
             station
                 .spec
-                .visit(&mut station.progress, train_report)
+                .visit(station, train_report)
                 .await
                 .map_err(EnsureOutcomeErr::VisitFail)?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
-            let station_spec_error = if let Some(check_status) =
-                station.spec.check(&mut station.progress, train_report)
+            let check_status = if let Some(check_status) = station.spec.check(station, train_report)
             {
-                let check_status = check_status.await.map_err(EnsureOutcomeErr::CheckFail)?;
-                if check_status == CheckStatus::VisitRequired {
-                    let id = station.spec.id().clone();
-                    let name = station.spec.name().to_string();
-                    Some(StationSpecError::VisitRequiredAfterVisit { id, name })
-                } else {
-                    None
-                }
+                Some(check_status.await.map_err(EnsureOutcomeErr::CheckFail)?)
+            } else {
+                None
+            };
+
+            let station_spec_error = if let Some(CheckStatus::VisitRequired) = check_status {
+                let id = station.spec.id().clone();
+                let name = station.spec.name().to_string();
+                Some(StationSpecError::VisitRequiredAfterVisit { id, name })
             } else {
                 None
             };

@@ -1,17 +1,12 @@
 use std::borrow::Cow;
 
-use choochoo::{
-    cfg_model::{
-        CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+use choochoo::cfg_model::{
+    srcerr::{
+        codespan::{FileId, Span},
+        codespan_reporting::diagnostic::Severity,
     },
-    rt_model::{
-        srcerr::{
-            codespan::{FileId, Span},
-            codespan_reporting::diagnostic::Severity,
-        },
-        Files, RwFiles,
-    },
+    CheckStatus, Files, RwFiles, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+    StationSpecFns,
 };
 use choochoo_cfg_model::ProgressLimit;
 use reqwest::{
@@ -52,10 +47,10 @@ impl StationA {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(|_station_progress, resources| {
+        SetupFn::new(|_station, train_report| {
             Box::pin(async move {
                 let local_file_length = {
-                    let files = resources.borrow::<RwFiles>();
+                    let files = train_report.borrow::<RwFiles>();
                     let mut files = files.write().await;
 
                     let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
@@ -68,7 +63,7 @@ impl StationA {
                     metadata.len()
                 };
 
-                resources.insert(AppZipFileLength(local_file_length));
+                train_report.insert(AppZipFileLength(local_file_length));
 
                 Ok(ProgressLimit::Bytes(local_file_length))
             })
@@ -76,15 +71,15 @@ impl StationA {
     }
 
     fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(|_station_progress, resources| {
+        StationFn::new(|_station, train_report| {
             let client = reqwest::Client::new();
             Box::pin(async move {
-                let files = resources.borrow::<RwFiles>();
+                let files = train_report.borrow::<RwFiles>();
                 let mut files = files.write().await;
 
                 // TODO: Hash the file and compare with server file hash.
                 // Currently we only compare file size
-                let local_file_length = resources.borrow::<AppZipFileLength>().0;
+                let local_file_length = train_report.borrow::<AppZipFileLength>().0;
 
                 let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
@@ -133,16 +128,16 @@ impl StationA {
     }
 
     fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|station_progress, resources| {
-            station_progress.progress_bar().reset();
-            station_progress.tick();
+        StationFn::new(|station, train_report| {
+            station.progress.progress_bar().reset();
+            station.progress.tick();
             Box::pin(async move {
                 let client = reqwest::Client::builder()
                     .redirect(Policy::none())
                     .build()
                     .map_err(|error| Self::client_build_error(error))?;
 
-                let files = resources.borrow::<RwFiles>();
+                let files = train_report.borrow::<RwFiles>();
                 let mut files = files.write().await;
 
                 let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;

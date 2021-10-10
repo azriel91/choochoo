@@ -1,6 +1,6 @@
-use choochoo_cfg_model::{StationFn, StationSpec, VisitStatus};
+use choochoo_cfg_model::{indexmap::IndexMap, StationFn, StationSpec, VisitStatus};
 use choochoo_rt_logic::Train;
-use choochoo_rt_model::{indexmap::IndexMap, Destination};
+use choochoo_rt_model::Destination;
 use tokio::runtime;
 
 #[test]

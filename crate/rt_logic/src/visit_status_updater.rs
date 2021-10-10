@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use choochoo_cfg_model::{daggy::Walker, VisitStatus};
-use choochoo_rt_model::{Destination, StationRtId};
+use choochoo_cfg_model::{daggy::Walker, StationRtId, VisitStatus};
+use choochoo_rt_model::Destination;
 
 /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
 ///

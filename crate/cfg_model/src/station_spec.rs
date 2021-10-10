@@ -1,10 +1,8 @@
 use std::{convert::TryFrom, fmt};
 
-use resman::Resources;
-
 use crate::{
-    CheckStatus, SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationProgress,
-    StationSpecBuilder, StationSpecFns,
+    CheckStatus, SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationMut,
+    StationSpecBuilder, StationSpecFns, TrainReport,
 };
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
@@ -103,33 +101,33 @@ impl<E> StationSpec<E> {
     /// Verifies input, calculates progress limit, and inserts resources.
     pub fn setup<'f>(
         &self,
-        station_progress: &'f mut StationProgress,
-        resources: &'f mut Resources,
+        station: &'f mut StationMut<E>,
+        train_report: &'f mut TrainReport<E>,
     ) -> SetupFnReturn<'f, E> {
         let setup_fn = self.station_spec_fns.setup_fn.clone();
-        setup_fn.0(station_progress, resources)
+        setup_fn.0(station, train_report)
     }
 
     /// Checks if the station needs to be visited.
     pub fn check<'f>(
         &self,
-        station_progress: &'f mut StationProgress,
-        resources: &'f Resources,
+        station: &'f mut StationMut<E>,
+        train_report: &'f TrainReport<E>,
     ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
         self.station_spec_fns
             .check_fn
             .clone()
-            .map(move |check_fn| check_fn.0(station_progress, resources))
+            .map(move |check_fn| check_fn.0(station, train_report))
     }
 
     /// Returns a task to visit the station.
     pub fn visit<'f>(
         &self,
-        station_progress: &'f mut StationProgress,
-        resources: &'f Resources,
+        station: &'f mut StationMut<E>,
+        train_report: &'f TrainReport<E>,
     ) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec_fns.visit_fn.clone();
-        visit_fn.0(station_progress, resources)
+        visit_fn.0(station, train_report)
     }
 }
 

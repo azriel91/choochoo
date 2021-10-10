@@ -1,13 +1,13 @@
 use std::{borrow::Cow, fmt, path::Path};
 
-use choochoo::rt_model::{
-    error::StationSpecError,
-    srcerr::{
+use choochoo::{
+    cfg_model::srcerr::{
         self,
         codespan::{FileId, Files, Span},
         codespan_reporting::diagnostic::Label,
         ErrorCode as _,
     },
+    rt_model::error::StationSpecError,
 };
 
 /// Error codes for simple example.
