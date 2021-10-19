@@ -136,7 +136,7 @@ impl<E> VisitStatusUpdater<E> {
     ) -> Option<VisitStatus> {
         dest.station_progresses()
             .get(&station_rt_id)
-            .and_then(|station_progress| station_progress.try_borrow())
+            .and_then(|station_progress| station_progress.try_borrow().ok())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
                     VisitStatus::SetupQueued => Self::transition_setup_queued(dest, station_rt_id),
@@ -172,7 +172,7 @@ impl<E> VisitStatusUpdater<E> {
                     .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
             })
             .try_fold(None, |visit_status, parent_station_progress| {
-                if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                if let Ok(parent_station_progress) = parent_station_progress.try_borrow() {
                     match parent_station_progress.visit_status {
                         // If parent is already done, we keep checking other parents.
                         VisitStatus::SetupQueued | VisitStatus::SetupSuccess => {}
@@ -240,7 +240,7 @@ impl<E> VisitStatusUpdater<E> {
             .try_fold(
                 Some(VisitStatus::VisitQueued),
                 |visit_status, parent_station_progress| {
-                    if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                    if let Ok(parent_station_progress) = parent_station_progress.try_borrow() {
                         match parent_station_progress.visit_status {
                             // If parent is already done, we keep checking other parents.
                             VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}

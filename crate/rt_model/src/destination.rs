@@ -41,6 +41,7 @@ impl<E> Destination<E> {
                     self.station_progresses
                         .try_borrow(station_rt_id)
                         .map(|station_progress| (*station_rt_id, station_progress))
+                        .ok()
                 })
                 .map(|(station_rt_id, station_progress)| Station {
                     spec: station_spec,
@@ -65,6 +66,7 @@ impl<E> Destination<E> {
                     self.station_progresses
                         .try_borrow_mut(station_rt_id)
                         .map(|station_progress| (*station_rt_id, station_progress))
+                        .ok()
                 })
                 .map(|(station_rt_id, station_progress)| StationMut {
                     spec: station_spec,

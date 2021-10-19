@@ -93,7 +93,7 @@ impl<E> StationQueuer<E> {
         dest.station_progresses()
             .values()
             .for_each(|station_progress| {
-                if let Some(station_progress) = station_progress.try_borrow() {
+                if let Ok(station_progress) = station_progress.try_borrow() {
                     Self::station_progress_bar_update(&station_progress)
                 }
             });
