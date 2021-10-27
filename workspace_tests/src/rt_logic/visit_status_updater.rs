@@ -12,15 +12,21 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     //
     // e --> f
     let mut dest_builder = Destination::<()>::builder();
-    let [station_a, station_b, station_c, station_d, station_e, station_f] = dest_builder
-        .add_stations([
-            StationSpec::mock("a")?.build(),
-            StationSpec::mock("b")?.build(),
-            StationSpec::mock("c")?.build(), // Should become `VisitQueued`
-            StationSpec::mock("d")?.build(), // Should become `VisitQueued`
-            StationSpec::mock("e")?.build(),
-            StationSpec::mock("f")?.build(), // Should become `ParentFail`
-        ]);
+    let [
+        station_a,
+        station_b,
+        station_c,
+        station_d,
+        station_e,
+        station_f,
+    ] = dest_builder.add_stations([
+        StationSpec::mock("a")?.build(),
+        StationSpec::mock("b")?.build(),
+        StationSpec::mock("c")?.build(), // Should become `VisitQueued`
+        StationSpec::mock("d")?.build(), // Should become `VisitQueued`
+        StationSpec::mock("e")?.build(),
+        StationSpec::mock("f")?.build(), // Should become `ParentFail`
+    ]);
     dest_builder.add_edges([
         (station_a, station_c, Workload::default()),
         (station_b, station_c, Workload::default()),

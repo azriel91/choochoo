@@ -71,7 +71,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut dest_builder = Destination::builder();
 
-            // Formatting pending <https://github.com/rust-lang/rustfmt/issues/4530>
             let [
                 station_a,
                 station_b,
@@ -80,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 station_e,
                 station_f,
                 station_g,
-                station_h
+                station_h,
             ] = dest_builder.add_stations([
                 StationA::build()?,
                 StationB::build()?,

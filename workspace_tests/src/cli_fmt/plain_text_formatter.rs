@@ -13,7 +13,19 @@ fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error
     let mut output = Vec::with_capacity(1024);
     let (
         mut dest,
-        [station_a, station_b, station_c, station_d, station_e, station_f, station_g, station_h, station_i, station_j, station_k],
+        [
+            station_a,
+            station_b,
+            station_c,
+            station_d,
+            station_e,
+            station_f,
+            station_g,
+            station_h,
+            station_i,
+            station_j,
+            station_k,
+        ],
     ) = {
         let mut dest_builder = Destination::<()>::builder();
         let station_ids = dest_builder.add_stations([
