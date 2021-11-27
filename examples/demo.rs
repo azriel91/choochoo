@@ -1,5 +1,5 @@
 use choochoo::{
-    cfg_model::Workload, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
+    cfg_model::fn_graph::Edge, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
 };
 use tokio::runtime;
 
@@ -93,24 +93,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if args.dependency_mode == DependencyMode::Sequential {
                 dest_builder.add_edges([
-                    (station_a, station_b, Workload::default()),
-                    (station_b, station_c, Workload::default()),
-                    (station_c, station_d, Workload::default()),
-                    (station_d, station_e, Workload::default()),
-                    (station_e, station_f, Workload::default()),
-                    (station_f, station_g, Workload::default()),
-                    (station_g, station_h, Workload::default()),
+                    (station_a, station_b, Edge::Logic),
+                    (station_b, station_c, Edge::Logic),
+                    (station_c, station_d, Edge::Logic),
+                    (station_d, station_e, Edge::Logic),
+                    (station_e, station_f, Edge::Logic),
+                    (station_f, station_g, Edge::Logic),
+                    (station_g, station_h, Edge::Logic),
                 ])?;
             } else {
                 dest_builder.add_edges([
-                    (station_a, station_b, Workload::default()),
-                    (station_a, station_c, Workload::default()),
-                    (station_b, station_e, Workload::default()),
-                    (station_c, station_d, Workload::default()),
-                    (station_d, station_e, Workload::default()),
-                    (station_e, station_g, Workload::default()),
-                    (station_f, station_g, Workload::default()),
-                    (station_g, station_h, Workload::default()),
+                    (station_a, station_b, Edge::Logic),
+                    (station_a, station_c, Edge::Logic),
+                    (station_b, station_e, Edge::Logic),
+                    (station_c, station_d, Edge::Logic),
+                    (station_d, station_e, Edge::Logic),
+                    (station_e, station_g, Edge::Logic),
+                    (station_f, station_g, Edge::Logic),
+                    (station_g, station_h, Edge::Logic),
                 ])?;
             }
 

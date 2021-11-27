@@ -1,7 +1,8 @@
 use choochoo_cfg_model::{
+    fn_graph::Edge,
     resman::Resources,
     rt::{ProgressLimit, TrainReport, VisitStatus},
-    SetupFn, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
+    SetupFn, StationFn, StationIdInvalidFmt, StationSpec, StationSpecFns,
 };
 use choochoo_rt_logic::strategy::IntegrityStrat;
 use choochoo_rt_model::{Destination, Error};
@@ -60,8 +61,8 @@ fn returns_visit_queued_stations_and_propagates_visit_queued()
             station("c", Ok((tx, 2)))?,
         ]);
         dest_builder.add_edges([
-            (station_a, station_c, Workload::default()),
-            (station_b, station_c, Workload::default()),
+            (station_a, station_c, Edge::Logic),
+            (station_b, station_c, Edge::Logic),
         ])?;
         (dest_builder.build(), [station_a, station_b, station_c])
     };

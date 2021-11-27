@@ -1,9 +1,10 @@
 use std::{collections::HashMap, mem::MaybeUninit};
 
 use choochoo_cfg_model::{
-    daggy::{EdgeIndex, WouldCycle},
+    daggy::WouldCycle,
+    fn_graph::{Edge, EdgeId},
     rt::{ProgressLimit, StationProgress, StationRtId},
-    StationSpec, StationSpecs, Workload,
+    StationSpec, StationSpecs,
 };
 
 use crate::{Destination, StationProgresses};
@@ -100,8 +101,8 @@ impl<E> DestinationBuilder<E> {
         &mut self,
         station_from: StationRtId,
         station_to: StationRtId,
-        edge: Workload,
-    ) -> Result<EdgeIndex, WouldCycle<Workload>> {
+        edge: Edge,
+    ) -> Result<EdgeId, WouldCycle<Edge>> {
         // Use `update_edge` instead of `add_edge` to avoid duplicate edges from one
         // station to the other.
         self.station_specs
@@ -111,8 +112,8 @@ impl<E> DestinationBuilder<E> {
     /// Adds edges between stations.
     pub fn add_edges<const N: usize>(
         &mut self,
-        edges: [(StationRtId, StationRtId, Workload); N],
-    ) -> Result<[EdgeIndex; N], WouldCycle<Workload>> {
+        edges: [(StationRtId, StationRtId, Edge); N],
+    ) -> Result<[EdgeId; N], WouldCycle<Edge>> {
         // Create an uninitialized array of `MaybeUninit`. The `assume_init` is safe
         // because the type we are claiming to have initialized here is a bunch of
         // `MaybeUninit`s, which do not require initialization.
@@ -120,7 +121,7 @@ impl<E> DestinationBuilder<E> {
         // https://doc.rust-lang.org/stable/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
         //
         // Switch this to `MaybeUninit::uninit_array` once it is stable.
-        let mut edge_indicies: [MaybeUninit<EdgeIndex>; N] =
+        let mut edge_indicies: [MaybeUninit<EdgeId>; N] =
             unsafe { MaybeUninit::uninit().assume_init() };
 
         IntoIterator::into_iter(edges)
@@ -138,15 +139,15 @@ impl<E> DestinationBuilder<E> {
         // * <https://github.com/rust-lang/rust/issues/61956>
         // * <https://github.com/rust-lang/rust/issues/80908>
         //
-        // let edge_indicies = unsafe { mem::transmute::<_, [EdgeIndex;
+        // let edge_indicies = unsafe { mem::transmute::<_, [EdgeId;
         // N]>(edge_indicies) };
 
         #[allow(clippy::let_and_return)] // for clarity with `unsafe`
         let edge_indicies = {
-            let ptr = &mut edge_indicies as *mut _ as *mut [EdgeIndex; N];
+            let ptr = &mut edge_indicies as *mut _ as *mut [EdgeId; N];
             let array = unsafe { ptr.read() };
 
-            // We don't have to `mem::forget` the original because `EdgeIndex` is `Copy`.
+            // We don't have to `mem::forget` the original because `EdgeId` is `Copy`.
             // mem::forget(edge_indicies);
 
             array
@@ -164,7 +165,7 @@ impl<E> DestinationBuilder<E> {
 
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
         station_specs
-            .iter_with_indices()
+            .iter_insertion_with_indices()
             .for_each(|(node_index, station_spec)| {
                 station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
             });

@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use choochoo_cfg_model::{daggy::NodeIndex, StationIdInvalidFmt, StationSpec, StationSpecs};
+use choochoo_cfg_model::{fn_graph::FnId, StationIdInvalidFmt, StationSpec, StationSpecs};
 
 #[test]
 fn iter_with_indices_returns_iterator_with_all_stations() -> Result<(), StationIdInvalidFmt<'static>>
@@ -10,9 +10,9 @@ fn iter_with_indices_returns_iterator_with_all_stations() -> Result<(), StationI
     let b = station_specs.add_node(StationSpec::<()>::mock("b")?.build());
 
     let indicies = station_specs
-        .iter_with_indices()
+        .iter_insertion_with_indices()
         .map(|(node_index, _)| node_index)
-        .collect::<Vec<NodeIndex>>();
+        .collect::<Vec<FnId>>();
 
     assert_eq!(vec![a, b], indicies);
     Ok(())

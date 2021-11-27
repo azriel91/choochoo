@@ -4,6 +4,7 @@
 //! analogous to source artifacts.
 
 pub use daggy;
+pub use fn_graph;
 pub use indexmap;
 pub use indicatif;
 pub use resman;
@@ -18,8 +19,7 @@ pub use crate::{
     station_spec::StationSpec,
     station_spec_builder::StationSpecBuilder,
     station_spec_fns::StationSpecFns,
-    station_specs::{StationSpecs, StationsFrozen},
-    workload::Workload,
+    station_specs::StationSpecs,
 };
 
 pub mod rt;
@@ -32,4 +32,3 @@ mod station_spec;
 mod station_spec_builder;
 mod station_spec_fns;
 mod station_specs;
-mod workload;

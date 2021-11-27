@@ -2,6 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
+        fn_graph::Edge,
         rt::{FilesRw, ProgressLimit},
         srcerr::{
             self,
@@ -9,7 +10,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
+        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
     },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
@@ -25,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut builder = Destination::builder();
             let [station_a, station_b] = builder.add_stations([station_a()?, station_b()?]);
-            builder.add_edge(station_a, station_b, Workload::default())?;
+            builder.add_edge(station_a, station_b, Edge::Logic)?;
 
             let dest = builder.build();
 

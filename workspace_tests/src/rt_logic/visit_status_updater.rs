@@ -1,4 +1,4 @@
-use choochoo_cfg_model::{rt::VisitStatus, StationSpec, Workload};
+use choochoo_cfg_model::{fn_graph::Edge, rt::VisitStatus, StationSpec};
 use choochoo_rt_logic::VisitStatusUpdater;
 use choochoo_rt_model::Destination;
 
@@ -28,10 +28,10 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
         StationSpec::mock("f")?.build(), // Should become `ParentFail`
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-        (station_b, station_d, Workload::default()),
-        (station_e, station_f, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
+        (station_b, station_d, Edge::Logic),
+        (station_e, station_f, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -76,10 +76,10 @@ fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error:
         StationSpec::mock("e")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-        (station_c, station_d, Workload::default()),
-        (station_d, station_e, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
+        (station_c, station_d, Edge::Logic),
+        (station_d, station_e, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -135,8 +135,8 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success()
         StationSpec::mock("c")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -165,8 +165,8 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success_or_unne
         StationSpec::mock("c")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -195,8 +195,8 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_visit_fail()
         StationSpec::mock("c")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -222,8 +222,8 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_parent_fail()
         StationSpec::mock("c")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
+        (station_a, station_c, Edge::Logic),
+        (station_b, station_c, Edge::Logic),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -255,8 +255,8 @@ fn no_change_to_parent_pending_when_any_parents_on_other_status()
             StationSpec::mock("c")?.build(),
         ]);
         dest_builder.add_edges([
-            (station_a, station_c, Workload::default()),
-            (station_b, station_c, Workload::default()),
+            (station_a, station_c, Edge::Logic),
+            (station_b, station_c, Edge::Logic),
         ])?;
         let mut dest = dest_builder.build();
         {
