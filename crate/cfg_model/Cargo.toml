@@ -18,6 +18,7 @@ test = false
 console = "0.15.0"
 daggy = { version = "0.8.0", default-features = false }
 fn_graph = { path = "/mnt/data/work/github/azriel91/fn_graph" }
+futures = "0.3.18"
 indexmap = "1.7.0"
 indicatif = "0.16.2"
 resman = { version = "0.11.0", features = ["debug"] }

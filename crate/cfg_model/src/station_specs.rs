@@ -10,8 +10,8 @@ pub struct StationSpecs<E>(pub FnGraph<StationSpec<E>>);
 
 impl<E> StationSpecs<E> {
     /// Returns an empty graph of [`StationSpec`]s.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(station_specs: FnGraph<StationSpec<E>>) -> Self {
+        Self(station_specs)
     }
 }
 

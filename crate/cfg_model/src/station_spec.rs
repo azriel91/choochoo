@@ -1,5 +1,7 @@
 use std::{convert::TryFrom, fmt};
 
+use fn_graph::{FnMeta, TypeIds};
+
 use crate::{
     rt::{CheckStatus, StationMut, TrainReport},
     SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpecBuilder,
@@ -118,7 +120,7 @@ impl<E> StationSpec<E> {
         self.station_spec_fns
             .check_fn
             .clone()
-            .map(move |check_fn| check_fn.0(station, train_report))
+            .map(move |check_fn| (check_fn.f)(station, train_report))
     }
 
     /// Returns a task to visit the station.
@@ -128,7 +130,7 @@ impl<E> StationSpec<E> {
         train_report: &'f TrainReport<E>,
     ) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec_fns.visit_fn.clone();
-        visit_fn.0(station, train_report)
+        (visit_fn.f)(station, train_report)
     }
 }
 
@@ -146,5 +148,15 @@ impl<E> Clone for StationSpec<E> {
 impl<E> fmt::Display for StationSpec<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.description)
+    }
+}
+
+impl<E> FnMeta for StationSpec<E> {
+    fn borrows(&self) -> TypeIds {
+        self.station_spec_fns.borrows()
+    }
+
+    fn borrow_muts(&self) -> TypeIds {
+        self.station_spec_fns.borrow_muts()
     }
 }

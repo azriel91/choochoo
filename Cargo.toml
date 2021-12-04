@@ -31,3 +31,6 @@ tokio-util = { version = "0.6.9", features = ["codec"] }
 
 [workspace]
 members = ["crate/*", "workspace_tests"]
+
+[patch.crates-io]
+fn_meta = { path = "/mnt/data/work/github/azriel91/fn_meta"}
