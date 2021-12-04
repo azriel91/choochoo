@@ -13,10 +13,8 @@ pub use srcerr;
 
 pub use crate::{
     setup_fn::{SetupFn, SetupFnReturn},
-    station_fn::StationFn,
+    station_fn::{StationFn, StationFnRes, StationFnResource, StationFnReturn},
     station_fn_metadata_ext::StationFnMetadataExt,
-    station_fn_res::StationFnRes,
-    station_fn_return::StationFnReturn,
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
     station_spec::StationSpec,
@@ -30,8 +28,6 @@ pub mod rt;
 mod setup_fn;
 mod station_fn;
 mod station_fn_metadata_ext;
-mod station_fn_res;
-mod station_fn_return;
 mod station_id;
 mod station_id_invalid_fmt;
 mod station_spec;

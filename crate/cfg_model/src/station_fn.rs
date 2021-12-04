@@ -7,7 +7,21 @@ use fn_graph::{FnMeta, FnMetadata, TypeIds};
 
 #[cfg(feature = "mock")]
 use crate::rt::{StationMut, VisitStatus};
-use crate::{StationFnMetadataExt, StationFnRes, StationFnReturn};
+use crate::StationFnMetadataExt;
+
+pub use self::{
+    into_station_fn_res::IntoStationFnRes, into_station_fn_resource::IntoStationFnResource,
+    station_fn_res::StationFnRes, station_fn_resource::StationFnResource,
+    station_fn_return::StationFnReturn,
+};
+
+mod into_station_fn_res;
+mod into_station_fn_resource;
+mod station_fn_res;
+mod station_fn_res_impl;
+mod station_fn_resource;
+mod station_fn_resource_impl;
+mod station_fn_return;
 
 // **Note:** `Debug`, `Clone`, `PartialEq` are manually implemented to avoid the
 // trait bound on `E`.
@@ -15,7 +29,7 @@ use crate::{StationFnMetadataExt, StationFnRes, StationFnReturn};
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct StationFn<R, E> {
     ///
-    pub f: Arc<dyn for<'f> StationFnRes<'f, R, E>>,
+    pub f: Arc<Box<dyn StationFnRes<R, E>>>,
     /// [`TypeId`]s of borrowed arguments.
     ///
     /// [`TypeId`]: core::any::TypeId
@@ -34,10 +48,11 @@ impl<R, E> StationFn<R, E> {
     /// * `f`: Logic to run.
     pub fn new<Fun, Args>(f: Fun) -> Self
     where
-        Fun: StationFnMetadataExt<Fun, R, E, Args> + for<'f> StationFnRes<'f, R, E> + 'static,
+        Fun: StationFnMetadataExt<Fun, R, E, Args> + IntoStationFnRes<Fun, R, E, Args> + 'static,
         // for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, Args>: FnMeta,
     {
         // let metadata = f.metadata();
+        let f = f.into_station_fn_res();
         Self {
             f: Arc::new(f),
             borrows: TypeIds::new(),
@@ -53,12 +68,12 @@ impl<R, E> StationFn<R, E> {
     where
         R: Clone + 'static,
     {
-        StationFn::new(move |station: &mut StationMut<'_, E>| {
+        StationFn::<R, E>::new::<_, ()>(move |station: &mut StationMut<'_, E>| {
             let r = r.clone();
             Box::pin(async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
                 Result::<R, E>::Ok(r)
-            })
+            }) as StationFnReturn<'_, R, E>
         })
     }
 
