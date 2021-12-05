@@ -12,7 +12,7 @@ pub struct StationFnResource<Fun, R, E, Args> {
     /// The actual function.
     pub func: Fun,
     /// Marker.
-    marker: PhantomData<(Fun, R, E, Args)>,
+    pub(crate) marker: PhantomData<(Fun, R, E, Args)>,
 }
 
 impl<Fun, R, E> StationFnResource<Fun, R, E, ()>

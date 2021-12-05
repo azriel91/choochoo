@@ -11,7 +11,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, ()> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E> + 'static,
     StationFnResource<Fun, R, E, ()>: StationFnRes<R, E>,
 {
     fn into_station_fn_res(self) -> Box<dyn StationFnRes<R, E>> {
@@ -24,7 +23,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0,)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0) -> StationFnReturn<'f, R, E> + 'static,
     A0: 'static,
     StationFnResource<Fun, R, E, (A0,)>: StationFnRes<R, E>,
 {
@@ -38,7 +36,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0, A1)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0, A1) -> StationFnReturn<'f, R, E> + 'static,
     A0: 'static,
     A1: 'static,
     StationFnResource<Fun, R, E, (A0, A1)>: StationFnRes<R, E>,
@@ -53,8 +50,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0, A1, A2) -> StationFnReturn<'f, R, E> +
-    // 'static,
     A0: 'static,
     A1: 'static,
     A2: 'static,
@@ -70,8 +65,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0, A1, A2, A3) -> StationFnReturn<'f, R, E> +
-    // 'static,
     A0: 'static,
     A1: 'static,
     A2: 'static,
@@ -88,8 +81,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3, A4)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0, A1, A2, A3, A4) -> StationFnReturn<'f, R, E>
-    // + 'static,
     A0: 'static,
     A1: 'static,
     A2: 'static,
@@ -108,8 +99,6 @@ where
     Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3, A4, A5)> + 'static,
     R: 'static,
     E: 'static,
-    // Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0, A1, A2, A3, A4, A5) -> StationFnReturn<'f, R,
-    // E> + 'static,
     A0: 'static,
     A1: 'static,
     A2: 'static,

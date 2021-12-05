@@ -21,7 +21,10 @@ pub struct StationSpecBuilder<E> {
     station_spec_fns: StationSpecFns<E>,
 }
 
-impl<E> StationSpecBuilder<E> {
+impl<E> StationSpecBuilder<E>
+where
+    E: 'static,
+{
     /// Returns a new [`StationSpecBuilder`].
     ///
     /// # Parameters

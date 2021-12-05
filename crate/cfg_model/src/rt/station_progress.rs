@@ -32,7 +32,10 @@ impl StationProgress {
     ///
     /// * `station_spec`: Behaviour specification of the station.
     /// * `progress_limit`: Unit of measurement and limit to indicate progress.
-    pub fn new<E>(station_spec: &StationSpec<E>, progress_limit: ProgressLimit) -> Self {
+    pub fn new<E>(station_spec: &StationSpec<E>, progress_limit: ProgressLimit) -> Self
+    where
+        E: 'static,
+    {
         let visit_status = VisitStatus::SetupQueued;
         let progress_bar = ProgressBar::hidden();
 

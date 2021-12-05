@@ -22,7 +22,10 @@ pub struct StationSpec<E> {
     pub(crate) station_spec_fns: StationSpecFns<E>,
 }
 
-impl<E> StationSpec<E> {
+impl<E> StationSpec<E>
+where
+    E: 'static,
+{
     /// Returns a new [`StationSpec`].
     ///
     /// You may prefer using the [`builder`] method to construct a
@@ -120,7 +123,7 @@ impl<E> StationSpec<E> {
         self.station_spec_fns
             .check_fn
             .clone()
-            .map(move |check_fn| (check_fn.f)(station, train_report))
+            .map(move |check_fn| check_fn.f.call(station, train_report))
     }
 
     /// Returns a task to visit the station.
@@ -130,7 +133,7 @@ impl<E> StationSpec<E> {
         train_report: &'f TrainReport<E>,
     ) -> StationFnReturn<'f, (), E> {
         let visit_fn = self.station_spec_fns.visit_fn.clone();
-        (visit_fn.f)(station, train_report)
+        visit_fn.f.call(station, train_report)
     }
 }
 
