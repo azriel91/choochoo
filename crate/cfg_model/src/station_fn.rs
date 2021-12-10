@@ -56,10 +56,10 @@ where
     /// # Parameters
     ///
     /// * `f`: Logic to run.
-    pub fn new<Fun, ArgRefs>(f: Fun) -> Self
+    pub fn new<'a, Fun, ArgRefs>(f: Fun) -> Self
     where
         Fun: StationFnMetadataExt<Fun, R, E, ArgRefs>
-            + IntoStationFnRes<Fun, R, E, ArgRefs>
+            + IntoStationFnRes<'a, Fun, R, E, ArgRefs>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ArgRefs>: FnMeta,
         ArgRefs: 'static,
@@ -67,6 +67,10 @@ where
     {
         let metadata = f.metadata();
         let f = f.into_station_fn_res();
+        // let f = Box::new(StationFnResource {
+        //     func: f,
+        //     marker: std::marker::PhantomData,
+        // });
         Self {
             f: Arc::new(f),
             borrows: metadata.borrows(),
@@ -74,22 +78,22 @@ where
         }
     }
 
-    pub fn new0<Fun>(f: Fun) -> Self
+    pub fn new0<'a, Fun>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
             + StationFnMetadataExt<Fun, R, E, ()>
-            + IntoStationFnRes<Fun, R, E, ()>
+            + IntoStationFnRes<'a, Fun, R, E, ()>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ()>: FnMeta,
     {
         Self::new(f)
     }
 
-    pub fn new1<Fun, A0>(f: Fun) -> Self
+    pub fn new1<'a, Fun, A0>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
             + StationFnMetadataExt<Fun, R, E, (A0,)>
-            + IntoStationFnRes<Fun, R, E, (A0,)>
+            + IntoStationFnRes<'a, Fun, R, E, (A0,)>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (A0,)>: FnMeta,
         // StationFnResource<Fun, R, E, (A0,)>: StationFnRes<R, E>,

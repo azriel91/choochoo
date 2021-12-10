@@ -10,6 +10,7 @@ fn main() {
     let mut station_fn_metadata_ext =
         common::open_impl_file(&station_fn_dir, "station_fn_metadata_ext.rs");
     let mut station_fn_res_impl = common::open_impl_file(&station_fn_dir, "station_fn_res_impl.rs");
+    let mut into_station_fn_res = common::open_impl_file(&station_fn_dir, "into_station_fn_res.rs");
 
     let mut write_fn = |arg_exprs: ArgExprs<'_>| {
         station_fn_metadata_ext::write_station_fn_metadata_ext(
@@ -18,13 +19,14 @@ fn main() {
         );
 
         station_fn_res_impl::write_station_fn_res_impl(&mut station_fn_res_impl, arg_exprs);
+        into_station_fn_res::write_into_station_fn_res(&mut into_station_fn_res, arg_exprs);
     };
 
     generate_impls_for_n_args::<_, 1>(&mut write_fn);
     generate_impls_for_n_args::<_, 2>(&mut write_fn);
     generate_impls_for_n_args::<_, 3>(&mut write_fn);
-    generate_impls_for_n_args::<_, 4>(&mut write_fn);
-    generate_impls_for_n_args::<_, 5>(&mut write_fn);
+    // generate_impls_for_n_args::<_, 4>(&mut write_fn);
+    // generate_impls_for_n_args::<_, 5>(&mut write_fn);
 
     station_fn_metadata_ext
         .flush()
@@ -32,6 +34,9 @@ fn main() {
     station_fn_res_impl
         .flush()
         .expect("Failed to flush writer for station_fn_res_impl.rs");
+    into_station_fn_res
+        .flush()
+        .expect("Failed to flush writer for into_station_fn_res.rs");
 
     println!("cargo:rerun-if-changed=build.rs");
 }
@@ -378,5 +383,48 @@ where
             resource_arg_vars = resource_arg_vars,
         )
         .expect("Failed to write to station_fn_res_impl.rs");
+    }
+}
+
+mod into_station_fn_res {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use super::common::ArgExprs;
+
+    pub fn write_into_station_fn_res(
+        fn_resource_impl: &mut BufWriter<File>,
+        arg_exprs: ArgExprs<'_>,
+    ) {
+        let ArgExprs {
+            args_csv,
+            arg_refs_lifetime_csv,
+            arg_bounds_list,
+            ..
+        } = arg_exprs;
+
+        write!(
+            fn_resource_impl,
+            r#"
+impl<'f, Fun, R, E, {args_csv}> IntoStationFnRes<'f, Fun, R, E, ({arg_refs_lifetime_csv})> for Fun
+where
+    Fun: 'static,
+    R: 'static,
+    E: 'static,
+    StationFnResource<Fun, R, E, ({arg_refs_lifetime_csv})>: StationFnRes<R, E>,
+    {arg_bounds_list}
+{{
+    fn into_station_fn_res(self) -> Box<dyn StationFnRes<R, E> + 'f> {{
+        Box::new(self.into_station_fn_resource())
+    }}
+}}
+"#,
+            args_csv = args_csv,
+            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
+            arg_bounds_list = arg_bounds_list,
+        )
+        .expect("Failed to write to into_station_fn_res.rs");
     }
 }
