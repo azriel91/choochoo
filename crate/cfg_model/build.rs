@@ -10,7 +10,7 @@ fn main() {
     let mut station_fn_metadata_ext =
         common::open_impl_file(&station_fn_dir, "station_fn_metadata_ext.rs");
     let mut station_fn_res_impl = common::open_impl_file(&station_fn_dir, "station_fn_res_impl.rs");
-    let mut into_station_fn_res = common::open_impl_file(&station_fn_dir, "into_station_fn_res.rs");
+    let mut station_fn_resource = common::open_impl_file(&station_fn_dir, "station_fn_resource.rs");
 
     let mut write_fn = |arg_exprs: ArgExprs<'_>| {
         station_fn_metadata_ext::write_station_fn_metadata_ext(
@@ -19,7 +19,7 @@ fn main() {
         );
 
         station_fn_res_impl::write_station_fn_res_impl(&mut station_fn_res_impl, arg_exprs);
-        into_station_fn_res::write_into_station_fn_res(&mut into_station_fn_res, arg_exprs);
+        station_fn_resource::write_station_fn_resource(&mut station_fn_resource, arg_exprs);
     };
 
     generate_impls_for_n_args::<_, 1>(&mut write_fn);
@@ -34,9 +34,9 @@ fn main() {
     station_fn_res_impl
         .flush()
         .expect("Failed to flush writer for station_fn_res_impl.rs");
-    into_station_fn_res
+    station_fn_resource
         .flush()
-        .expect("Failed to flush writer for into_station_fn_res.rs");
+        .expect("Failed to flush writer for station_fn_resource.rs");
 
     println!("cargo:rerun-if-changed=build.rs");
 }
@@ -67,13 +67,13 @@ mod common {
     }
 
     pub fn open_impl_file(out_dir: &Path, file_name: &str) -> BufWriter<File> {
-        let station_fn_resource_impl_path = out_dir.join(file_name);
-        let station_fn_resource_impl = OpenOptions::new()
+        let station_station_fn_resource_path = out_dir.join(file_name);
+        let station_station_fn_resource = OpenOptions::new()
             .create(true)
             .write(true)
-            .open(station_fn_resource_impl_path)
+            .open(station_station_fn_resource_path)
             .unwrap_or_else(|e| panic!("Failed to open `{}`. Error: {}", file_name, e));
-        BufWriter::new(station_fn_resource_impl)
+        BufWriter::new(station_station_fn_resource)
     }
 
     pub fn generate_impls_for_n_args<FnWrite, const N: usize>(fn_write: &mut FnWrite)
@@ -345,7 +345,49 @@ mod station_fn_res_impl {
     use super::common::ArgExprs;
 
     pub fn write_station_fn_res_impl(
-        fn_resource_impl: &mut BufWriter<File>,
+        station_fn_res_impl: &mut BufWriter<File>,
+        arg_exprs: ArgExprs<'_>,
+    ) {
+        let ArgExprs {
+            args_csv,
+            arg_refs_csv,
+            arg_refs_lifetime_csv,
+            arg_bounds_list,
+            ..
+        } = arg_exprs;
+
+        write!(
+            station_fn_res_impl,
+            r#"
+impl<Fun, R, E, {args_csv}> StationFnRes<R, E> for StationFnResource<Fun, R, E, ({arg_refs_csv})>
+where
+    Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    {arg_bounds_list}
+{{
+    fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
+        Self::call(self, station, train_report)
+    }}
+}}
+"#,
+            args_csv = args_csv,
+            arg_refs_csv = arg_refs_csv,
+            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
+            arg_bounds_list = arg_bounds_list,
+        )
+        .expect("Failed to write to station_fn_res_impl.rs");
+    }
+}
+
+mod station_fn_resource {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use super::common::ArgExprs;
+
+    pub fn write_station_fn_resource(
+        station_fn_resource: &mut BufWriter<File>,
         arg_exprs: ArgExprs<'_>,
     ) {
         let ArgExprs {
@@ -358,20 +400,19 @@ mod station_fn_res_impl {
         } = arg_exprs;
 
         write!(
-            fn_resource_impl,
+            station_fn_resource,
             r#"
-impl<Fun, R, E, {args_csv}> StationFnRes<R, E> for StationFnResource<Fun, R, E, ({arg_refs_csv})>
+impl<Fun, R, E, {args_csv}> StationFnResource<Fun, R, E, ({arg_refs_csv})>
 where
     Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
     {arg_bounds_list}
 {{
-    fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
-        async move {{
+    pub fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
+        Box::pin(async move {{
             {resource_arg_borrows}
 
             (self.func)(station, {resource_arg_vars}).await
-        }}
-        .boxed_local()
+        }})
     }}
 }}
 "#,
@@ -382,49 +423,6 @@ where
             resource_arg_borrows = resource_arg_borrows,
             resource_arg_vars = resource_arg_vars,
         )
-        .expect("Failed to write to station_fn_res_impl.rs");
-    }
-}
-
-mod into_station_fn_res {
-    use std::{
-        fs::File,
-        io::{BufWriter, Write},
-    };
-
-    use super::common::ArgExprs;
-
-    pub fn write_into_station_fn_res(
-        fn_resource_impl: &mut BufWriter<File>,
-        arg_exprs: ArgExprs<'_>,
-    ) {
-        let ArgExprs {
-            args_csv,
-            arg_refs_lifetime_csv,
-            arg_bounds_list,
-            ..
-        } = arg_exprs;
-
-        write!(
-            fn_resource_impl,
-            r#"
-impl<'f, Fun, R, E, {args_csv}> IntoStationFnRes<'f, Fun, R, E, ({arg_refs_lifetime_csv})> for Fun
-where
-    Fun: 'static,
-    R: 'static,
-    E: 'static,
-    StationFnResource<Fun, R, E, ({arg_refs_lifetime_csv})>: StationFnRes<R, E>,
-    {arg_bounds_list}
-{{
-    fn into_station_fn_res(self) -> Box<dyn StationFnRes<R, E> + 'f> {{
-        Box::new(self.into_station_fn_resource())
-    }}
-}}
-"#,
-            args_csv = args_csv,
-            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
-            arg_bounds_list = arg_bounds_list,
-        )
-        .expect("Failed to write to into_station_fn_res.rs");
+        .expect("Failed to write to station_fn_resource.rs");
     }
 }

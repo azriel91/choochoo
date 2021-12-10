@@ -56,10 +56,10 @@ where
     /// # Parameters
     ///
     /// * `f`: Logic to run.
-    pub fn new<'a, Fun, ArgRefs>(f: Fun) -> Self
+    pub fn new<Fun, ArgRefs>(f: Fun) -> Self
     where
         Fun: StationFnMetadataExt<Fun, R, E, ArgRefs>
-            + IntoStationFnRes<'a, Fun, R, E, ArgRefs>
+            + IntoStationFnRes<Fun, R, E, ArgRefs>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ArgRefs>: FnMeta,
         ArgRefs: 'static,
@@ -67,39 +67,11 @@ where
     {
         let metadata = f.metadata();
         let f = f.into_station_fn_res();
-        // let f = Box::new(StationFnResource {
-        //     func: f,
-        //     marker: std::marker::PhantomData,
-        // });
         Self {
             f: Arc::new(f),
             borrows: metadata.borrows(),
             borrow_muts: metadata.borrow_muts(),
         }
-    }
-
-    pub fn new0<'a, Fun>(f: Fun) -> Self
-    where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
-            + StationFnMetadataExt<Fun, R, E, ()>
-            + IntoStationFnRes<'a, Fun, R, E, ()>
-            + 'static,
-        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ()>: FnMeta,
-    {
-        Self::new(f)
-    }
-
-    pub fn new1<'a, Fun, A0>(f: Fun) -> Self
-    where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
-            + StationFnMetadataExt<Fun, R, E, (A0,)>
-            + IntoStationFnRes<'a, Fun, R, E, (A0,)>
-            + 'static,
-        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (A0,)>: FnMeta,
-        // StationFnResource<Fun, R, E, (A0,)>: StationFnRes<R, E>,
-        A0: 'static,
-    {
-        Self::new(f)
     }
 
     /// Returns a `StationFn` that always returns `Result::Ok`.
@@ -108,7 +80,7 @@ where
     where
         R: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMut<'_, E>| {
+        StationFn::new(move |station: &mut StationMut<'_, E>| {
             let r = r.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
@@ -124,7 +96,7 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMut<'_, E>| {
+        StationFn::new(move |station: &mut StationMut<'_, E>| {
             let e = e.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitFail;
