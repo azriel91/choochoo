@@ -20,7 +20,10 @@ pub struct Destination<E> {
     pub(crate) station_progresses: StationProgresses,
 }
 
-impl<E> Destination<E> {
+impl<E> Destination<E>
+where
+    E: 'static,
+{
     /// Returns a new `DestinationBuilder`.
     pub fn builder() -> DestinationBuilder<E> {
         DestinationBuilder::new()

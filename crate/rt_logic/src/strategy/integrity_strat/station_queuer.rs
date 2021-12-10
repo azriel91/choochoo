@@ -11,7 +11,10 @@ use crate::VisitStatusUpdater;
 #[derive(Debug)]
 pub(crate) struct StationQueuer<E>(PhantomData<E>);
 
-impl<E> StationQueuer<E> {
+impl<E> StationQueuer<E>
+where
+    E: 'static,
+{
     /// Listens to station visit completions and queues more stations.
     ///
     /// # Parameters

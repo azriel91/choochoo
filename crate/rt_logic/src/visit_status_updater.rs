@@ -50,7 +50,10 @@ pub struct VisitStatusUpdater<E> {
     pub marker: PhantomData<E>,
 }
 
-impl<E> VisitStatusUpdater<E> {
+impl<E> VisitStatusUpdater<E>
+where
+    E: 'static,
+{
     /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
     ///
     /// `ParentFail` transitions are propagated through to all later stations,

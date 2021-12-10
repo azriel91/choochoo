@@ -56,22 +56,42 @@ where
     /// # Parameters
     ///
     /// * `f`: Logic to run.
-    pub fn new<Fun, Args>(f: Fun) -> Self
+    pub fn new<Fun, ArgRefs>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
-            + StationFnMetadataExt<Fun, R, E, Args>
-            + IntoStationFnRes<Fun, R, E, Args>
-            + 'static, // for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, Args>: FnMeta,
+        Fun: StationFnMetadataExt<Fun, R, E, ArgRefs>
+            + IntoStationFnRes<Fun, R, E, ArgRefs>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ArgRefs>: FnMeta,
     {
-        // let metadata = f.metadata();
+        let metadata = f.metadata();
         let f = f.into_station_fn_res();
         Self {
             f: Arc::new(f),
-            borrows: TypeIds::new(),
-            borrow_muts: TypeIds::new(),
-            /* borrows: metadata.borrows(),
-             * borrow_muts: metadata.borrow_muts(), */
+            borrows: metadata.borrows(),
+            borrow_muts: metadata.borrow_muts(),
         }
+    }
+
+    pub fn new0<Fun>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
+            + StationFnMetadataExt<Fun, R, E, ()>
+            + IntoStationFnRes<Fun, R, E, ()>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ()>: FnMeta,
+    {
+        Self::new(f)
+    }
+
+    pub fn new1<Fun, A0>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0) -> StationFnReturn<'f, R, E>
+            + StationFnMetadataExt<Fun, R, E, (A0,)>
+            + IntoStationFnRes<Fun, R, E, (A0,)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (A0,)>: FnMeta,
+    {
+        Self::new(f)
     }
 
     /// Returns a `StationFn` that always returns `Result::Ok`.
@@ -80,7 +100,7 @@ where
     where
         R: Clone + 'static,
     {
-        StationFn::<R, E>::new::<_, ()>(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMut<'_, E>| {
             let r = r.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
@@ -96,12 +116,13 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMut<'_, E>| {
             let e = e.clone();
-            Box::pin(async move {
+            async move {
                 station.progress.visit_status = VisitStatus::VisitFail;
                 Result::<R, E>::Err(e)
-            })
+            }
+            .boxed_local()
         })
     }
 }

@@ -7,11 +7,18 @@ fn main() {
     let station_fn_dir = Path::new(&out_dir).join("station_fn");
     fs::create_dir_all(&station_fn_dir).expect("Failed to create `station_fn_dir`.");
 
+    let mut station_fn_metadata_ext =
+        common::open_impl_file(&station_fn_dir, "station_fn_metadata_ext.rs");
     let mut station_fn_resource_impl =
         common::open_impl_file(&station_fn_dir, "station_fn_resource_impl.rs");
     let mut station_fn_res_impl = common::open_impl_file(&station_fn_dir, "station_fn_res_impl.rs");
 
     let mut write_fn = |arg_exprs: ArgExprs<'_>| {
+        station_fn_metadata_ext::write_station_fn_metadata_ext(
+            &mut station_fn_metadata_ext,
+            arg_exprs,
+        );
+
         station_fn_resource_impl::write_station_fn_resource_impl(
             &mut station_fn_resource_impl,
             arg_exprs,
@@ -279,6 +286,46 @@ mod common {
             write!(&mut args_csv, ", A{}", n).expect("Failed to append to args_csv string.");
             args_csv
         })
+    }
+}
+
+mod station_fn_metadata_ext {
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
+
+    use super::common::ArgExprs;
+
+    pub fn write_station_fn_metadata_ext(
+        station_fn_metadata_ext: &mut BufWriter<File>,
+        arg_exprs: ArgExprs<'_>,
+    ) {
+        let ArgExprs {
+            args_csv,
+            arg_refs_csv,
+            arg_bounds_list,
+            ..
+        } = arg_exprs;
+
+        write!(
+            station_fn_metadata_ext,
+            r#"
+impl<Fun, R, E, {args_csv}> StationFnMetadataExt<Fun, R, E, ({arg_refs_csv})> for Fun
+where
+    Fun: for<'f> FnOnce(&'f mut StationMut<'_, E>, {arg_refs_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    {arg_bounds_list}
+{{
+    fn metadata<'f>(&self) -> FnMetadata<Fun, StationFnReturn<'f, R, E>, ({arg_refs_csv})> {{
+        FnMetadata(PhantomData)
+    }}
+}}
+"#,
+            args_csv = args_csv,
+            arg_refs_csv = arg_refs_csv,
+            arg_bounds_list = arg_bounds_list,
+        )
+        .expect("Failed to append to station_fn_metadata_ext.");
     }
 }
 

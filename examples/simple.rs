@@ -2,7 +2,6 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        fn_graph::Edge,
         rt::{FilesRw, ProgressLimit},
         srcerr::{
             self,
@@ -16,6 +15,7 @@ use choochoo::{
     rt_logic::Train,
     rt_model::{error::StationSpecError, Destination},
 };
+use futures::future::FutureExt;
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut builder = Destination::builder();
             let [station_a, station_b] = builder.add_stations([station_a()?, station_b()?]);
-            builder.add_edge(station_a, station_b, Edge::Logic)?;
+            builder.add_edge(station_a, station_b)?;
 
             let dest = builder.build();
 
@@ -73,7 +73,7 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "a",
         "Station A",
         "Prints visit.",
-        StationFn::new(|_station, _| {
+        StationFn::new0(|_station| {
             Box::pin(async move {
                 eprintln!("Visiting {}.", "Station A");
                 Result::<(), ExampleError>::Ok(())
@@ -87,11 +87,10 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "b",
         "Station B",
         "Reads `simple.toml` and reports error.",
-        StationFn::new(move |_station, resources| {
-            Box::pin(async move {
-                eprintln!("Visiting {}.", "Station B");
+        StationFn::new1(move |station, files: &mut FilesRw| {
+            async move {
+                eprintln!("Visiting {}.", station.spec.name());
 
-                let files = resources.borrow_mut::<FilesRw>();
                 let mut files = files.write().await;
 
                 let file_id = read_simple_toml(&mut files)
@@ -100,7 +99,8 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
                 let error = value_out_of_range(file_id);
                 Result::<(), ExampleError>::Err(error)
-            })
+            }
+            .boxed_local()
         }),
     )
 }

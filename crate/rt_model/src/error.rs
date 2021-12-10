@@ -36,7 +36,10 @@ pub enum Error<E> {
     },
 }
 
-impl<E> fmt::Display for Error<E> {
+impl<E> fmt::Display for Error<E>
+where
+    E: 'static,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::MultiProgressTaskJoin(_) => {
@@ -62,7 +65,7 @@ impl<E> fmt::Display for Error<E> {
 
 impl<E> std::error::Error for Error<E>
 where
-    E: fmt::Debug,
+    E: fmt::Debug + 'static,
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {

@@ -37,7 +37,10 @@ pub struct IntegrityStrat<E> {
     marker: PhantomData<E>,
 }
 
-impl<E> IntegrityStrat<E> {
+impl<E> IntegrityStrat<E>
+where
+    E: 'static,
+{
     /// Maximum number of stations to visit concurrently.
     const QUEUE_LIMIT: usize = 8;
 

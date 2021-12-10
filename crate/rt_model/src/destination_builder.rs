@@ -12,10 +12,13 @@ use crate::{Destination, StationProgresses};
 #[derive(Debug)]
 pub struct DestinationBuilder<E> {
     /// Builder for the stations along the way to the destination.
-    fn_graph_builder: FnGraphBuilder<StationSpecs<E>>,
+    fn_graph_builder: FnGraphBuilder<StationSpec<E>>,
 }
 
-impl<E> DestinationBuilder<E> {
+impl<E> DestinationBuilder<E>
+where
+    E: 'static,
+{
     /// Returns a new `DestinationBuilder`.
     pub fn new() -> Self {
         Self::default()
@@ -57,15 +60,14 @@ impl<E> DestinationBuilder<E> {
         &mut self,
         station_from: StationRtId,
         station_to: StationRtId,
-        edge: Edge,
     ) -> Result<EdgeId, WouldCycle<Edge>> {
-        self.fn_graph_builder.add_edge(edge)
+        self.fn_graph_builder.add_edge(station_from, station_to)
     }
 
     /// Adds edges between stations.
     pub fn add_edges<const N: usize>(
         &mut self,
-        edges: [(StationRtId, StationRtId, Edge); N],
+        edges: [(StationRtId, StationRtId); N],
     ) -> Result<[EdgeId; N], WouldCycle<Edge>> {
         self.fn_graph_builder.add_edges(edges)
     }
