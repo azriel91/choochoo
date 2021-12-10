@@ -8,7 +8,7 @@ pub trait IntoStationFnRes<Fun, R, E, Args> {
 
 impl<Fun, R, E> IntoStationFnRes<Fun, R, E, ()> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, ()> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     StationFnResource<Fun, R, E, ()>: StationFnRes<R, E>,
@@ -20,7 +20,7 @@ where
 
 impl<Fun, R, E, A0> IntoStationFnRes<Fun, R, E, (A0,)> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0,)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,
@@ -33,7 +33,7 @@ where
 
 impl<Fun, R, E, A0, A1> IntoStationFnRes<Fun, R, E, (A0, A1)> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0, A1)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,
@@ -47,7 +47,7 @@ where
 
 impl<Fun, R, E, A0, A1, A2> IntoStationFnRes<Fun, R, E, (A0, A1, A2)> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,
@@ -62,7 +62,7 @@ where
 
 impl<Fun, R, E, A0, A1, A2, A3> IntoStationFnRes<Fun, R, E, (A0, A1, A2, A3)> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,
@@ -78,7 +78,7 @@ where
 
 impl<Fun, R, E, A0, A1, A2, A3, A4> IntoStationFnRes<Fun, R, E, (A0, A1, A2, A3, A4)> for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3, A4)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,
@@ -96,7 +96,7 @@ where
 impl<Fun, R, E, A0, A1, A2, A3, A4, A5> IntoStationFnRes<Fun, R, E, (A0, A1, A2, A3, A4, A5)>
     for Fun
 where
-    Fun: IntoStationFnResource<Fun, R, E, (A0, A1, A2, A3, A4, A5)> + 'static,
+    Fun: 'static,
     R: 'static,
     E: 'static,
     A0: 'static,

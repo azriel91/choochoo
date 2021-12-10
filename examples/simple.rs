@@ -9,7 +9,8 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
@@ -73,13 +74,17 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "a",
         "Station A",
         "Prints visit.",
-        StationFn::new0(|_station| {
-            Box::pin(async move {
-                eprintln!("Visiting {}.", "Station A");
-                Result::<(), ExampleError>::Ok(())
-            })
-        }),
+        StationFn::new(station_a_impl),
     )
+}
+
+fn station_a_impl<'f>(
+    _: &'f mut StationMut<'_, ExampleError>,
+) -> StationFnReturn<'f, (), ExampleError> {
+    Box::pin(async move {
+        eprintln!("Visiting {}.", "Station A");
+        Result::<(), ExampleError>::Ok(())
+    })
 }
 
 fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
@@ -87,24 +92,27 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "b",
         "Station B",
         "Reads `simple.toml` and reports error.",
-        StationFn::new1(
-            move |station: &mut StationMut<'_, ExampleError>, files: &mut FilesRw| {
-                async move {
-                    eprintln!("Visiting {}.", station.spec.name());
-
-                    let mut files = files.write().await;
-
-                    let file_id = read_simple_toml(&mut files)
-                        .await
-                        .expect("Failed to read simple.toml");
-
-                    let error = value_out_of_range(file_id);
-                    Result::<(), ExampleError>::Err(error)
-                }
-                .boxed_local()
-            },
-        ),
+        StationFn::new(station_b_impl),
     )
+}
+
+fn station_b_impl<'f>(
+    station: &'f mut StationMut<'_, ExampleError>,
+    files: &'f mut FilesRw,
+) -> StationFnReturn<'f, (), ExampleError> {
+    async move {
+        eprintln!("Visiting {}.", station.spec.name());
+
+        let mut files = files.write().await;
+
+        let file_id = read_simple_toml(&mut files)
+            .await
+            .expect("Failed to read simple.toml");
+
+        let error = value_out_of_range(file_id);
+        Result::<(), ExampleError>::Err(error)
+    }
+    .boxed_local()
 }
 
 async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId, std::io::Error> {

@@ -40,7 +40,6 @@ pub struct StationFn<R, E> {
     borrow_muts: TypeIds,
 }
 
-// https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394
 impl<R, E> StationFn<R, E>
 where
     R: 'static,
@@ -58,12 +57,11 @@ where
     /// * `f`: Logic to run.
     pub fn new<Fun, ArgRefs>(f: Fun) -> Self
     where
-        Fun: StationFnMetadataExt<Fun, R, E, ArgRefs>
-            + IntoStationFnRes<Fun, R, E, ArgRefs>
+        Fun: IntoStationFnRes<Fun, R, E, ArgRefs>
+            + StationFnMetadataExt<Fun, R, E, ArgRefs>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ArgRefs>: FnMeta,
         ArgRefs: 'static,
-        // StationFnResource<Fun, R, E, ArgRefs>: StationFnRes<R, E>,
     {
         let metadata = f.metadata();
         let f = f.into_station_fn_res();
@@ -80,14 +78,27 @@ where
     where
         R: Clone + 'static,
     {
-        StationFn::new(move |station: &mut StationMut<'_, E>| {
+        StationFn::new(Self::constrain(move |station: &mut StationMut<'_, E>| {
             let r = r.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
                 Result::<R, E>::Ok(r)
             }
             .boxed_local()
-        })
+        }))
+    }
+
+    /// Constrain the closure lifetime.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    fn constrain<F>(f: F) -> F
+    where
+        F: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E> + 'static,
+    {
+        f
     }
 
     /// Returns a `StationFn` that always returns `Result::Err`.
@@ -96,14 +107,14 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new(move |station: &mut StationMut<'_, E>| {
+        StationFn::new(Self::constrain(move |station: &mut StationMut<'_, E>| {
             let e = e.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitFail;
                 Result::<R, E>::Err(e)
             }
             .boxed_local()
-        })
+        }))
     }
 }
 
