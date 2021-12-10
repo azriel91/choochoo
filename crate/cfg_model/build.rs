@@ -9,18 +9,11 @@ fn main() {
 
     let mut station_fn_metadata_ext =
         common::open_impl_file(&station_fn_dir, "station_fn_metadata_ext.rs");
-    let mut station_fn_resource_impl =
-        common::open_impl_file(&station_fn_dir, "station_fn_resource_impl.rs");
     let mut station_fn_res_impl = common::open_impl_file(&station_fn_dir, "station_fn_res_impl.rs");
 
     let mut write_fn = |arg_exprs: ArgExprs<'_>| {
         station_fn_metadata_ext::write_station_fn_metadata_ext(
             &mut station_fn_metadata_ext,
-            arg_exprs,
-        );
-
-        station_fn_resource_impl::write_station_fn_resource_impl(
-            &mut station_fn_resource_impl,
             arg_exprs,
         );
 
@@ -32,11 +25,13 @@ fn main() {
     generate_impls_for_n_args::<_, 3>(&mut write_fn);
     generate_impls_for_n_args::<_, 4>(&mut write_fn);
     generate_impls_for_n_args::<_, 5>(&mut write_fn);
-    generate_impls_for_n_args::<_, 6>(&mut write_fn);
 
-    station_fn_resource_impl
+    station_fn_metadata_ext
         .flush()
-        .expect("Failed to flush writer for station_fn_resource_impl.rs");
+        .expect("Failed to flush writer for station_fn_metadata_ext.rs");
+    station_fn_res_impl
+        .flush()
+        .expect("Failed to flush writer for station_fn_res_impl.rs");
 
     println!("cargo:rerun-if-changed=build.rs");
 }
@@ -54,9 +49,9 @@ mod common {
     pub struct ArgExprs<'s> {
         pub args_csv: &'s str,
         pub arg_refs_csv: &'s str,
+        pub arg_refs_lifetime_csv: &'s str,
         pub arg_bounds_list: &'s str,
         pub resource_arg_borrows: &'s str,
-        pub resource_arg_try_borrows: &'s str,
         pub resource_arg_vars: &'s str,
     }
 
@@ -87,10 +82,9 @@ mod common {
         let arg_bounds_list = arg_bounds_list::<N>();
 
         arg_refs_combinations::<N>().for_each(|arg_refs| {
-            let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
-
             // &mut A0, &A1
             let arg_refs_csv = {
+                let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
                 let mut arg_refs_csv = String::with_capacity(N * 8);
                 if let Some((_index, arg_ref_first)) = arg_refs_iter.next() {
                     match arg_ref_first {
@@ -113,28 +107,56 @@ mod common {
                 arg_refs_csv
             };
 
+            // &'f mut A0, &'f A1
+            let arg_refs_lifetime_csv = {
+                let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
+                let mut arg_refs_lifetime_csv = String::with_capacity(N * 10);
+                if let Some((_index, arg_ref_first)) = arg_refs_iter.next() {
+                    match arg_ref_first {
+                        Ref::Immutable => arg_refs_lifetime_csv.push_str("&'f A0"),
+                        Ref::Mutable => arg_refs_lifetime_csv.push_str("&'f mut A0"),
+                    }
+                }
+
+                if N == 1 {
+                    arg_refs_lifetime_csv.push(',');
+                } else {
+                    arg_refs_iter
+                        .try_for_each(|(index, arg_ref)| match arg_ref {
+                            Ref::Immutable => {
+                                write!(&mut arg_refs_lifetime_csv, ", &'f A{}", index)
+                            }
+                            Ref::Mutable => {
+                                write!(&mut arg_refs_lifetime_csv, ", &'f mut A{}", index)
+                            }
+                        })
+                        .expect("Failed to append to `arg_refs_lifetime_csv` string.");
+                }
+
+                arg_refs_lifetime_csv
+            };
+
             // let a0 = train_report.borrow::<A0>();
             // let mut a1 = train_report.borrow_mut::<A1>();
             // ..
             let resource_arg_borrows = resource_arg_borrows(arg_refs);
-            let resource_arg_try_borrows = resource_arg_try_borrows(arg_refs);
 
             // &*a0, &mut *a1
             let resource_arg_vars = resource_arg_vars::<N>(arg_refs);
 
             let args_csv = args_csv.as_str();
             let arg_refs_csv = arg_refs_csv.as_str();
+            let arg_refs_lifetime_csv = arg_refs_lifetime_csv.as_str();
             let arg_bounds_list = arg_bounds_list.as_str();
             let resource_arg_borrows = resource_arg_borrows.as_str();
-            let resource_arg_try_borrows = resource_arg_try_borrows.as_str();
             let resource_arg_vars = resource_arg_vars.as_str();
 
             let arg_exprs = ArgExprs {
                 args_csv,
                 arg_refs_csv,
+                arg_refs_lifetime_csv,
                 arg_bounds_list,
                 resource_arg_borrows,
-                resource_arg_try_borrows,
                 resource_arg_vars,
             };
 
@@ -179,26 +201,6 @@ mod common {
             })
             .expect("Failed to append to `resource_arg_borrows` string.");
         resource_arg_borrows
-    }
-
-    fn resource_arg_try_borrows<const N: usize>(arg_refs: [Ref; N]) -> String {
-        let mut resource_arg_try_borrows = String::with_capacity(N * 44);
-        let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
-        arg_refs_iter
-            .try_for_each(|(index, arg_ref)| match arg_ref {
-                Ref::Immutable => writeln!(
-                    &mut resource_arg_try_borrows,
-                    "let a{index} = train_report.try_borrow::<A{index}>()?;",
-                    index = index
-                ),
-                Ref::Mutable => writeln!(
-                    &mut resource_arg_try_borrows,
-                    "let mut a{index} = train_report.try_borrow_mut::<A{index}>()?;",
-                    index = index
-                ),
-            })
-            .expect("Failed to append to `resource_arg_try_borrows` string.");
-        resource_arg_try_borrows
     }
 
     fn arg_refs_combinations<const N: usize>() -> impl Iterator<Item = [Ref; N]> {
@@ -329,60 +331,6 @@ where
     }
 }
 
-mod station_fn_resource_impl {
-    use std::{
-        fs::File,
-        io::{BufWriter, Write},
-    };
-
-    use super::common::ArgExprs;
-
-    pub fn write_station_fn_resource_impl(
-        station_fn_resource_impl: &mut BufWriter<File>,
-        arg_exprs: ArgExprs<'_>,
-    ) {
-        let ArgExprs {
-            args_csv,
-            arg_refs_csv,
-            arg_bounds_list,
-            resource_arg_borrows,
-            resource_arg_try_borrows,
-            resource_arg_vars,
-        } = arg_exprs;
-
-        write!(
-            station_fn_resource_impl,
-            r#"
-impl<Fun, R, E, {args_csv}> StationFnResource<Fun, R, E, ({arg_refs_csv})>
-where
-    Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_csv}) -> StationFnReturn<'f, R, E> + 'static,
-    {arg_bounds_list}
-{{
-    pub fn call<'f>(&self, station: &'f mut StationMut<'_, E>, train_report: &TrainReport<E>) -> StationFnReturn<'f, R, E> {{
-        {resource_arg_borrows}
-
-        (self.func)(station, {resource_arg_vars})
-    }}
-
-    pub fn try_call<'f>(&self, station: &'f mut StationMut<'_, E>, train_report: &TrainReport<E>) -> Result<StationFnReturn<'f, R, E>, BorrowFail> {{
-        {resource_arg_try_borrows}
-
-        let ret_value = (self.func)(station, {resource_arg_vars});
-        Ok(ret_value)
-    }}
-}}
-"#,
-            args_csv = args_csv,
-            arg_refs_csv = arg_refs_csv,
-            arg_bounds_list = arg_bounds_list,
-            resource_arg_borrows = resource_arg_borrows,
-            resource_arg_try_borrows = resource_arg_try_borrows,
-            resource_arg_vars = resource_arg_vars,
-        )
-        .expect("Failed to write to station_fn_resource_impl.rs");
-    }
-}
-
 mod station_fn_res_impl {
     use std::{
         fs::File,
@@ -398,8 +346,10 @@ mod station_fn_res_impl {
         let ArgExprs {
             args_csv,
             arg_refs_csv,
+            arg_refs_lifetime_csv,
             arg_bounds_list,
-            ..
+            resource_arg_borrows,
+            resource_arg_vars,
         } = arg_exprs;
 
         write!(
@@ -407,21 +357,25 @@ mod station_fn_res_impl {
             r#"
 impl<Fun, R, E, {args_csv}> StationFnRes<R, E> for StationFnResource<Fun, R, E, ({arg_refs_csv})>
 where
-    Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
     {arg_bounds_list}
 {{
-    fn call<'f>(&self, station: &'f mut StationMut<'_, E>, train_report: &TrainReport<E>) -> StationFnReturn<'f, R, E> {{
-        Self::call(self, station, train_report)
-    }}
+    fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
+        async move {{
+            {resource_arg_borrows}
 
-    fn try_call<'f>(&self, station: &'f mut StationMut<'_, E>, train_report: &TrainReport<E>) -> Result<StationFnReturn<'f, R, E>, BorrowFail> {{
-        Self::try_call(self, station, train_report)
+            (self.func)(station, {resource_arg_vars}).await
+        }}
+        .boxed_local()
     }}
 }}
 "#,
             args_csv = args_csv,
             arg_refs_csv = arg_refs_csv,
+            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
             arg_bounds_list = arg_bounds_list,
+            resource_arg_borrows = resource_arg_borrows,
+            resource_arg_vars = resource_arg_vars,
         )
         .expect("Failed to write to station_fn_res_impl.rs");
     }

@@ -21,7 +21,6 @@ mod into_station_fn_resource;
 mod station_fn_res;
 mod station_fn_res_impl;
 mod station_fn_resource;
-mod station_fn_resource_impl;
 mod station_fn_return;
 
 // **Note:** `Debug`, `Clone`, `PartialEq` are manually implemented to avoid the
@@ -41,6 +40,7 @@ pub struct StationFn<R, E> {
     borrow_muts: TypeIds,
 }
 
+// https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394
 impl<R, E> StationFn<R, E>
 where
     R: 'static,
@@ -62,6 +62,8 @@ where
             + IntoStationFnRes<Fun, R, E, ArgRefs>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ArgRefs>: FnMeta,
+        ArgRefs: 'static,
+        // StationFnResource<Fun, R, E, ArgRefs>: StationFnRes<R, E>,
     {
         let metadata = f.metadata();
         let f = f.into_station_fn_res();
@@ -85,11 +87,13 @@ where
 
     pub fn new1<Fun, A0>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, A0) -> StationFnReturn<'f, R, E>
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
             + StationFnMetadataExt<Fun, R, E, (A0,)>
             + IntoStationFnRes<Fun, R, E, (A0,)>
             + 'static,
         for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (A0,)>: FnMeta,
+        // StationFnResource<Fun, R, E, (A0,)>: StationFnRes<R, E>,
+        A0: 'static,
     {
         Self::new(f)
     }

@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{FilesRw, ProgressLimit},
+        rt::{FilesRw, ProgressLimit, StationMut},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -87,21 +87,23 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "b",
         "Station B",
         "Reads `simple.toml` and reports error.",
-        StationFn::new1(move |station, files: &mut FilesRw| {
-            async move {
-                eprintln!("Visiting {}.", station.spec.name());
+        StationFn::new1(
+            move |station: &mut StationMut<'_, ExampleError>, files: &mut FilesRw| {
+                async move {
+                    eprintln!("Visiting {}.", station.spec.name());
 
-                let mut files = files.write().await;
+                    let mut files = files.write().await;
 
-                let file_id = read_simple_toml(&mut files)
-                    .await
-                    .expect("Failed to read simple.toml");
+                    let file_id = read_simple_toml(&mut files)
+                        .await
+                        .expect("Failed to read simple.toml");
 
-                let error = value_out_of_range(file_id);
-                Result::<(), ExampleError>::Err(error)
-            }
-            .boxed_local()
-        }),
+                    let error = value_out_of_range(file_id);
+                    Result::<(), ExampleError>::Err(error)
+                }
+                .boxed_local()
+            },
+        ),
     )
 }
 

@@ -107,7 +107,7 @@ where
     /// Verifies input, calculates progress limit, and inserts resources.
     pub fn setup<'f>(
         &self,
-        station: &'f mut StationMut<E>,
+        station: &'f mut StationMut<'_, E>,
         train_report: &'f mut TrainReport<E>,
     ) -> SetupFnReturn<'f, E> {
         let setup_fn = self.station_spec_fns.setup_fn.clone();
@@ -116,23 +116,23 @@ where
 
     /// Checks if the station needs to be visited.
     pub fn check<'f>(
-        &self,
-        station: &'f mut StationMut<E>,
+        &'f self,
+        station: &'f mut StationMut<'_, E>,
         train_report: &'f TrainReport<E>,
     ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
         self.station_spec_fns
             .check_fn
-            .clone()
+            .as_ref()
             .map(move |check_fn| check_fn.f.call(station, train_report))
     }
 
     /// Returns a task to visit the station.
     pub fn visit<'f>(
-        &self,
-        station: &'f mut StationMut<E>,
+        &'f self,
+        station: &'f mut StationMut<'_, E>,
         train_report: &'f TrainReport<E>,
     ) -> StationFnReturn<'f, (), E> {
-        let visit_fn = self.station_spec_fns.visit_fn.clone();
+        let visit_fn = &self.station_spec_fns.visit_fn;
         visit_fn.f.call(station, train_report)
     }
 }
