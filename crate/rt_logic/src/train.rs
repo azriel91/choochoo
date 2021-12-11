@@ -25,6 +25,10 @@ where
         let progress_fut = Self::progress_tracker_init(dest);
 
         let mut train_report = TrainReport::new();
+        if dest.station_specs().node_count() == 0 {
+            return Ok(train_report);
+        }
+
         train_report = Self::stations_setup(dest, train_report)
             .await
             .or_else(|error| {
