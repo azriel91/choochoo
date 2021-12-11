@@ -27,6 +27,7 @@ fn main() {
     generate_impls_for_n_args::<_, 3>(&mut write_fn);
     generate_impls_for_n_args::<_, 4>(&mut write_fn);
     generate_impls_for_n_args::<_, 5>(&mut write_fn);
+    generate_impls_for_n_args::<_, 6>(&mut write_fn);
 
     station_fn_metadata_ext
         .flush()
