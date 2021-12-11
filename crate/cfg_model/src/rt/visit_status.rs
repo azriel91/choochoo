@@ -1,6 +1,6 @@
-/// Status of whether a [`StationMut`] has been visited.
+/// Status of whether a [`StationMutRef`] has been visited.
 ///
-/// [`StationMut`]: crate::rt_model::StationMut
+/// [`StationMutRef`]: crate::rt_model::StationMutRef
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum VisitStatus {
     /// Station setup function has not been run.

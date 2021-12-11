@@ -3,7 +3,7 @@ use std::ops::Deref;
 use resman::BorrowFail;
 
 use crate::{
-    rt::{StationMut, TrainReport},
+    rt::{StationMutRef, TrainReport},
     StationFnReturn,
 };
 
@@ -16,13 +16,13 @@ pub trait StationFnRes<R, E> {
     /// Runs the function.
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
     ) -> StationFnReturn<'f2, R, E>;
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
     ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail>;
 }
@@ -33,7 +33,7 @@ where
 {
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
     ) -> StationFnReturn<'f2, R, E> {
         self.deref().call(station, train_report)
@@ -41,7 +41,7 @@ where
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
     ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {
         self.deref().try_call(station, train_report)

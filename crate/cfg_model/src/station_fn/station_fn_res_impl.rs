@@ -1,7 +1,7 @@
 use resman::BorrowFail;
 
 use crate::{
-    rt::{StationMut, TrainReport},
+    rt::{StationMutRef, TrainReport},
     StationFnRes, StationFnResource, StationFnReturn,
 };
 

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMut},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -64,7 +64,7 @@ impl StationSleep {
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {
         StationFn::new1(
-            move |station: &mut StationMut<'_, DemoError>, files: &FilesRw| {
+            move |station: &mut StationMutRef<'_, DemoError>, files: &FilesRw| {
                 Box::pin(async move {
                     // Sleep to simulate starting up the application.
                     station.progress.progress_bar().reset();

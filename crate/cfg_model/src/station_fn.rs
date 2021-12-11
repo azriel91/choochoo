@@ -7,7 +7,7 @@ use fn_graph::{FnMeta, FnMetadata, TypeIds};
 use futures::future::FutureExt;
 
 #[cfg(feature = "mock")]
-use crate::rt::{StationMut, VisitStatus};
+use crate::rt::{StationMutRef, VisitStatus};
 use crate::StationFnMetadataExt;
 
 pub use self::{
@@ -90,7 +90,7 @@ where
     /// * `f`: Logic to run.
     pub fn new0<Fun>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> StationFnReturn<'f, R, E>
             + IntoStationFnRes<Fun, R, E, ()>
             + StationFnMetadataExt<Fun, R, E, ()>
             + 'static,
@@ -117,7 +117,7 @@ where
     /// * `f`: Logic to run.
     pub fn new1<Fun, A0>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
             + IntoStationFnRes<Fun, R, E, (&'static A0,)>
             + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0,)>
             + 'static,
@@ -145,7 +145,7 @@ where
     /// * `f`: Logic to run.
     pub fn new2<Fun, A0, A1>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0, &'f A1) -> StationFnReturn<'f, R, E>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, &'f A0, &'f A1) -> StationFnReturn<'f, R, E>
             + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
             + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1)>
             + 'static,
@@ -175,7 +175,7 @@ where
     pub fn new3<Fun, A0, A1, A2>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(
-                &'f mut StationMut<'_, E>,
+                &'f mut StationMutRef<'_, E>,
                 &'f A0,
                 &'f A1,
                 &'f A2,
@@ -210,7 +210,7 @@ where
     pub fn new4<Fun, A0, A1, A2, A3>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(
-                &'f mut StationMut<'_, E>,
+                &'f mut StationMutRef<'_, E>,
                 &'f A0,
                 &'f A1,
                 &'f A2,
@@ -248,7 +248,7 @@ where
     pub fn new5<Fun, A0, A1, A2, A3, A4>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(
-                &'f mut StationMut<'_, E>,
+                &'f mut StationMutRef<'_, E>,
                 &'f A0,
                 &'f A1,
                 &'f A2,
@@ -288,7 +288,7 @@ where
     pub fn new6<Fun, A0, A1, A2, A3, A4, A5>(f: Fun) -> Self
     where
         Fun: for<'f> Fn(
-                &'f mut StationMut<'_, E>,
+                &'f mut StationMutRef<'_, E>,
                 &'f A0,
                 &'f A1,
                 &'f A2,
@@ -324,7 +324,7 @@ where
     where
         R: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMutRef<'_, E>| {
             let r = r.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
@@ -340,7 +340,7 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMutRef<'_, E>| {
             let e = e.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitFail;

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use resman::BorrowFail;
 
 use crate::{
-    rt::{StationMut, TrainReport},
+    rt::{StationMutRef, TrainReport},
     StationFnRes, StationFnReturn,
 };
 
@@ -27,11 +27,11 @@ impl<Fun, R, E, Args> StationFnResource<Fun, R, E, Args> {
 
 impl<Fun, R, E> StationFnRes<R, E> for StationFnResource<Fun, R, E, ()>
 where
-    Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> StationFnReturn<'f, R, E>,
 {
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
     ) -> StationFnReturn<'f2, R, E> {
         (self.func)(station)
@@ -39,7 +39,7 @@ where
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
-        station: &'f1 mut StationMut<'_, E>,
+        station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
     ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {
         Ok((self.func)(station))

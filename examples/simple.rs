@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{FilesRw, ProgressLimit, StationMut},
+        rt::{FilesRw, ProgressLimit, StationMutRef},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -79,7 +79,7 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 }
 
 fn station_a_impl<'f>(
-    _: &'f mut StationMut<'_, ExampleError>,
+    _: &'f mut StationMutRef<'_, ExampleError>,
 ) -> StationFnReturn<'f, (), ExampleError> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
@@ -97,7 +97,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 }
 
 fn station_b_impl<'f>(
-    station: &'f mut StationMut<'_, ExampleError>,
+    station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
 ) -> StationFnReturn<'f, (), ExampleError> {
     async move {

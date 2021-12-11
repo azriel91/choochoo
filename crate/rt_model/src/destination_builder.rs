@@ -87,7 +87,7 @@ where
         let station_progresses = station_specs
             .iter_insertion_with_indices()
             .map(|(station_rt_id, station_spec)| {
-                let station_progress = StationProgress::new(&station_spec, ProgressLimit::Unknown);
+                let station_progress = StationProgress::new(station_spec, ProgressLimit::Unknown);
                 (station_rt_id, station_progress)
             })
             .fold(

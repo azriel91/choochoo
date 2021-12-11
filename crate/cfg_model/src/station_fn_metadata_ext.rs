@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::marker::PhantomData;
 
 use fn_graph::FnMetadata;

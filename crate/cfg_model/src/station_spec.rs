@@ -1,13 +1,8 @@
 use std::{convert::TryFrom, fmt};
 
 use fn_graph::{FnMeta, TypeIds};
-use resman::BorrowFail;
 
-use crate::{
-    rt::{CheckStatus, StationMut, TrainReport},
-    SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpecBuilder,
-    StationSpecFns,
-};
+use crate::{StationId, StationIdInvalidFmt, StationSpecBuilder, StationSpecFns};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
@@ -103,38 +98,6 @@ where
     /// Returns this station's behaviours.
     pub fn station_spec_fns(&self) -> &StationSpecFns<E> {
         &self.station_spec_fns
-    }
-
-    /// Verifies input, calculates progress limit, and inserts resources.
-    pub fn setup<'f>(
-        &self,
-        station: &'f mut StationMut<'_, E>,
-        train_report: &'f mut TrainReport<E>,
-    ) -> SetupFnReturn<'f, E> {
-        let setup_fn = self.station_spec_fns.setup_fn.clone();
-        setup_fn.0(station, train_report)
-    }
-
-    /// Checks if the station needs to be visited.
-    pub fn check<'f>(
-        &'f self,
-        station: &'f mut StationMut<'_, E>,
-        train_report: &'f TrainReport<E>,
-    ) -> Option<Result<StationFnReturn<'f, CheckStatus, E>, BorrowFail>> {
-        self.station_spec_fns
-            .check_fn
-            .as_ref()
-            .map(move |check_fn| check_fn.f.try_call(station, train_report))
-    }
-
-    /// Returns a task to visit the station.
-    pub fn visit<'f>(
-        &'f self,
-        station: &'f mut StationMut<'_, E>,
-        train_report: &'f TrainReport<E>,
-    ) -> Result<StationFnReturn<'f, (), E>, BorrowFail> {
-        let visit_fn = &self.station_spec_fns.visit_fn;
-        visit_fn.f.try_call(station, train_report)
     }
 }
 

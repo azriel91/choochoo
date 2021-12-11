@@ -6,7 +6,7 @@ use choochoo_cfg_model::{
 };
 use choochoo_rt_model::Destination;
 
-/// Updates the [`VisitStatus`]es for all [`StationMut`]s.
+/// Updates the [`VisitStatus`]es for all [`StationMutRef`]s.
 ///
 /// The new visit status is calculated based on the station's visit result
 /// and its parents' [`VisitStatus`]es.
@@ -42,7 +42,7 @@ use choochoo_rt_model::Destination;
 /// No transitions.
 ///
 /// [`StationSpec::visit`]: crate::cfg_model::StationSpec::visit
-/// [`StationMut`]: crate::rt_model::StationMut
+/// [`StationMutRef`]: crate::rt_model::StationMutRef
 /// [`Train::reach`]: crate::Train::reach
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
@@ -54,7 +54,7 @@ impl<E> VisitStatusUpdater<E>
 where
     E: 'static,
 {
-    /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
+    /// Updates the [`VisitStatus`]es for all [`StationMutRef`]s.
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -64,7 +64,7 @@ where
     /// * `dest`: `Destination` with all the stations and their progress
     ///   information.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn update(dest: &Destination<E>) {
         let station_specs = dest.station_specs();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
@@ -87,7 +87,7 @@ where
         });
     }
 
-    /// Updates the [`VisitStatus`]es for children of the given [`StationMut`].
+    /// Updates the [`VisitStatus`]es for children of the given [`StationMutRef`].
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -99,7 +99,7 @@ where
     /// * `station_rt_id`: Runtime ID of the parent station, whose children to
     ///   update.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
         let station_specs = dest.station_specs();
 
@@ -123,7 +123,7 @@ where
     }
 
     /// Returns the [`VisitStatus`] to be transitioned to for a single
-    /// [`StationMut`], if any.
+    /// [`StationMutRef`], if any.
     ///
     /// # Parameters
     ///
@@ -132,7 +132,7 @@ where
     /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
     ///   compute.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,

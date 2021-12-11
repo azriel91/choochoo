@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMut},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -72,7 +72,7 @@ impl StationA {
     }
 
     fn check_fn<'f>(
-        _station: &'f mut StationMut<'_, DemoError>,
+        _station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
         local_file_length: &'f AppZipFileLength,
     ) -> StationFnReturn<'f, CheckStatus, DemoError> {
@@ -129,7 +129,7 @@ impl StationA {
     }
 
     fn visit_fn<'f>(
-        station: &'f mut StationMut<'_, DemoError>,
+        station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
     ) -> StationFnReturn<'f, (), DemoError> {
         station.progress.progress_bar().reset();

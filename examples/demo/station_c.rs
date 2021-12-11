@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use bytes::Bytes;
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMut, StationProgress},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef, StationProgress},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -56,7 +56,7 @@ impl StationC {
     }
 
     fn check_fn<'f>(
-        station: &'f mut StationMut<'_, DemoError>,
+        station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
     ) -> StationFnReturn<'f, CheckStatus, DemoError> {
         let client = reqwest::Client::new();
@@ -130,7 +130,7 @@ impl StationC {
     }
 
     fn visit_fn<'f>(
-        station: &'f mut StationMut<'_, DemoError>,
+        station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
     ) -> StationFnReturn<'f, (), DemoError> {
         let client = reqwest::Client::new();
