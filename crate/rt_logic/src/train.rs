@@ -135,6 +135,7 @@ where
                     // station's `visit_status` while the `visit()` is
                     // `await`ed.
                     station.progress.visit_status = VisitStatus::InProgress;
+                    station.progress.progress_style_update();
 
                     match Driver::ensure(&mut station, report).await {
                         Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {

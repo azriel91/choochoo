@@ -103,6 +103,24 @@ impl StationProgress {
                 .progress_chars(StationProgress::PROGRESS_CHARS),
         );
 
+        // Finish the progress bar if our progress is complete.
+        match self.visit_status {
+            VisitStatus::SetupQueued
+            | VisitStatus::SetupSuccess
+            | VisitStatus::ParentPending
+            | VisitStatus::VisitQueued
+            | VisitStatus::InProgress => {}
+            VisitStatus::SetupFail
+            | VisitStatus::ParentFail
+            | VisitStatus::CheckFail
+            | VisitStatus::VisitFail => {
+                self.progress_bar.abandon();
+            }
+            VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {
+                self.progress_bar.finish();
+            }
+        }
+
         // Redraw the progress bar
         self.progress_bar.tick();
     }
@@ -122,24 +140,34 @@ impl StationProgress {
             VisitStatus::VisitFail => ("❌", "visit fail"),
         };
 
-        let progress_bar = if progress_limit == ProgressLimit::Unknown {
-            console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").blue()
-        } else {
-            let progress_bar = match visit_status {
-                VisitStatus::SetupQueued => "{bar:40.blue.dim/blue}",
-                VisitStatus::SetupSuccess => "{bar:40.blue.dim/blue}",
-                VisitStatus::SetupFail => "{bar:40.black.bright/red}",
-                VisitStatus::ParentPending => "{bar:40.blue.dim/blue}",
-                VisitStatus::ParentFail => "{bar:40.red/red.dim}",
-                VisitStatus::VisitQueued => "{bar:40.blue.dim/blue}",
-                VisitStatus::CheckFail => "{bar:40.black.bright/red}",
-                VisitStatus::InProgress => "{bar:40.blue.dim/blue}",
-                VisitStatus::VisitUnnecessary => "{bar:40.green.dim/green}",
-                VisitStatus::VisitSuccess => "{bar:40.green/green}",
-                VisitStatus::VisitFail => "{bar:40.black.bright/red}",
-            };
-            // Hack to return the same type.
-            console::style(progress_bar)
+        let progress_bar = match visit_status {
+            VisitStatus::SetupQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .black()
+                .dim(),
+            VisitStatus::SetupSuccess => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .blue()
+                .dim(),
+            VisitStatus::SetupFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .magenta()
+                .dim(),
+            VisitStatus::ParentPending => {
+                console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                    .blue()
+                    .dim()
+            }
+            VisitStatus::ParentFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .black()
+                .dim(),
+            VisitStatus::VisitQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .blue()
+                .dim(),
+            VisitStatus::CheckFail => {
+                console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").red()
+            }
+            VisitStatus::InProgress => console::style("{bar:40.green.on_17}"),
+            VisitStatus::VisitUnnecessary => console::style("{bar:40.green.dim}"),
+            VisitStatus::VisitSuccess => console::style("{bar:40.green}"),
+            VisitStatus::VisitFail => console::style("{bar:40.red.dim}"),
         };
 
         let units = match progress_limit {
