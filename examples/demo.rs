@@ -1,6 +1,4 @@
-use choochoo::{
-    cfg_model::fn_graph::Edge, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
-};
+use choochoo::{cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination};
 use tokio::runtime;
 
 use crate::{
@@ -93,24 +91,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if args.dependency_mode == DependencyMode::Sequential {
                 dest_builder.add_edges([
-                    (station_a, station_b, Edge::Logic),
-                    (station_b, station_c, Edge::Logic),
-                    (station_c, station_d, Edge::Logic),
-                    (station_d, station_e, Edge::Logic),
-                    (station_e, station_f, Edge::Logic),
-                    (station_f, station_g, Edge::Logic),
-                    (station_g, station_h, Edge::Logic),
+                    (station_a, station_b),
+                    (station_b, station_c),
+                    (station_c, station_d),
+                    (station_d, station_e),
+                    (station_e, station_f),
+                    (station_f, station_g),
+                    (station_g, station_h),
                 ])?;
             } else {
                 dest_builder.add_edges([
-                    (station_a, station_b, Edge::Logic),
-                    (station_a, station_c, Edge::Logic),
-                    (station_b, station_e, Edge::Logic),
-                    (station_c, station_d, Edge::Logic),
-                    (station_d, station_e, Edge::Logic),
-                    (station_e, station_g, Edge::Logic),
-                    (station_f, station_g, Edge::Logic),
-                    (station_g, station_h, Edge::Logic),
+                    (station_a, station_b),
+                    (station_a, station_c),
+                    (station_b, station_e),
+                    (station_c, station_d),
+                    (station_d, station_e),
+                    (station_e, station_g),
+                    (station_f, station_g),
+                    (station_g, station_h),
                 ])?;
             }
 

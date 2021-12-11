@@ -1,12 +1,13 @@
 use std::borrow::Cow;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMut},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
     },
-    SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+    StationSpecFns,
 };
 use reqwest::{
     multipart::{Form, Part},
@@ -32,7 +33,8 @@ impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
-            StationSpecFns::new(Self::setup_fn(), Self::visit_fn()).with_check_fn(Self::check_fn());
+            StationSpecFns::new(Self::setup_fn(), StationFn::new(Self::visit_fn))
+                .with_check_fn(StationFn::new(Self::check_fn));
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
@@ -69,134 +71,134 @@ impl StationA {
         })
     }
 
-    fn check_fn() -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(|_station, train_report| {
-            let client = reqwest::Client::new();
-            Box::pin(async move {
-                let files = train_report.borrow::<FilesRw>();
-                let mut files = files.write().await;
+    fn check_fn<'f>(
+        _station: &'f mut StationMut<'_, DemoError>,
+        files: &'f FilesRw,
+        local_file_length: &'f AppZipFileLength,
+    ) -> StationFnReturn<'f, CheckStatus, DemoError> {
+        let client = reqwest::Client::new();
+        Box::pin(async move {
+            let mut files = files.write().await;
 
-                // TODO: Hash the file and compare with server file hash.
-                // Currently we only compare file size
-                let local_file_length = train_report.borrow::<AppZipFileLength>().0;
+            // TODO: Hash the file and compare with server file hash.
+            // Currently we only compare file size
+            let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
-                let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
+            let mut app_zip_url = address.to_string();
+            app_zip_url.push('/');
+            app_zip_url.push_str(APP_ZIP_NAME);
 
-                let mut app_zip_url = address.to_string();
-                app_zip_url.push('/');
-                app_zip_url.push_str(APP_ZIP_NAME);
+            let address_file_id = files.add("artifact_server_address", address);
 
-                let address_file_id = files.add("artifact_server_address", address);
+            let response = client.get(&app_zip_url).send().await.map_err(|error| {
+                let artifact_server_dir_file_id = files.add(
+                    APP_ZIP_ARTIFACT_SERVER_PATH,
+                    Cow::Borrowed(APP_ZIP_ARTIFACT_SERVER_PATH),
+                );
+                let address = files.source(address_file_id);
+                Self::connect_error(
+                    &SERVER_PARAMS_DEFAULT,
+                    artifact_server_dir_file_id,
+                    address,
+                    address_file_id,
+                    error,
+                )
+            })?;
 
-                let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                    let artifact_server_dir_file_id = files.add(
-                        APP_ZIP_ARTIFACT_SERVER_PATH,
-                        Cow::Borrowed(APP_ZIP_ARTIFACT_SERVER_PATH),
+            let status_code = response.status();
+            let check_status = if status_code.is_success() {
+                // We only care about the content length here, so we ignore the response
+                // body.
+                if let Some(remote_file_length) = response.content_length() {
+                    if local_file_length.0 == remote_file_length {
+                        CheckStatus::VisitNotRequired
+                    } else {
+                        CheckStatus::VisitRequired
+                    }
+                } else {
+                    // Not sure of file length, so we download it.
+                    CheckStatus::VisitRequired
+                }
+            } else {
+                // Failed to check. We don't report an error, but maybe we should.
+                CheckStatus::VisitRequired
+            };
+
+            Ok(check_status)
+        })
+    }
+
+    fn visit_fn<'f>(
+        station: &'f mut StationMut<'_, DemoError>,
+        files: &'f FilesRw,
+    ) -> StationFnReturn<'f, (), DemoError> {
+        station.progress.progress_bar().reset();
+        station.progress.tick();
+        Box::pin(async move {
+            let client = reqwest::Client::builder()
+                .redirect(Policy::none())
+                .build()
+                .map_err(|error| Self::client_build_error(error))?;
+
+            let mut files = files.write().await;
+
+            let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
+
+            let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
+            let address_file_id = files.add("artifact_server_address", address);
+            let address = files.source(address_file_id).clone();
+
+            let form = Form::new().part(
+                "files",
+                Part::stream(reqwest::Body::wrap_stream(app_zip_byte_stream))
+                    .file_name(APP_ZIP_NAME),
+            );
+            let response = client
+                .post(&*address)
+                .multipart(form)
+                .send()
+                .await
+                .map_err(|error| {
+                    let app_zip_dir_file_id = files.add(
+                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
+                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
                     );
-                    let address = files.source(address_file_id);
                     Self::connect_error(
                         &SERVER_PARAMS_DEFAULT,
-                        artifact_server_dir_file_id,
-                        address,
+                        app_zip_dir_file_id,
+                        &address,
                         address_file_id,
                         error,
                     )
                 })?;
 
-                let status_code = response.status();
-                let check_status = if status_code.is_success() {
-                    // We only care about the content length here, so we ignore the response body.
-                    if let Some(remote_file_length) = response.content_length() {
-                        if local_file_length == remote_file_length {
-                            CheckStatus::VisitNotRequired
-                        } else {
-                            CheckStatus::VisitRequired
-                        }
-                    } else {
-                        // Not sure of file length, so we download it.
-                        CheckStatus::VisitRequired
-                    }
+            let status_code = response.status();
+            if status_code.as_u16() == 302 {
+                Result::<(), DemoError>::Ok(())
+            } else {
+                let address_span = Span::from_str(&address);
+                let app_zip_path_file_id =
+                    files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+                let app_zip_path = files.source(app_zip_path_file_id);
+                let app_zip_path_span = Span::from_str(app_zip_path);
+                let server_message = if let Ok(server_message) = response.text().await {
+                    Some(server_message)
                 } else {
-                    // Failed to check. We don't report an error, but maybe we should.
-                    CheckStatus::VisitRequired
+                    // Failed to receive response text.
+                    // Ignore why the sub-operation failed, but still report the upload reject.
+                    None
                 };
 
-                Ok(check_status)
-            })
-        })
-    }
-
-    fn visit_fn() -> StationFn<(), DemoError> {
-        StationFn::new(|station, train_report| {
-            station.progress.progress_bar().reset();
-            station.progress.tick();
-            Box::pin(async move {
-                let client = reqwest::Client::builder()
-                    .redirect(Policy::none())
-                    .build()
-                    .map_err(|error| Self::client_build_error(error))?;
-
-                let files = train_report.borrow::<FilesRw>();
-                let mut files = files.write().await;
-
-                let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
-
-                let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
-                let address_file_id = files.add("artifact_server_address", address);
-                let address = files.source(address_file_id).clone();
-
-                let form = Form::new().part(
-                    "files",
-                    Part::stream(reqwest::Body::wrap_stream(app_zip_byte_stream))
-                        .file_name(APP_ZIP_NAME),
-                );
-                let response = client
-                    .post(&*address)
-                    .multipart(form)
-                    .send()
-                    .await
-                    .map_err(|error| {
-                        let app_zip_dir_file_id = files.add(
-                            APP_ZIP_BUILD_AGENT_PARENT_PATH,
-                            Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
-                        );
-                        Self::connect_error(
-                            &SERVER_PARAMS_DEFAULT,
-                            app_zip_dir_file_id,
-                            &address,
-                            address_file_id,
-                            error,
-                        )
-                    })?;
-
-                let status_code = response.status();
-                if status_code.as_u16() == 302 {
-                    Result::<(), DemoError>::Ok(())
-                } else {
-                    let address_span = Span::from_str(&address);
-                    let app_zip_path_file_id =
-                        files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
-                    let app_zip_path = files.source(app_zip_path_file_id);
-                    let app_zip_path_span = Span::from_str(app_zip_path);
-                    let server_message = if let Ok(server_message) = response.text().await {
-                        Some(server_message)
-                    } else {
-                        // Failed to receive response text.
-                        // Ignore why the sub-operation failed, but still report the upload reject.
-                        None
-                    };
-
-                    let code = ErrorCode::AppZipReject;
-                    let detail = ErrorDetail::AppZipReject {
-                        app_zip_path_file_id,
-                        app_zip_path_span,
-                        address_file_id,
-                        address_span,
-                        server_message,
-                    };
-                    Err(DemoError::new(code, detail, Severity::Error))
-                }
-            })
+                let code = ErrorCode::AppZipReject;
+                let detail = ErrorDetail::AppZipReject {
+                    app_zip_path_file_id,
+                    app_zip_path_span,
+                    address_file_id,
+                    address_span,
+                    server_message,
+                };
+                Err(DemoError::new(code, detail, Severity::Error))
+            }
         })
     }
 

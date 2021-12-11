@@ -49,8 +49,8 @@ where
     ///
     /// # Implementation Note
     ///
-    /// For some reason we need the first `Fn` bound for Rust to know that
-    /// `StationFnReturn` has a lifetime of `'f`.
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
     ///
     /// # Parameters
     ///
@@ -72,33 +72,266 @@ where
         }
     }
 
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new0<Fun>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, ()>
+            + StationFnMetadataExt<Fun, R, E, ()>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, ()>: FnMeta,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new1<Fun, A0>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0,)>
+            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0,)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (&'f A0,)>: FnMeta,
+        A0: 'static,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new2<Fun, A0, A1>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(&'f mut StationMut<'_, E>, &'f A0, &'f A1) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (&'f A0, &'f A1)>: FnMeta,
+        A0: 'static,
+        A1: 'static,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new3<Fun, A0, A1, A2>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(
+                &'f mut StationMut<'_, E>,
+                &'f A0,
+                &'f A1,
+                &'f A2,
+            ) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (&'f A0, &'f A1, &'f A2)>: FnMeta,
+        A0: 'static,
+        A1: 'static,
+        A2: 'static,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new4<Fun, A0, A1, A2, A3>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(
+                &'f mut StationMut<'_, E>,
+                &'f A0,
+                &'f A1,
+                &'f A2,
+                &'f A3,
+            ) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2, &'f A3)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (&'f A0, &'f A1, &'f A2, &'f A3)>:
+            FnMeta,
+        A0: 'static,
+        A1: 'static,
+        A2: 'static,
+        A3: 'static,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new5<Fun, A0, A1, A2, A3, A4>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(
+                &'f mut StationMut<'_, E>,
+                &'f A0,
+                &'f A1,
+                &'f A2,
+                &'f A3,
+                &'f A4,
+            ) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>
+            + 'static,
+        for<'f> FnMetadata<Fun, StationFnReturn<'f, R, E>, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>:
+            FnMeta,
+        A0: 'static,
+        A1: 'static,
+        A2: 'static,
+        A3: 'static,
+        A4: 'static,
+    {
+        Self::new(f)
+    }
+
+    /// Returns a new `StationFn`.
+    ///
+    /// This method allows you to construct a StationFn using a closure, as it
+    /// places an appropriate lifetime constraint on the closure.
+    ///
+    /// We need the first `Fn` bound for Rust to apply the appropriate lifetime
+    /// constraints to elided closure lifetimes.
+    ///
+    /// See:
+    ///
+    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
+    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
+    ///
+    /// # Parameters
+    ///
+    /// * `f`: Logic to run.
+    pub fn new6<Fun, A0, A1, A2, A3, A4, A5>(f: Fun) -> Self
+    where
+        Fun: for<'f> Fn(
+                &'f mut StationMut<'_, E>,
+                &'f A0,
+                &'f A1,
+                &'f A2,
+                &'f A3,
+                &'f A4,
+                &'f A5,
+            ) -> StationFnReturn<'f, R, E>
+            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<
+                Fun,
+                R,
+                E,
+                (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4, &'f A5),
+            > + 'static,
+        for<'f> FnMetadata<
+            Fun,
+            StationFnReturn<'f, R, E>,
+            (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4, &'f A5),
+        >: FnMeta,
+        A0: 'static,
+        A1: 'static,
+        A2: 'static,
+        A3: 'static,
+        A4: 'static,
+        A5: 'static,
+    {
+        Self::new(f)
+    }
+
     /// Returns a `StationFn` that always returns `Result::Ok`.
     #[cfg(feature = "mock")]
     pub fn ok(r: R) -> Self
     where
         R: Clone + 'static,
     {
-        StationFn::new(Self::constrain(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMut<'_, E>| {
             let r = r.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitSuccess;
                 Result::<R, E>::Ok(r)
             }
             .boxed_local()
-        }))
-    }
-
-    /// Constrain the closure lifetime.
-    ///
-    /// See:
-    ///
-    /// * <https://users.rust-lang.org/t/unhelpful-mismatched-types-error-message/48394>
-    /// * <https://github.com/pretzelhammer/rust-blog/blob/master/posts/common-rust-lifetime-misconceptions.md#10-closures-follow-the-same-lifetime-elision-rules-as-functions>
-    fn constrain<F>(f: F) -> F
-    where
-        F: for<'f> Fn(&'f mut StationMut<'_, E>) -> StationFnReturn<'f, R, E> + 'static,
-    {
-        f
+        })
     }
 
     /// Returns a `StationFn` that always returns `Result::Err`.
@@ -107,14 +340,14 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new(Self::constrain(move |station: &mut StationMut<'_, E>| {
+        StationFn::new0(move |station: &mut StationMut<'_, E>| {
             let e = e.clone();
             async move {
                 station.progress.visit_status = VisitStatus::VisitFail;
                 Result::<R, E>::Err(e)
             }
             .boxed_local()
-        }))
+        })
     }
 }
 
