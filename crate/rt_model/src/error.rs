@@ -4,7 +4,7 @@ use std::fmt;
 
 use tokio::task::JoinError;
 
-use choochoo_cfg_model::StationSpec;
+use choochoo_cfg_model::{rt::TrainReport, StationSpec};
 
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
 
@@ -22,7 +22,10 @@ pub enum Error<E> {
     ///
     /// Details of failures are recorded in the TrainReport instead of this
     /// variant.
-    StationSetup,
+    StationSetup {
+        /// The train report.
+        train_report: TrainReport<E>,
+    },
     /// Failed to queue a station for visiting.
     StationQueue {
         /// The specification of the station that failed to be queued.
@@ -46,7 +49,7 @@ where
                 write!(f, "Failed to join the multi-progress bar task.")
             }
             Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar."),
-            Self::StationSetup => write!(f, "Station setup failed"),
+            Self::StationSetup { .. } => write!(f, "Station setup failed"),
             Self::StationQueue { station_spec } => write!(
                 f,
                 "Failed to queue station: `{id}: {name}`",
@@ -71,7 +74,7 @@ where
         match self {
             Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
-            Self::StationSetup => None,
+            Self::StationSetup { .. } => None,
             Self::StationQueue { .. } => None,
             Self::StationVisitNotify { .. } => None,
         }

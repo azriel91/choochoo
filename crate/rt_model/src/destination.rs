@@ -83,6 +83,57 @@ where
             })
     }
 
+    /// Returns an iterator over the [`Station`]s in this destination in
+    /// dependency order.
+    ///
+    /// This uses runtime borrowing ([`RtMap::try_borrow`]) to retrieve the
+    /// station progress, so if a station's progress is already accessed
+    /// mutably, then it will not be returned by the iterator.
+    ///
+    /// [`RtMap::try_borrow`]: rt_map::RtMap::try_borrow
+    pub fn stations_iter(&self) -> impl Iterator<Item = Station<'_, E>> + '_ {
+        self.station_specs.iter().filter_map(move |station_spec| {
+            self.station_id_to_rt_id
+                .get(station_spec.id())
+                .and_then(|station_rt_id| {
+                    self.station_progresses
+                        .try_borrow(station_rt_id)
+                        .map(|station_progress| (*station_rt_id, station_progress))
+                        .ok()
+                })
+                .map(|(station_rt_id, station_progress)| Station {
+                    spec: station_spec,
+                    rt_id: station_rt_id,
+                    progress: station_progress,
+                })
+        })
+    }
+
+    /// Returns an iterator over the [`StationMut`]s in this destination.
+    ///
+    /// This uses runtime borrowing ([`RtMap::try_borrow_mut`]) to retrieve the
+    /// station progress, so if a station's progress is already accessed, then
+    /// it will not be returned by the iterator.
+    ///
+    /// [`RtMap::try_borrow_mut`]: rt_map::RtMap::try_borrow_mut
+    pub fn stations_mut_iter(&self) -> impl Iterator<Item = StationMut<'_, E>> + '_ {
+        self.station_specs.iter().filter_map(move |station_spec| {
+            self.station_id_to_rt_id
+                .get(station_spec.id())
+                .and_then(|station_rt_id| {
+                    self.station_progresses
+                        .try_borrow_mut(station_rt_id)
+                        .map(|station_progress| (*station_rt_id, station_progress))
+                        .ok()
+                })
+                .map(|(station_rt_id, station_progress)| StationMut {
+                    spec: station_spec,
+                    rt_id: station_rt_id,
+                    progress: station_progress,
+                })
+        })
+    }
+
     /// Returns a reference to the [`StationSpecs`] for this destination.
     pub fn station_specs(&self) -> &StationSpecs<E> {
         &self.station_specs

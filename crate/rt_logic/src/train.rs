@@ -7,6 +7,7 @@ use choochoo_cfg_model::{
 use choochoo_rt_model::{
     error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
 };
+use futures::stream::{self, TryStreamExt};
 use tokio::task::JoinHandle;
 
 use crate::{strategy::IntegrityStrat, Driver, VisitStatusUpdater};
@@ -24,7 +25,15 @@ where
         let progress_fut = Self::progress_tracker_init(dest);
 
         let mut train_report = TrainReport::new();
-        train_report = Self::stations_setup(dest, train_report).await?;
+        train_report = Self::stations_setup(dest, train_report)
+            .await
+            .or_else(|error| {
+                if let Error::StationSetup { train_report } = error {
+                    Ok(train_report)
+                } else {
+                    Err(error)
+                }
+            })?;
 
         if train_report.station_errors().read().await.is_empty() {
             train_report = Self::stations_visit(dest, train_report).await?;
@@ -79,23 +88,26 @@ where
         dest: &mut Destination<E>,
         train_report: TrainReport<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
-        IntegrityStrat::iter_sequential(dest, train_report, |station, train_report| {
-            Box::pin(async move {
-                let setup_result = station.spec.setup(station, train_report).await;
+        stream::iter(dest.stations_mut_iter().map(Result::<_, Error<E>>::Ok))
+            .try_fold(train_report, |mut train_report, mut station| async move {
+                let setup_result = station.spec.setup(&mut station, &mut train_report).await;
 
                 match setup_result {
                     Ok(progress_limit) => {
                         station.progress.visit_status = VisitStatus::SetupSuccess;
                         station.progress.progress_limit_set(progress_limit);
+                        station.progress.progress_style_update();
+                        Ok(train_report)
                     }
                     Err(station_error) => {
                         station.progress.visit_status = VisitStatus::SetupFail;
-                        Self::station_error_insert(train_report, station, station_error).await;
+                        Self::station_error_insert(&train_report, &station, station_error).await;
+                        station.progress.progress_style_update();
+                        Err(Error::StationSetup { train_report })
                     }
                 }
             })
-        })
-        .await
+            .await
     }
 
     async fn stations_visit(
