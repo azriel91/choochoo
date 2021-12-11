@@ -1,3 +1,5 @@
+use resman::BorrowFail;
+
 use crate::{
     rt::{StationMut, TrainReport},
     StationFnRes, StationFnResource, StationFnReturn,

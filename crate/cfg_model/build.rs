@@ -57,6 +57,7 @@ mod common {
         pub arg_refs_lifetime_csv: &'s str,
         pub arg_bounds_list: &'s str,
         pub resource_arg_borrows: &'s str,
+        pub resource_arg_try_borrows: &'s str,
         pub resource_arg_vars: &'s str,
     }
 
@@ -145,6 +146,7 @@ mod common {
             // let mut a1 = train_report.borrow_mut::<A1>();
             // ..
             let resource_arg_borrows = resource_arg_borrows(arg_refs);
+            let resource_arg_try_borrows = resource_arg_try_borrows(arg_refs);
 
             // &*a0, &mut *a1
             let resource_arg_vars = resource_arg_vars::<N>(arg_refs);
@@ -154,6 +156,7 @@ mod common {
             let arg_refs_lifetime_csv = arg_refs_lifetime_csv.as_str();
             let arg_bounds_list = arg_bounds_list.as_str();
             let resource_arg_borrows = resource_arg_borrows.as_str();
+            let resource_arg_try_borrows = resource_arg_try_borrows.as_str();
             let resource_arg_vars = resource_arg_vars.as_str();
 
             let arg_exprs = ArgExprs {
@@ -162,6 +165,7 @@ mod common {
                 arg_refs_lifetime_csv,
                 arg_bounds_list,
                 resource_arg_borrows,
+                resource_arg_try_borrows,
                 resource_arg_vars,
             };
 
@@ -206,6 +210,26 @@ mod common {
             })
             .expect("Failed to append to `resource_arg_borrows` string.");
         resource_arg_borrows
+    }
+
+    fn resource_arg_try_borrows<const N: usize>(arg_refs: [Ref; N]) -> String {
+        let mut resource_arg_try_borrows = String::with_capacity(N * 44);
+        let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
+        arg_refs_iter
+            .try_for_each(|(index, arg_ref)| match arg_ref {
+                Ref::Immutable => writeln!(
+                    &mut resource_arg_try_borrows,
+                    "let a{index} = train_report.try_borrow::<A{index}>()?;",
+                    index = index
+                ),
+                Ref::Mutable => writeln!(
+                    &mut resource_arg_try_borrows,
+                    "let mut a{index} = train_report.try_borrow_mut::<A{index}>()?;",
+                    index = index
+                ),
+            })
+            .expect("Failed to append to `resource_arg_try_borrows` string.");
+        resource_arg_try_borrows
     }
 
     fn arg_refs_combinations<const N: usize>() -> impl Iterator<Item = [Ref; N]> {
@@ -364,8 +388,20 @@ where
     Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
     {arg_bounds_list}
 {{
-    fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
+    fn call<'f1: 'f2, 'f2>(
+            &'f2 self,
+            station: &'f1 mut StationMut<'_, E>,
+            train_report: &'f2 TrainReport<E>)
+    -> StationFnReturn<'f2, R, E> {{
         Self::call(self, station, train_report)
+    }}
+
+    fn try_call<'f1: 'f2, 'f2>(
+            &'f2 self,
+            station: &'f1 mut StationMut<'_, E>,
+            train_report: &'f2 TrainReport<E>)
+    -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {{
+        Self::try_call(self, station, train_report)
     }}
 }}
 "#,
@@ -396,6 +432,7 @@ mod station_fn_resource {
             arg_refs_lifetime_csv,
             arg_bounds_list,
             resource_arg_borrows,
+            resource_arg_try_borrows,
             resource_arg_vars,
         } = arg_exprs;
 
@@ -407,12 +444,27 @@ where
     Fun: for<'f> Fn(&'f mut StationMut<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
     {arg_bounds_list}
 {{
-    pub fn call<'f1: 'f2, 'f2>(&'f2 self, station: &'f1 mut StationMut<'_, E>, train_report: &'f2 TrainReport<E>) -> StationFnReturn<'f2, R, E> {{
+    pub fn call<'f1: 'f2, 'f2>(
+            &'f2 self,
+            station: &'f1 mut StationMut<'_, E>,
+            train_report: &'f2 TrainReport<E>)
+    -> StationFnReturn<'f2, R, E> {{
         Box::pin(async move {{
             {resource_arg_borrows}
 
             (self.func)(station, {resource_arg_vars}).await
         }})
+    }}
+
+    pub fn try_call<'f1: 'f2, 'f2>(
+            &'f2 self,
+            station: &'f1 mut StationMut<'_, E>,
+            train_report: &'f2 TrainReport<E>)
+    -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {{
+        {resource_arg_try_borrows}
+        Ok(Box::pin(async move {{
+            (self.func)(station, {resource_arg_vars}).await
+        }}))
     }}
 }}
 "#,
@@ -421,6 +473,7 @@ where
             arg_refs_lifetime_csv = arg_refs_lifetime_csv,
             arg_bounds_list = arg_bounds_list,
             resource_arg_borrows = resource_arg_borrows,
+            resource_arg_try_borrows = resource_arg_try_borrows,
             resource_arg_vars = resource_arg_vars,
         )
         .expect("Failed to write to station_fn_resource.rs");

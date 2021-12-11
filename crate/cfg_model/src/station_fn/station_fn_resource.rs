@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use resman::BorrowFail;
+
 use crate::{
     rt::{StationMut, TrainReport},
     StationFnRes, StationFnReturn,
@@ -33,6 +35,14 @@ where
         _train_report: &'f2 TrainReport<E>,
     ) -> StationFnReturn<'f2, R, E> {
         (self.func)(station)
+    }
+
+    fn try_call<'f1: 'f2, 'f2>(
+        &'f2 self,
+        station: &'f1 mut StationMut<'_, E>,
+        _train_report: &'f2 TrainReport<E>,
+    ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {
+        Ok((self.func)(station))
     }
 }
 

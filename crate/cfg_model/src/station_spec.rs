@@ -1,6 +1,7 @@
 use std::{convert::TryFrom, fmt};
 
 use fn_graph::{FnMeta, TypeIds};
+use resman::BorrowFail;
 
 use crate::{
     rt::{CheckStatus, StationMut, TrainReport},
@@ -119,11 +120,11 @@ where
         &'f self,
         station: &'f mut StationMut<'_, E>,
         train_report: &'f TrainReport<E>,
-    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
+    ) -> Option<Result<StationFnReturn<'f, CheckStatus, E>, BorrowFail>> {
         self.station_spec_fns
             .check_fn
             .as_ref()
-            .map(move |check_fn| check_fn.f.call(station, train_report))
+            .map(move |check_fn| check_fn.f.try_call(station, train_report))
     }
 
     /// Returns a task to visit the station.
@@ -131,9 +132,9 @@ where
         &'f self,
         station: &'f mut StationMut<'_, E>,
         train_report: &'f TrainReport<E>,
-    ) -> StationFnReturn<'f, (), E> {
+    ) -> Result<StationFnReturn<'f, (), E>, BorrowFail> {
         let visit_fn = &self.station_spec_fns.visit_fn;
-        visit_fn.f.call(station, train_report)
+        visit_fn.f.try_call(station, train_report)
     }
 }
 

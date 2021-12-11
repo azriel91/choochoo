@@ -1,3 +1,5 @@
+use choochoo_cfg_model::resman::BorrowFail;
+
 use crate::error::StationSpecError;
 
 /// Ensure outcome is `Ok`.
@@ -19,8 +21,18 @@ pub enum EnsureOutcomeOk {
 /// Ensure outcome is an error.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EnsureOutcomeErr<E> {
+    /// Failed to borrow resources for the check function.
+    ///
+    /// Usually this implies the resource was not inserted in the setup
+    /// function.
+    CheckBorrowFail(BorrowFail),
     /// The station's check function failed.
     CheckFail(E),
+    /// Failed to borrow resources for the check function.
+    ///
+    /// Usually this implies the resource was not inserted in the setup
+    /// function, or a previous station did not correctly insert a resource.
+    VisitBorrowFail(BorrowFail),
     /// The station's visit function failed.
     VisitFail(E),
 }

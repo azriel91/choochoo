@@ -124,10 +124,20 @@ where
                     Ok(EnsureOutcomeOk::Unchanged) => {
                         station.progress.visit_status = VisitStatus::VisitUnnecessary;
                     }
+                    Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
+                        station.progress.visit_status = VisitStatus::CheckFail;
+
+                        // TODO: insert borrow fail error somewhere
+                    }
                     Err(EnsureOutcomeErr::CheckFail(station_error)) => {
                         station.progress.visit_status = VisitStatus::CheckFail;
 
                         Self::station_error_insert(train_report, station, station_error).await;
+                    }
+                    Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
+                        station.progress.visit_status = VisitStatus::VisitFail;
+
+                        // TODO: insert borrow fail error somewhere
                     }
                     Err(EnsureOutcomeErr::VisitFail(station_error)) => {
                         station.progress.visit_status = VisitStatus::VisitFail;

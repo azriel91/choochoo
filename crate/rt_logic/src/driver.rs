@@ -41,7 +41,11 @@ where
         E: From<StationSpecError>,
     {
         let visit_required = if let Some(check_status) = station.spec.check(station, train_report) {
-            check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
+            check_status
+                .map_err(EnsureOutcomeErr::CheckBorrowFail)?
+                .await
+                .map_err(EnsureOutcomeErr::CheckFail)?
+                == CheckStatus::VisitRequired
         } else {
             // if there is no check function, always visit the station.
             true
@@ -51,6 +55,7 @@ where
             station
                 .spec
                 .visit(station, train_report)
+                .map_err(EnsureOutcomeErr::VisitBorrowFail)?
                 .await
                 .map_err(EnsureOutcomeErr::VisitFail)?;
 
@@ -59,7 +64,12 @@ where
             // function needs to be corrected.
             let check_status = if let Some(check_status) = station.spec.check(station, train_report)
             {
-                Some(check_status.await.map_err(EnsureOutcomeErr::CheckFail)?)
+                Some(
+                    check_status
+                        .map_err(EnsureOutcomeErr::CheckBorrowFail)?
+                        .await
+                        .map_err(EnsureOutcomeErr::CheckFail)?,
+                )
             } else {
                 None
             };
