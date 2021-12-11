@@ -51,7 +51,6 @@ where
     /// Initializes the progress tracker.
     fn progress_tracker_init(dest: &Destination<E>) -> JoinHandle<std::io::Result<()>> {
         let multi_progress = MultiProgress::new();
-        multi_progress.set_draw_target(choochoo_cfg_model::indicatif::ProgressDrawTarget::hidden());
         dest.station_specs()
             .graph()
             .node_indices()
@@ -127,67 +126,57 @@ where
 
         let report = &train_report;
         dest.stations_mut_stream()
-            .for_each_concurrent(4, |mut station| {
-                if let Some(visit_status) =
-                    VisitStatusUpdater::visit_status_next(dest, station.rt_id)
+            .map(|mut station| async move {
+                station.progress.progress_style_update();
+                if station.progress.visit_status == VisitStatus::VisitQueued
+                    || station.progress.visit_status == VisitStatus::SetupSuccess
                 {
-                    station.progress.visit_status = dbg!(visit_status);
-                    station.progress.progress_style_update();
-                }
+                    // Because this is in an async block, concurrent tasks may access this
+                    // station's `visit_status` while the `visit()` is
+                    // `await`ed.
+                    station.progress.visit_status = VisitStatus::InProgress;
 
-                async move {
-                    if dbg!(station.progress.visit_status) == VisitStatus::VisitQueued
-                        || station.progress.visit_status == VisitStatus::SetupSuccess
-                    {
-                        // Because this is in an async block, concurrent tasks may access this
-                        // station's `visit_status` while the `visit()` is
-                        // `await`ed.
-                        station.progress.visit_status = VisitStatus::InProgress;
-                        station.progress.progress_style_update();
+                    match Driver::ensure(&mut station, report).await {
+                        Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
+                            station.progress.visit_status = VisitStatus::VisitSuccess;
 
-                        match Driver::ensure(&mut station, report).await {
-                            Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
-                                station.progress.visit_status = VisitStatus::VisitSuccess;
-
-                                if let Some(station_spec_error) = station_spec_error {
-                                    let station_error = E::from(station_spec_error);
-
-                                    Self::station_error_insert(
-                                        report,
-                                        station.rt_id,
-                                        station_error,
-                                    )
-                                    .await;
-                                }
-                            }
-                            Ok(EnsureOutcomeOk::Unchanged) => {
-                                station.progress.visit_status = VisitStatus::VisitUnnecessary;
-                            }
-                            Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
-                                station.progress.visit_status = VisitStatus::CheckFail;
-
-                                // TODO: insert borrow fail error somewhere
-                            }
-                            Err(EnsureOutcomeErr::CheckFail(station_error)) => {
-                                station.progress.visit_status = VisitStatus::CheckFail;
-
-                                Self::station_error_insert(report, station.rt_id, station_error)
-                                    .await;
-                            }
-                            Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
-                                station.progress.visit_status = VisitStatus::VisitFail;
-
-                                // TODO: insert borrow fail error somewhere
-                            }
-                            Err(EnsureOutcomeErr::VisitFail(station_error)) => {
-                                station.progress.visit_status = VisitStatus::VisitFail;
+                            if let Some(station_spec_error) = station_spec_error {
+                                let station_error = E::from(station_spec_error);
 
                                 Self::station_error_insert(report, station.rt_id, station_error)
                                     .await;
                             }
                         }
+                        Ok(EnsureOutcomeOk::Unchanged) => {
+                            station.progress.visit_status = VisitStatus::VisitUnnecessary;
+                        }
+                        Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
+                            station.progress.visit_status = VisitStatus::CheckFail;
+
+                            // TODO: insert borrow fail error somewhere
+                        }
+                        Err(EnsureOutcomeErr::CheckFail(station_error)) => {
+                            station.progress.visit_status = VisitStatus::CheckFail;
+
+                            Self::station_error_insert(report, station.rt_id, station_error).await;
+                        }
+                        Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
+                            station.progress.visit_status = VisitStatus::VisitFail;
+
+                            // TODO: insert borrow fail error somewhere
+                        }
+                        Err(EnsureOutcomeErr::VisitFail(station_error)) => {
+                            station.progress.visit_status = VisitStatus::VisitFail;
+
+                            Self::station_error_insert(report, station.rt_id, station_error).await;
+                        }
                     }
                 }
+                station.progress.progress_style_update();
+                station.rt_id
+            })
+            .for_each_concurrent(4, |station_rt_id| async {
+                VisitStatusUpdater::update_children(dest, station_rt_id.await);
             })
             .await;
 

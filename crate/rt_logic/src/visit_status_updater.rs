@@ -87,7 +87,8 @@ where
         });
     }
 
-    /// Updates the [`VisitStatus`]es for children of the given [`StationMutRef`].
+    /// Updates the [`VisitStatus`]es for children of the given
+    /// [`StationMutRef`].
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.

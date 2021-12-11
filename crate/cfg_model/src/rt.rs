@@ -3,8 +3,8 @@
 pub use self::{
     check_status::CheckStatus, files::Files, files_rw::FilesRw, progress_limit::ProgressLimit,
     station::Station, station_errors::StationErrors, station_mut::StationMut,
-    station_mut_ref::StationMutRef, station_progress::StationProgress,
-    station_rt_id::StationRtId, train_report::TrainReport, visit_status::VisitStatus,
+    station_mut_ref::StationMutRef, station_progress::StationProgress, station_rt_id::StationRtId,
+    train_report::TrainReport, visit_status::VisitStatus,
 };
 
 mod check_status;
