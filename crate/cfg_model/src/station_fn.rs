@@ -7,7 +7,7 @@ use fn_graph::{FnMeta, FnMetadata, TypeIds};
 use futures::future::FutureExt;
 
 #[cfg(feature = "mock")]
-use crate::rt::{StationMutRef, VisitStatus};
+use crate::rt::StationMutRef;
 use crate::StationFnMetadataExt;
 
 pub use self::{
@@ -324,13 +324,9 @@ where
     where
         R: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMutRef<'_, E>| {
+        StationFn::new0(move |_: &mut StationMutRef<'_, E>| {
             let r = r.clone();
-            async move {
-                station.progress.visit_status = VisitStatus::VisitSuccess;
-                Result::<R, E>::Ok(r)
-            }
-            .boxed_local()
+            async move { Result::<R, E>::Ok(r) }.boxed_local()
         })
     }
 
@@ -340,13 +336,9 @@ where
     where
         E: Clone + 'static,
     {
-        StationFn::new0(move |station: &mut StationMutRef<'_, E>| {
+        StationFn::new0(move |_: &mut StationMutRef<'_, E>| {
             let e = e.clone();
-            async move {
-                station.progress.visit_status = VisitStatus::VisitFail;
-                Result::<R, E>::Err(e)
-            }
-            .boxed_local()
+            async move { Result::<R, E>::Err(e) }.boxed_local()
         })
     }
 }

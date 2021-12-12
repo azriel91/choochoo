@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 fn main() {
     use std::{env, fs, io::Write, path::Path};
 
