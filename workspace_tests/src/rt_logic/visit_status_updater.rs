@@ -1,4 +1,4 @@
-use choochoo_cfg_model::{rt::VisitStatus, StationSpec, Workload};
+use choochoo_cfg_model::{rt::VisitStatus, StationSpec};
 use choochoo_rt_logic::VisitStatusUpdater;
 use choochoo_rt_model::Destination;
 
@@ -12,20 +12,26 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     //
     // e --> f
     let mut dest_builder = Destination::<()>::builder();
-    let [station_a, station_b, station_c, station_d, station_e, station_f] = dest_builder
-        .add_stations([
-            StationSpec::mock("a")?.build(),
-            StationSpec::mock("b")?.build(),
-            StationSpec::mock("c")?.build(), // Should become `VisitQueued`
-            StationSpec::mock("d")?.build(), // Should become `VisitQueued`
-            StationSpec::mock("e")?.build(),
-            StationSpec::mock("f")?.build(), // Should become `ParentFail`
-        ]);
+    let [
+        station_a,
+        station_b,
+        station_c,
+        station_d,
+        station_e,
+        station_f,
+    ] = dest_builder.add_stations([
+        StationSpec::mock("a")?.build(),
+        StationSpec::mock("b")?.build(),
+        StationSpec::mock("c")?.build(), // Should become `VisitQueued`
+        StationSpec::mock("d")?.build(), // Should become `VisitQueued`
+        StationSpec::mock("e")?.build(),
+        StationSpec::mock("f")?.build(), // Should become `ParentFail`
+    ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-        (station_b, station_d, Workload::default()),
-        (station_e, station_f, Workload::default()),
+        (station_a, station_c),
+        (station_b, station_c),
+        (station_b, station_d),
+        (station_e, station_f),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -70,10 +76,10 @@ fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error:
         StationSpec::mock("e")?.build(),
     ]);
     dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-        (station_c, station_d, Workload::default()),
-        (station_d, station_e, Workload::default()),
+        (station_a, station_c),
+        (station_b, station_c),
+        (station_c, station_d),
+        (station_d, station_e),
     ])?;
     let mut dest = dest_builder.build();
     {
@@ -128,10 +134,7 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success()
         StationSpec::mock("b")?.build(),
         StationSpec::mock("c")?.build(),
     ]);
-    dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-    ])?;
+    dest_builder.add_edges([(station_a, station_c), (station_b, station_c)])?;
     let mut dest = dest_builder.build();
     {
         let station_progresses = dest.station_progresses_mut();
@@ -158,10 +161,7 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success_or_unne
         StationSpec::mock("b")?.build(),
         StationSpec::mock("c")?.build(),
     ]);
-    dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-    ])?;
+    dest_builder.add_edges([(station_a, station_c), (station_b, station_c)])?;
     let mut dest = dest_builder.build();
     {
         let station_progresses = dest.station_progresses_mut();
@@ -188,10 +188,7 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_visit_fail()
         StationSpec::mock("b")?.build(),
         StationSpec::mock("c")?.build(),
     ]);
-    dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-    ])?;
+    dest_builder.add_edges([(station_a, station_c), (station_b, station_c)])?;
     let mut dest = dest_builder.build();
     {
         let station_progresses = dest.station_progresses_mut();
@@ -215,10 +212,7 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_parent_fail()
         StationSpec::mock("b")?.build(),
         StationSpec::mock("c")?.build(),
     ]);
-    dest_builder.add_edges([
-        (station_a, station_c, Workload::default()),
-        (station_b, station_c, Workload::default()),
-    ])?;
+    dest_builder.add_edges([(station_a, station_c), (station_b, station_c)])?;
     let mut dest = dest_builder.build();
     {
         let station_progresses = dest.station_progresses_mut();
@@ -248,10 +242,7 @@ fn no_change_to_parent_pending_when_any_parents_on_other_status()
             StationSpec::mock("b")?.build(),
             StationSpec::mock("c")?.build(),
         ]);
-        dest_builder.add_edges([
-            (station_a, station_c, Workload::default()),
-            (station_b, station_c, Workload::default()),
-        ])?;
+        dest_builder.add_edges([(station_a, station_c), (station_b, station_c)])?;
         let mut dest = dest_builder.build();
         {
             let station_progresses = dest.station_progresses_mut();
@@ -290,4 +281,58 @@ fn no_change_to_parent_fail_visit_success_or_visit_fail() -> Result<(), Box<dyn 
 
         Ok(())
     })
+}
+
+#[test]
+fn no_change_to_setup_queued_when_parents_on_setup_queued_or_setup_success()
+-> Result<(), Box<dyn std::error::Error>> {
+    IntoIterator::into_iter([VisitStatus::SetupQueued, VisitStatus::SetupSuccess]).try_for_each(
+        |visit_status_parent| {
+            let mut dest_builder = Destination::<()>::builder();
+            let [station_a, station_b] = dest_builder.add_stations([
+                StationSpec::mock("a")?.build(),
+                StationSpec::mock("b")?.build(),
+            ]);
+            dest_builder.add_edge(station_a, station_b)?;
+            let mut dest = dest_builder.build();
+            {
+                let station_progresses = dest.station_progresses_mut();
+                station_progresses[&station_a].borrow_mut().visit_status = visit_status_parent;
+                station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::SetupQueued;
+            }
+
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_b);
+
+            assert_eq!(None, visit_status_next);
+
+            Ok(())
+        },
+    )
+}
+
+#[test]
+fn updates_setup_queued_to_parent_fail_when_parents_on_setup_fail_or_parent_fail()
+-> Result<(), Box<dyn std::error::Error>> {
+    IntoIterator::into_iter([VisitStatus::SetupFail, VisitStatus::ParentFail]).try_for_each(
+        |visit_status_parent| {
+            let mut dest_builder = Destination::<()>::builder();
+            let [station_a, station_b] = dest_builder.add_stations([
+                StationSpec::mock("a")?.build(),
+                StationSpec::mock("b")?.build(),
+            ]);
+            dest_builder.add_edge(station_a, station_b)?;
+            let mut dest = dest_builder.build();
+            {
+                let station_progresses = dest.station_progresses_mut();
+                station_progresses[&station_a].borrow_mut().visit_status = visit_status_parent;
+                station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::SetupQueued;
+            }
+
+            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_b);
+
+            assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
+
+            Ok(())
+        },
+    )
 }

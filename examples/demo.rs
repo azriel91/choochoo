@@ -1,6 +1,4 @@
-use choochoo::{
-    cfg_model::Workload, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
-};
+use choochoo::{cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination};
 use tokio::runtime;
 
 use crate::{
@@ -71,7 +69,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut dest_builder = Destination::builder();
 
-            // Formatting pending <https://github.com/rust-lang/rustfmt/issues/4530>
             let [
                 station_a,
                 station_b,
@@ -80,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 station_e,
                 station_f,
                 station_g,
-                station_h
+                station_h,
             ] = dest_builder.add_stations([
                 StationA::build()?,
                 StationB::build()?,
@@ -94,24 +91,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if args.dependency_mode == DependencyMode::Sequential {
                 dest_builder.add_edges([
-                    (station_a, station_b, Workload::default()),
-                    (station_b, station_c, Workload::default()),
-                    (station_c, station_d, Workload::default()),
-                    (station_d, station_e, Workload::default()),
-                    (station_e, station_f, Workload::default()),
-                    (station_f, station_g, Workload::default()),
-                    (station_g, station_h, Workload::default()),
+                    (station_a, station_b),
+                    (station_b, station_c),
+                    (station_c, station_d),
+                    (station_d, station_e),
+                    (station_e, station_f),
+                    (station_f, station_g),
+                    (station_g, station_h),
                 ])?;
             } else {
                 dest_builder.add_edges([
-                    (station_a, station_b, Workload::default()),
-                    (station_a, station_c, Workload::default()),
-                    (station_b, station_e, Workload::default()),
-                    (station_c, station_d, Workload::default()),
-                    (station_d, station_e, Workload::default()),
-                    (station_e, station_g, Workload::default()),
-                    (station_f, station_g, Workload::default()),
-                    (station_g, station_h, Workload::default()),
+                    (station_a, station_b),
+                    (station_a, station_c),
+                    (station_b, station_e),
+                    (station_c, station_d),
+                    (station_d, station_e),
+                    (station_e, station_g),
+                    (station_f, station_g),
+                    (station_g, station_h),
                 ])?;
             }
 

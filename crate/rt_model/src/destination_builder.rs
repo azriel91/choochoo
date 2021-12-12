@@ -1,22 +1,24 @@
-use std::{collections::HashMap, mem::MaybeUninit};
+use std::collections::HashMap;
 
 use choochoo_cfg_model::{
-    daggy::{EdgeIndex, WouldCycle},
+    daggy::WouldCycle,
+    fn_graph::{Edge, EdgeId, FnGraphBuilder},
     rt::{ProgressLimit, StationProgress, StationRtId},
-    StationSpec, StationSpecs, Workload,
+    StationSpec, StationSpecs,
 };
 
 use crate::{Destination, StationProgresses};
 
 #[derive(Debug)]
 pub struct DestinationBuilder<E> {
-    /// The stations along the way to the destination.
-    station_specs: StationSpecs<E>,
-    /// Progress information for each `Station`.
-    station_progresses: StationProgresses,
+    /// Builder for the stations along the way to the destination.
+    fn_graph_builder: FnGraphBuilder<StationSpec<E>>,
 }
 
-impl<E> DestinationBuilder<E> {
+impl<E> DestinationBuilder<E>
+where
+    E: 'static,
+{
     /// Returns a new `DestinationBuilder`.
     pub fn new() -> Self {
         Self::default()
@@ -29,12 +31,7 @@ impl<E> DestinationBuilder<E> {
     ///
     /// [`add_edge`]: Self::add_edge
     pub fn add_station(&mut self, station_spec: StationSpec<E>) -> StationRtId {
-        let station_progress = StationProgress::new(&station_spec, ProgressLimit::Unknown);
-        let station_rt_id = self.station_specs.add_node(station_spec);
-        self.station_progresses
-            .insert(station_rt_id, station_progress);
-
-        station_rt_id
+        self.fn_graph_builder.add_fn(station_spec)
     }
 
     /// Adds multiple stations to this destination.
@@ -48,44 +45,7 @@ impl<E> DestinationBuilder<E> {
         &mut self,
         station_specs: [StationSpec<E>; N],
     ) -> [StationRtId; N] {
-        // Create an uninitialized array of `MaybeUninit`. The `assume_init` is safe
-        // because the type we are claiming to have initialized here is a bunch of
-        // `MaybeUninit`s, which do not require initialization.
-        //
-        // https://doc.rust-lang.org/stable/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
-        //
-        // Switch this to `MaybeUninit::uninit_array` once it is stable.
-        let mut station_rt_ids: [MaybeUninit<StationRtId>; N] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        IntoIterator::into_iter(station_specs)
-            .map(|station_spec| self.add_station(station_spec))
-            .zip(station_rt_ids.iter_mut())
-            .for_each(|(station_rt_id, station_rt_id_mem)| {
-                station_rt_id_mem.write(station_rt_id);
-            });
-
-        // Everything is initialized. Transmute the array to the initialized type.
-        // Unfortunately we cannot use this, see the following issues:
-        //
-        // * <https://github.com/rust-lang/rust/issues/61956>
-        // * <https://github.com/rust-lang/rust/issues/80908>
-        //
-        // let station_rt_ids = unsafe { mem::transmute::<_, [StationRtId;
-        // N]>(station_rt_ids) };
-
-        #[allow(clippy::let_and_return)] // for clarity with `unsafe`
-        let station_rt_ids = {
-            let ptr = &mut station_rt_ids as *mut _ as *mut [StationRtId; N];
-            let array = unsafe { ptr.read() };
-
-            // We don't have to `mem::forget` the original because `StationRtId` is `Copy`.
-            // mem::forget(station_rt_ids);
-
-            array
-        };
-
-        station_rt_ids
+        self.fn_graph_builder.add_fns(station_specs)
     }
 
     /// Adds an edge from one station to another.
@@ -100,74 +60,43 @@ impl<E> DestinationBuilder<E> {
         &mut self,
         station_from: StationRtId,
         station_to: StationRtId,
-        edge: Workload,
-    ) -> Result<EdgeIndex, WouldCycle<Workload>> {
-        // Use `update_edge` instead of `add_edge` to avoid duplicate edges from one
-        // station to the other.
-        self.station_specs
-            .update_edge(station_from, station_to, edge)
+    ) -> Result<EdgeId, WouldCycle<Edge>> {
+        self.fn_graph_builder.add_edge(station_from, station_to)
     }
 
     /// Adds edges between stations.
     pub fn add_edges<const N: usize>(
         &mut self,
-        edges: [(StationRtId, StationRtId, Workload); N],
-    ) -> Result<[EdgeIndex; N], WouldCycle<Workload>> {
-        // Create an uninitialized array of `MaybeUninit`. The `assume_init` is safe
-        // because the type we are claiming to have initialized here is a bunch of
-        // `MaybeUninit`s, which do not require initialization.
-        //
-        // https://doc.rust-lang.org/stable/std/mem/union.MaybeUninit.html#initializing-an-array-element-by-element
-        //
-        // Switch this to `MaybeUninit::uninit_array` once it is stable.
-        let mut edge_indicies: [MaybeUninit<EdgeIndex>; N] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-
-        IntoIterator::into_iter(edges)
-            .zip(edge_indicies.iter_mut())
-            .try_for_each(|((station_from, station_to, edge), edge_index_mem)| {
-                self.add_edge(station_from, station_to, edge)
-                    .map(|edge_index| {
-                        edge_index_mem.write(edge_index);
-                    })
-            })?;
-
-        // Everything is initialized. Transmute the array to the initialized type.
-        // Unfortunately we cannot use this, see the following issues:
-        //
-        // * <https://github.com/rust-lang/rust/issues/61956>
-        // * <https://github.com/rust-lang/rust/issues/80908>
-        //
-        // let edge_indicies = unsafe { mem::transmute::<_, [EdgeIndex;
-        // N]>(edge_indicies) };
-
-        #[allow(clippy::let_and_return)] // for clarity with `unsafe`
-        let edge_indicies = {
-            let ptr = &mut edge_indicies as *mut _ as *mut [EdgeIndex; N];
-            let array = unsafe { ptr.read() };
-
-            // We don't have to `mem::forget` the original because `EdgeIndex` is `Copy`.
-            // mem::forget(edge_indicies);
-
-            array
-        };
-
-        Ok(edge_indicies)
+        edges: [(StationRtId, StationRtId); N],
+    ) -> Result<[EdgeId; N], WouldCycle<Edge>> {
+        self.fn_graph_builder.add_edges(edges)
     }
 
     /// Builds and returns the [`Destination`].
     pub fn build(self) -> Destination<E> {
-        let Self {
-            station_specs,
-            station_progresses,
-        } = self;
+        let Self { fn_graph_builder } = self;
+
+        let station_specs = StationSpecs::new(fn_graph_builder.build());
 
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
         station_specs
-            .iter_with_indices()
+            .iter_insertion_with_indices()
             .for_each(|(node_index, station_spec)| {
                 station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
             });
+        let station_progresses = station_specs
+            .iter_insertion_with_indices()
+            .map(|(station_rt_id, station_spec)| {
+                let station_progress = StationProgress::new(station_spec, ProgressLimit::Unknown);
+                (station_rt_id, station_progress)
+            })
+            .fold(
+                StationProgresses::with_capacity(station_specs.node_count()),
+                |mut station_progresses, (station_rt_id, station_progress)| {
+                    station_progresses.insert(station_rt_id, station_progress);
+                    station_progresses
+                },
+            );
 
         Destination {
             station_specs,
@@ -180,8 +109,7 @@ impl<E> DestinationBuilder<E> {
 impl<E> Default for DestinationBuilder<E> {
     fn default() -> Self {
         Self {
-            station_specs: StationSpecs::default(),
-            station_progresses: StationProgresses::default(),
+            fn_graph_builder: FnGraphBuilder::default(),
         }
     }
 }

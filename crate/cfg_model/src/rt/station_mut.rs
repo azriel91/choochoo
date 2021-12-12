@@ -1,7 +1,7 @@
 use rt_map::RefMut;
 
 use crate::{
-    rt::{StationProgress, StationRtId},
+    rt::{ProgressLimit, StationProgress, StationRtId, TrainReport},
     StationSpec,
 };
 
@@ -17,4 +17,12 @@ pub struct StationMut<'s, E> {
     pub rt_id: StationRtId,
     /// Station progress to reaching the destination.
     pub progress: RefMut<'s, StationProgress>,
+}
+
+impl<'s, E> StationMut<'s, E> {
+    /// Verifies input, calculates progress limit, and inserts resources.
+    pub async fn setup(&mut self, train_report: &mut TrainReport<E>) -> Result<ProgressLimit, E> {
+        let setup_fn = self.spec.station_spec_fns.setup_fn.clone();
+        setup_fn.0(self, train_report).await
+    }
 }

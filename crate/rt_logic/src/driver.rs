@@ -1,6 +1,6 @@
 use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::rt::{CheckStatus, StationMut, TrainReport};
+use choochoo_cfg_model::rt::{CheckStatus, StationMutRef, TrainReport};
 use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk};
 
 /// Logic that determines whether or not to visit a station.
@@ -34,14 +34,17 @@ where
     /// * Forwarding output to the user.
     /// * Serializing state to disk.
     pub async fn ensure(
-        station: &mut StationMut<'_, E>,
+        station: &mut StationMutRef<'_, E>,
         train_report: &TrainReport<E>,
     ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
-        let visit_required = if let Some(check_status) = station.spec.check(station, train_report) {
-            check_status.await.map_err(EnsureOutcomeErr::CheckFail)? == CheckStatus::VisitRequired
+        let visit_required = if let Some(check_status) = station.check(train_report).await {
+            check_status
+                .map_err(EnsureOutcomeErr::CheckBorrowFail)?
+                .map_err(EnsureOutcomeErr::CheckFail)?
+                == CheckStatus::VisitRequired
         } else {
             // if there is no check function, always visit the station.
             true
@@ -49,17 +52,20 @@ where
 
         if visit_required {
             station
-                .spec
-                .visit(station, train_report)
+                .visit(train_report)
                 .await
+                .map_err(EnsureOutcomeErr::VisitBorrowFail)?
                 .map_err(EnsureOutcomeErr::VisitFail)?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
-            let check_status = if let Some(check_status) = station.spec.check(station, train_report)
-            {
-                Some(check_status.await.map_err(EnsureOutcomeErr::CheckFail)?)
+            let check_status = if let Some(check_status) = station.check(train_report).await {
+                Some(
+                    check_status
+                        .map_err(EnsureOutcomeErr::CheckBorrowFail)?
+                        .map_err(EnsureOutcomeErr::CheckFail)?,
+                )
             } else {
                 None
             };

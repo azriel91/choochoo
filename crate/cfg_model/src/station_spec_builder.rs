@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 
 use crate::{
-    rt::CheckStatus, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns,
+    rt::CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
+    StationSpecFns,
 };
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
@@ -21,7 +22,10 @@ pub struct StationSpecBuilder<E> {
     station_spec_fns: StationSpecFns<E>,
 }
 
-impl<E> StationSpecBuilder<E> {
+impl<E> StationSpecBuilder<E>
+where
+    E: 'static,
+{
     /// Returns a new [`StationSpecBuilder`].
     ///
     /// # Parameters
@@ -56,7 +60,7 @@ impl<E> StationSpecBuilder<E> {
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
-        use crate::{rt::ProgressLimit, SetupFn};
+        use crate::rt::ProgressLimit;
 
         let station_spec_fns = {
             let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
@@ -88,6 +92,12 @@ impl<E> StationSpecBuilder<E> {
     /// Sets the [`StationSpecFns`] of the [`StationSpec`].
     pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
         self.station_spec_fns = station_spec_fns;
+        self
+    }
+
+    /// Sets the check function for the [`StationSpec`].
+    pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
+        self.station_spec_fns.setup_fn = setup_fn;
         self
     }
 

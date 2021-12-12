@@ -1,10 +1,8 @@
 use std::{convert::TryFrom, fmt};
 
-use crate::{
-    rt::{CheckStatus, StationMut, TrainReport},
-    SetupFnReturn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpecBuilder,
-    StationSpecFns,
-};
+use fn_graph::{FnMeta, TypeIds};
+
+use crate::{StationId, StationIdInvalidFmt, StationSpecBuilder, StationSpecFns};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
@@ -20,7 +18,10 @@ pub struct StationSpec<E> {
     pub(crate) station_spec_fns: StationSpecFns<E>,
 }
 
-impl<E> StationSpec<E> {
+impl<E> StationSpec<E>
+where
+    E: 'static,
+{
     /// Returns a new [`StationSpec`].
     ///
     /// You may prefer using the [`builder`] method to construct a
@@ -98,38 +99,6 @@ impl<E> StationSpec<E> {
     pub fn station_spec_fns(&self) -> &StationSpecFns<E> {
         &self.station_spec_fns
     }
-
-    /// Verifies input, calculates progress limit, and inserts resources.
-    pub fn setup<'f>(
-        &self,
-        station: &'f mut StationMut<E>,
-        train_report: &'f mut TrainReport<E>,
-    ) -> SetupFnReturn<'f, E> {
-        let setup_fn = self.station_spec_fns.setup_fn.clone();
-        setup_fn.0(station, train_report)
-    }
-
-    /// Checks if the station needs to be visited.
-    pub fn check<'f>(
-        &self,
-        station: &'f mut StationMut<E>,
-        train_report: &'f TrainReport<E>,
-    ) -> Option<StationFnReturn<'f, CheckStatus, E>> {
-        self.station_spec_fns
-            .check_fn
-            .clone()
-            .map(move |check_fn| check_fn.0(station, train_report))
-    }
-
-    /// Returns a task to visit the station.
-    pub fn visit<'f>(
-        &self,
-        station: &'f mut StationMut<E>,
-        train_report: &'f TrainReport<E>,
-    ) -> StationFnReturn<'f, (), E> {
-        let visit_fn = self.station_spec_fns.visit_fn.clone();
-        visit_fn.0(station, train_report)
-    }
 }
 
 impl<E> Clone for StationSpec<E> {
@@ -146,5 +115,15 @@ impl<E> Clone for StationSpec<E> {
 impl<E> fmt::Display for StationSpec<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.name, self.description)
+    }
+}
+
+impl<E> FnMeta for StationSpec<E> {
+    fn borrows(&self) -> TypeIds {
+        self.station_spec_fns.borrows()
+    }
+
+    fn borrow_muts(&self) -> TypeIds {
+        self.station_spec_fns.borrow_muts()
     }
 }

@@ -1,3 +1,5 @@
+use fn_graph::{FnMeta, TypeIds};
+
 use crate::{rt::CheckStatus, SetupFn, StationFn};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
@@ -40,5 +42,15 @@ impl<E> Clone for StationSpecFns<E> {
             check_fn: self.check_fn.clone(),
             visit_fn: self.visit_fn.clone(),
         }
+    }
+}
+
+impl<E> FnMeta for StationSpecFns<E> {
+    fn borrows(&self) -> TypeIds {
+        self.visit_fn.borrows()
+    }
+
+    fn borrow_muts(&self) -> TypeIds {
+        self.visit_fn.borrow_muts()
     }
 }

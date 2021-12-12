@@ -4,7 +4,7 @@ use std::fmt;
 
 use tokio::task::JoinError;
 
-use choochoo_cfg_model::StationSpec;
+use choochoo_cfg_model::{rt::TrainReport, StationSpec};
 
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
 
@@ -22,7 +22,10 @@ pub enum Error<E> {
     ///
     /// Details of failures are recorded in the TrainReport instead of this
     /// variant.
-    StationSetup,
+    StationSetup {
+        /// The train report.
+        train_report: TrainReport<E>,
+    },
     /// Failed to queue a station for visiting.
     StationQueue {
         /// The specification of the station that failed to be queued.
@@ -36,14 +39,17 @@ pub enum Error<E> {
     },
 }
 
-impl<E> fmt::Display for Error<E> {
+impl<E> fmt::Display for Error<E>
+where
+    E: 'static,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::MultiProgressTaskJoin(_) => {
                 write!(f, "Failed to join the multi-progress bar task.")
             }
             Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar."),
-            Self::StationSetup => write!(f, "Station setup failed"),
+            Self::StationSetup { .. } => write!(f, "Station setup failed"),
             Self::StationQueue { station_spec } => write!(
                 f,
                 "Failed to queue station: `{id}: {name}`",
@@ -62,13 +68,13 @@ impl<E> fmt::Display for Error<E> {
 
 impl<E> std::error::Error for Error<E>
 where
-    E: fmt::Debug,
+    E: fmt::Debug + 'static,
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
-            Self::StationSetup => None,
+            Self::StationSetup { .. } => None,
             Self::StationQueue { .. } => None,
             Self::StationVisitNotify { .. } => None,
         }

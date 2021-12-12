@@ -15,15 +15,18 @@ doctest = false
 test = false
 
 [dependencies]
-console = "0.14.1"
-daggy = { version = "0.7.0", default-features = false }
+console = "0.15.0"
+daggy = { version = "0.8.0", default-features = false }
+fn_graph = "0.1.0"
+futures = "0.3.18"
 indexmap = "1.7.0"
 indicatif = "0.16.2"
-resman = { version = "0.5.0", features = ["debug"] }
-rt_map = "0.4.0"
+resman = { version = "0.11.0", features = ["debug"] }
+rt_map = "0.5.0"
 srcerr = { version = "0.4.0", features = ["codespan"] }
-tokio = { version = "1.11.0", features = ["io-util", "rt", "sync"] }
+tokio = { version = "1.14.0", features = ["io-util", "rt", "sync"] }
 
 [features]
-default = ["mock"]
+default = ["debug", "mock"]
+debug = []
 mock = []

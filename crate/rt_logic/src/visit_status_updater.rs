@@ -6,7 +6,7 @@ use choochoo_cfg_model::{
 };
 use choochoo_rt_model::Destination;
 
-/// Updates the [`VisitStatus`]es for all [`StationMut`]s.
+/// Updates the [`VisitStatus`]es for all [`StationMutRef`]s.
 ///
 /// The new visit status is calculated based on the station's visit result
 /// and its parents' [`VisitStatus`]es.
@@ -42,7 +42,7 @@ use choochoo_rt_model::Destination;
 /// No transitions.
 ///
 /// [`StationSpec::visit`]: crate::cfg_model::StationSpec::visit
-/// [`StationMut`]: crate::rt_model::StationMut
+/// [`StationMutRef`]: crate::rt_model::StationMutRef
 /// [`Train::reach`]: crate::Train::reach
 #[derive(Debug)]
 pub struct VisitStatusUpdater<E> {
@@ -50,8 +50,11 @@ pub struct VisitStatusUpdater<E> {
     pub marker: PhantomData<E>,
 }
 
-impl<E> VisitStatusUpdater<E> {
-    /// Updates the [`VisitStatus`]es for all [`StationMut`]s.
+impl<E> VisitStatusUpdater<E>
+where
+    E: 'static,
+{
+    /// Updates the [`VisitStatus`]es for all [`StationMutRef`]s.
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -61,7 +64,7 @@ impl<E> VisitStatusUpdater<E> {
     /// * `dest`: `Destination` with all the stations and their progress
     ///   information.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn update(dest: &Destination<E>) {
         let station_specs = dest.station_specs();
         let station_id_to_rt_id = dest.station_id_to_rt_id();
@@ -84,7 +87,8 @@ impl<E> VisitStatusUpdater<E> {
         });
     }
 
-    /// Updates the [`VisitStatus`]es for children of the given [`StationMut`].
+    /// Updates the [`VisitStatus`]es for children of the given
+    /// [`StationMutRef`].
     ///
     /// `ParentFail` transitions are propagated through to all later stations,
     /// on the condition that the nodes are added in order.
@@ -96,7 +100,7 @@ impl<E> VisitStatusUpdater<E> {
     /// * `station_rt_id`: Runtime ID of the parent station, whose children to
     ///   update.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn update_children(dest: &Destination<E>, station_rt_id: StationRtId) {
         let station_specs = dest.station_specs();
 
@@ -120,7 +124,7 @@ impl<E> VisitStatusUpdater<E> {
     }
 
     /// Returns the [`VisitStatus`] to be transitioned to for a single
-    /// [`StationMut`], if any.
+    /// [`StationMutRef`], if any.
     ///
     /// # Parameters
     ///
@@ -129,14 +133,14 @@ impl<E> VisitStatusUpdater<E> {
     /// * `station_rt_id`: Runtime ID of the station whose next `VisitStatus` to
     ///   compute.
     ///
-    /// [`StationMut`]: crate::rt_model::StationMut
+    /// [`StationMutRef`]: crate::rt_model::StationMutRef
     pub fn visit_status_next(
         dest: &Destination<E>,
         station_rt_id: StationRtId,
     ) -> Option<VisitStatus> {
         dest.station_progresses()
             .get(&station_rt_id)
-            .and_then(|station_progress| station_progress.try_borrow())
+            .and_then(|station_progress| station_progress.try_borrow().ok())
             .and_then(|station_progress| {
                 match station_progress.visit_status {
                     VisitStatus::SetupQueued => Self::transition_setup_queued(dest, station_rt_id),
@@ -172,7 +176,7 @@ impl<E> VisitStatusUpdater<E> {
                     .and_then(|parent_station_rt_id| station_progresses.get(parent_station_rt_id))
             })
             .try_fold(None, |visit_status, parent_station_progress| {
-                if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                if let Ok(parent_station_progress) = parent_station_progress.try_borrow() {
                     match parent_station_progress.visit_status {
                         // If parent is already done, we keep checking other parents.
                         VisitStatus::SetupQueued | VisitStatus::SetupSuccess => {}
@@ -240,7 +244,7 @@ impl<E> VisitStatusUpdater<E> {
             .try_fold(
                 Some(VisitStatus::VisitQueued),
                 |visit_status, parent_station_progress| {
-                    if let Some(parent_station_progress) = parent_station_progress.try_borrow() {
+                    if let Ok(parent_station_progress) = parent_station_progress.try_borrow() {
                         match parent_station_progress.visit_status {
                             // If parent is already done, we keep checking other parents.
                             VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {}

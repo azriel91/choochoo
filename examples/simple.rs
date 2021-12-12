@@ -2,19 +2,21 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{FilesRw, ProgressLimit},
+        rt::{FilesRw, ProgressLimit, StationMutRef},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec, StationSpecFns, Workload,
+        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
     cli_fmt::PlainTextFormatter,
     rt_logic::Train,
     rt_model::{error::StationSpecError, Destination},
 };
+use futures::future::FutureExt;
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
@@ -25,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut builder = Destination::builder();
             let [station_a, station_b] = builder.add_stations([station_a()?, station_b()?]);
-            builder.add_edge(station_a, station_b, Workload::default())?;
+            builder.add_edge(station_a, station_b)?;
 
             let dest = builder.build();
 
@@ -72,13 +74,17 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "a",
         "Station A",
         "Prints visit.",
-        StationFn::new(|_station, _| {
-            Box::pin(async move {
-                eprintln!("Visiting {}.", "Station A");
-                Result::<(), ExampleError>::Ok(())
-            })
-        }),
+        StationFn::new(station_a_impl),
     )
+}
+
+fn station_a_impl<'f>(
+    _: &'f mut StationMutRef<'_, ExampleError>,
+) -> StationFnReturn<'f, (), ExampleError> {
+    Box::pin(async move {
+        eprintln!("Visiting {}.", "Station A");
+        Result::<(), ExampleError>::Ok(())
+    })
 }
 
 fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
@@ -86,22 +92,27 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
         "b",
         "Station B",
         "Reads `simple.toml` and reports error.",
-        StationFn::new(move |_station, resources| {
-            Box::pin(async move {
-                eprintln!("Visiting {}.", "Station B");
-
-                let files = resources.borrow_mut::<FilesRw>();
-                let mut files = files.write().await;
-
-                let file_id = read_simple_toml(&mut files)
-                    .await
-                    .expect("Failed to read simple.toml");
-
-                let error = value_out_of_range(file_id);
-                Result::<(), ExampleError>::Err(error)
-            })
-        }),
+        StationFn::new(station_b_impl),
     )
+}
+
+fn station_b_impl<'f>(
+    station: &'f mut StationMutRef<'_, ExampleError>,
+    files: &'f mut FilesRw,
+) -> StationFnReturn<'f, (), ExampleError> {
+    async move {
+        eprintln!("Visiting {}.", station.spec.name());
+
+        let mut files = files.write().await;
+
+        let file_id = read_simple_toml(&mut files)
+            .await
+            .expect("Failed to read simple.toml");
+
+        let error = value_out_of_range(file_id);
+        Result::<(), ExampleError>::Err(error)
+    }
+    .boxed_local()
 }
 
 async fn read_simple_toml(files: &mut Files<Cow<'static, str>>) -> Result<FileId, std::io::Error> {

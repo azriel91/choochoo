@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit},
+    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef},
     srcerr::{
         codespan::{FileId, Span},
         codespan_reporting::diagnostic::Severity,
@@ -47,7 +47,7 @@ impl StationSleep {
     }
 
     fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
-        StationFn::new(move |_station, _train_report| {
+        StationFn::new0(move |_station| {
             Box::pin(async move {
                 let check_status = if station_file_path.exists() {
                     CheckStatus::VisitNotRequired
@@ -63,42 +63,45 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {
-        StationFn::new(move |station, train_report| {
-            Box::pin(async move {
-                // Sleep to simulate starting up the application.
-                station.progress.progress_bar().reset();
-                stream::iter(0..PROGRESS_LENGTH)
-                    .for_each(|_| async {
-                        station.progress.progress_bar().inc(1);
-                        tokio::time::sleep(Duration::from_millis(10)).await;
-                    })
-                    .await;
+        StationFn::new1(
+            move |station: &mut StationMutRef<'_, DemoError>, files: &FilesRw| {
+                Box::pin(async move {
+                    // Sleep to simulate starting up the application.
+                    station.progress.progress_bar().reset();
+                    stream::iter(0..PROGRESS_LENGTH)
+                        .for_each(|_| async {
+                            station.progress.progress_bar().inc(1);
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        })
+                        .await;
 
-                let station_dir = station_file_path.parent().ok_or_else(|| {
-                    let code = ErrorCode::StationDirDiscover;
-                    let detail = ErrorDetail::StationDirDiscover { station_file_path };
-                    DemoError::new(code, detail, Severity::Bug)
-                })?;
-                let files = train_report.borrow::<FilesRw>();
-                let mut files = files.write().await;
-                tokio::fs::create_dir_all(station_dir)
-                    .await
-                    .map_err(|error| {
-                        match Self::write_error(&mut files, station_file_path, error, error_fn) {
-                            Ok(e) | Err(e) => e,
-                        }
+                    let station_dir = station_file_path.parent().ok_or_else(|| {
+                        let code = ErrorCode::StationDirDiscover;
+                        let detail = ErrorDetail::StationDirDiscover { station_file_path };
+                        DemoError::new(code, detail, Severity::Bug)
                     })?;
-                tokio::fs::write(station_file_path, b"Station visited!\n")
-                    .await
-                    .map_err(|error| {
-                        match Self::write_error(&mut files, station_file_path, error, error_fn) {
-                            Ok(e) | Err(e) => e,
-                        }
-                    })?;
+                    let mut files = files.write().await;
+                    tokio::fs::create_dir_all(station_dir)
+                        .await
+                        .map_err(|error| {
+                            match Self::write_error(&mut files, station_file_path, error, error_fn)
+                            {
+                                Ok(e) | Err(e) => e,
+                            }
+                        })?;
+                    tokio::fs::write(station_file_path, b"Station visited!\n")
+                        .await
+                        .map_err(|error| {
+                            match Self::write_error(&mut files, station_file_path, error, error_fn)
+                            {
+                                Ok(e) | Err(e) => e,
+                            }
+                        })?;
 
-                Result::<(), DemoError>::Ok(())
-            })
-        })
+                    Result::<(), DemoError>::Ok(())
+                })
+            },
+        )
     }
 
     fn write_error(

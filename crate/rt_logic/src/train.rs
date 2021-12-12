@@ -2,14 +2,15 @@ use std::{fmt, marker::PhantomData};
 
 use choochoo_cfg_model::{
     indicatif::MultiProgress,
-    rt::{StationMut, TrainReport, VisitStatus},
+    rt::{StationRtId, TrainReport, VisitStatus},
 };
 use choochoo_rt_model::{
     error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
 };
+use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::task::JoinHandle;
 
-use crate::{strategy::IntegrityStrat, Driver, VisitStatusUpdater};
+use crate::{Driver, VisitStatusUpdater};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -24,10 +25,22 @@ where
         let progress_fut = Self::progress_tracker_init(dest);
 
         let mut train_report = TrainReport::new();
-        train_report = Self::stations_setup(dest, train_report).await?;
+        if dest.station_specs().node_count() == 0 {
+            return Ok(train_report);
+        }
+
+        train_report = Self::stations_setup(dest, train_report)
+            .await
+            .or_else(|error| {
+                if let Error::StationSetup { train_report } = error {
+                    Ok(train_report)
+                } else {
+                    Err(error)
+                }
+            })?;
 
         if train_report.station_errors().read().await.is_empty() {
-            train_report = Self::stations_visit(dest, train_report).await?;
+            train_report = Self::stations_visit(dest, train_report).await;
         }
 
         Self::progress_tracker_join(dest, progress_fut).await?;
@@ -79,78 +92,105 @@ where
         dest: &mut Destination<E>,
         train_report: TrainReport<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
-        IntegrityStrat::iter_sequential(dest, train_report, |station, train_report| {
-            Box::pin(async move {
-                let setup_result = station.spec.setup(station, train_report).await;
+        stream::iter(dest.stations_mut().map(Result::<_, Error<E>>::Ok))
+            .try_fold(train_report, |mut train_report, mut station| async move {
+                let setup_result = station.setup(&mut train_report).await;
 
                 match setup_result {
                     Ok(progress_limit) => {
                         station.progress.visit_status = VisitStatus::SetupSuccess;
                         station.progress.progress_limit_set(progress_limit);
+                        station.progress.progress_style_update();
+                        Ok(train_report)
                     }
                     Err(station_error) => {
                         station.progress.visit_status = VisitStatus::SetupFail;
-                        Self::station_error_insert(train_report, station, station_error).await;
+                        Self::station_error_insert(&train_report, station.rt_id, station_error)
+                            .await;
+                        station.progress.progress_style_update();
+                        Err(Error::StationSetup { train_report })
                     }
                 }
             })
-        })
-        .await
+            .await
     }
 
     async fn stations_visit(
         dest: &mut Destination<E>,
         train_report: TrainReport<E>,
-    ) -> Result<TrainReport<E>, Error<E>> {
+    ) -> TrainReport<E> {
+        let dest = &dest;
+
         // Set `ParentPending` stations to `VisitQueued` if they have no dependencies.
         VisitStatusUpdater::update(dest);
 
-        IntegrityStrat::iter(dest, &train_report, |station, train_report| {
-            Box::pin(async move {
-                // Because this is in an async block, concurrent tasks may access this station's
-                // `visit_status` while the `visit()` is `await`ed.
-                station.progress.visit_status = VisitStatus::InProgress;
+        let report = &train_report;
+        dest.stations_mut_stream()
+            .map(|mut station| async move {
+                station.progress.progress_style_update();
+                if station.progress.visit_status == VisitStatus::VisitQueued
+                    || station.progress.visit_status == VisitStatus::SetupSuccess
+                {
+                    // Because this is in an async block, concurrent tasks may access this
+                    // station's `visit_status` while the `visit()` is
+                    // `await`ed.
+                    station.progress.visit_status = VisitStatus::InProgress;
+                    station.progress.progress_style_update();
 
-                match Driver::ensure(station, train_report).await {
-                    Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
-                        station.progress.visit_status = VisitStatus::VisitSuccess;
+                    match Driver::ensure(&mut station, report).await {
+                        Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
+                            station.progress.visit_status = VisitStatus::VisitSuccess;
 
-                        if let Some(station_spec_error) = station_spec_error {
-                            let station_error = E::from(station_spec_error);
+                            if let Some(station_spec_error) = station_spec_error {
+                                let station_error = E::from(station_spec_error);
 
-                            Self::station_error_insert(train_report, station, station_error).await;
+                                Self::station_error_insert(report, station.rt_id, station_error)
+                                    .await;
+                            }
+                        }
+                        Ok(EnsureOutcomeOk::Unchanged) => {
+                            station.progress.visit_status = VisitStatus::VisitUnnecessary;
+                        }
+                        Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
+                            station.progress.visit_status = VisitStatus::CheckFail;
+
+                            // TODO: insert borrow fail error somewhere
+                        }
+                        Err(EnsureOutcomeErr::CheckFail(station_error)) => {
+                            station.progress.visit_status = VisitStatus::CheckFail;
+
+                            Self::station_error_insert(report, station.rt_id, station_error).await;
+                        }
+                        Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
+                            station.progress.visit_status = VisitStatus::VisitFail;
+
+                            // TODO: insert borrow fail error somewhere
+                        }
+                        Err(EnsureOutcomeErr::VisitFail(station_error)) => {
+                            station.progress.visit_status = VisitStatus::VisitFail;
+
+                            Self::station_error_insert(report, station.rt_id, station_error).await;
                         }
                     }
-                    Ok(EnsureOutcomeOk::Unchanged) => {
-                        station.progress.visit_status = VisitStatus::VisitUnnecessary;
-                    }
-                    Err(EnsureOutcomeErr::CheckFail(station_error)) => {
-                        station.progress.visit_status = VisitStatus::CheckFail;
-
-                        Self::station_error_insert(train_report, station, station_error).await;
-                    }
-                    Err(EnsureOutcomeErr::VisitFail(station_error)) => {
-                        station.progress.visit_status = VisitStatus::VisitFail;
-
-                        Self::station_error_insert(train_report, station, station_error).await;
-                    }
                 }
-
-                train_report
+                station.progress.progress_style_update();
+                station.rt_id
             })
-        })
-        .await?;
+            .for_each_concurrent(4, |station_rt_id| async {
+                VisitStatusUpdater::update_children(dest, station_rt_id.await);
+            })
+            .await;
 
-        Ok(train_report)
+        train_report
     }
 
     async fn station_error_insert(
         train_report: &TrainReport<E>,
-        station: &StationMut<'_, E>,
+        station_rt_id: StationRtId,
         station_error: E,
     ) {
         let station_errors = train_report.station_errors();
         let mut station_errors = station_errors.write().await;
-        station_errors.insert(station.rt_id, station_error);
+        station_errors.insert(station_rt_id, station_error);
     }
 }
