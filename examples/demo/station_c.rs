@@ -1,14 +1,17 @@
 use std::{borrow::Cow, path::Path};
 
 use bytes::Bytes;
-use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef, StationProgress},
-    srcerr::{
-        codespan::{FileId, Span},
-        codespan_reporting::diagnostic::Severity,
+use choochoo::{
+    cfg_model::{
+        rt::{CheckStatus, ProgressLimit, StationMutRef, StationProgress},
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
-    SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-    StationSpecFns,
+    resource::{Files, FilesRw},
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::{

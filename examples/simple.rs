@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{FilesRw, ProgressLimit, StationMutRef},
+        rt::{ProgressLimit, StationMutRef},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -13,6 +13,7 @@ use choochoo::{
         StationSpecFns,
     },
     cli_fmt::PlainTextFormatter,
+    resource::FilesRw,
     rt_logic::Train,
     rt_model::{error::StationSpecError, Destination},
 };

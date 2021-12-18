@@ -1,13 +1,16 @@
 use std::borrow::Cow;
 
-use choochoo::cfg_model::{
-    rt::{CheckStatus, Files, FilesRw, ProgressLimit, StationMutRef},
-    srcerr::{
-        codespan::{FileId, Span},
-        codespan_reporting::diagnostic::Severity,
+use choochoo::{
+    cfg_model::{
+        rt::{CheckStatus, ProgressLimit, StationMutRef},
+        srcerr::{
+            codespan::{FileId, Span},
+            codespan_reporting::diagnostic::Severity,
+        },
+        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        StationSpecFns,
     },
-    SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-    StationSpecFns,
+    resource::{Files, FilesRw},
 };
 use reqwest::{
     multipart::{Form, Part},

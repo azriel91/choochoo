@@ -5,9 +5,10 @@ use std::{
 };
 
 use choochoo_cfg_model::{
-    rt::{Files, FilesRw, TrainReport, VisitStatus},
+    rt::{TrainReport, VisitStatus},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
 };
+use choochoo_resource::{Files, FilesRw};
 use choochoo_rt_model::{error::AsDiagnostic, Destination};
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
