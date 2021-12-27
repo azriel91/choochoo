@@ -4,13 +4,18 @@ use choochoo_cfg_model::{
     rt::{Station, StationMut, StationMutRef, StationRtId},
     StationId, StationSpecs,
 };
+use choochoo_resource::Profile;
 use futures::{stream::Stream, StreamExt};
 
-use crate::{DestinationBuilder, StationProgresses};
+use crate::{DestinationBuilder, StationProgresses, WorkspaceSpec};
 
 /// Specification of a desired state.
 #[derive(Debug, Default)]
 pub struct Destination<E> {
+    /// Execution profile identifier.
+    pub(crate) profile: Profile,
+    /// Specification to discover the project workspace.
+    pub(crate) workspace_spec: WorkspaceSpec,
     /// The stations along the way to the destination.
     pub(crate) station_specs: StationSpecs<E>,
     /// Map from station ID to station runtime ID.
@@ -28,6 +33,16 @@ where
     /// Returns a new `DestinationBuilder`.
     pub fn builder() -> DestinationBuilder<E> {
         DestinationBuilder::new()
+    }
+
+    /// Returns the profile.
+    pub fn profile(&self) -> &Profile {
+        &self.profile
+    }
+
+    /// Returns the workspace spec.
+    pub fn workspace_spec(&self) -> &WorkspaceSpec {
+        &self.workspace_spec
     }
 
     /// Returns an iterator over the [`Station`]s in this destination.

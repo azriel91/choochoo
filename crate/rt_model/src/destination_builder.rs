@@ -6,11 +6,18 @@ use choochoo_cfg_model::{
     rt::{ProgressLimit, StationProgress, StationRtId},
     StationSpec, StationSpecs,
 };
+use choochoo_resource::Profile;
 
-use crate::{Destination, StationProgresses};
+use crate::{Destination, StationProgresses, WorkspaceSpec};
 
 #[derive(Debug)]
 pub struct DestinationBuilder<E> {
+    /// Execution profile identifier.
+    profile: Option<Profile>,
+    /// Describes how to discover the workspace directory.
+    ///
+    /// By default the execution working directory is used.
+    workspace_spec: Option<WorkspaceSpec>,
     /// Builder for the stations along the way to the destination.
     fn_graph_builder: FnGraphBuilder<StationSpec<E>>,
 }
@@ -22,6 +29,18 @@ where
     /// Returns a new `DestinationBuilder`.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Specifies the execution profile identifier.
+    pub fn with_profile(&mut self, profile: Profile) {
+        self.profile = Some(profile);
+    }
+
+    /// Specifies how to discover the workspace directory.
+    ///
+    /// By default the execution working directory is used.
+    pub fn with_workspace_spec(&mut self, workspace_spec: WorkspaceSpec) {
+        self.workspace_spec = Some(workspace_spec);
     }
 
     /// Adds a station to this destination.
@@ -74,8 +93,14 @@ where
 
     /// Builds and returns the [`Destination`].
     pub fn build(self) -> Destination<E> {
-        let Self { fn_graph_builder } = self;
+        let Self {
+            profile,
+            workspace_spec,
+            fn_graph_builder,
+        } = self;
 
+        let profile = profile.unwrap_or_else(Profile::default);
+        let workspace_spec = workspace_spec.unwrap_or_else(WorkspaceSpec::default);
         let station_specs = StationSpecs::new(fn_graph_builder.build());
 
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
@@ -99,6 +124,8 @@ where
             );
 
         Destination {
+            profile,
+            workspace_spec,
             station_specs,
             station_id_to_rt_id,
             station_progresses,
@@ -109,6 +136,8 @@ where
 impl<E> Default for DestinationBuilder<E> {
     fn default() -> Self {
         Self {
+            profile: None,
+            workspace_spec: None,
             fn_graph_builder: FnGraphBuilder::default(),
         }
     }

@@ -9,6 +9,7 @@ pub use crate::{
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,
     station_progresses::StationProgresses,
+    workspace_spec::WorkspaceSpec,
 };
 
 pub mod error;
@@ -17,3 +18,4 @@ mod destination;
 mod destination_builder;
 mod ensure_outcome;
 mod station_progresses;
+mod workspace_spec;

@@ -11,6 +11,13 @@ use std::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct WorkspaceDir(PathBuf);
 
+impl WorkspaceDir {
+    /// Returns a new [`WorkspaceDir`].
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
 impl Deref for WorkspaceDir {
     type Target = Path;
 

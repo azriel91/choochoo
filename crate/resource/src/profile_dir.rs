@@ -13,6 +13,13 @@ use std::{
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProfileDir(PathBuf);
 
+impl ProfileDir {
+    /// Returns a new [`ProfileDir`].
+    pub fn new(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
 impl Deref for ProfileDir {
     type Target = Path;
 
