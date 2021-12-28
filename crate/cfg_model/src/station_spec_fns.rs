@@ -29,6 +29,7 @@ impl<E> StationSpecFns<E> {
     }
 
     /// Sets the `check_fn` for this `StationSpecFns`.
+    #[must_use]
     pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
         self.check_fn = Some(check_fn);
         self

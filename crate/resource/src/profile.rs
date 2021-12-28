@@ -36,10 +36,7 @@ impl Profile {
     }
 
     fn is_ascii_lowercase_alphanumeric_underscore(c: char) -> bool {
-        match c {
-            'a'..='z' | '0'..='9' | '_' => true,
-            _ => false,
-        }
+        matches!(c, 'a'..='z' | '0'..='9' | '_')
     }
 }
 

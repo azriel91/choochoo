@@ -8,7 +8,7 @@ use choochoo_resource::{ProfileDir, WorkspaceDir};
 use choochoo_rt_model::{Destination, Error, WorkspaceSpec};
 
 /// Directory to contain all profile directories.
-const TARGET_DIR: &'static str = "target";
+const TARGET_DIR: &str = "target";
 
 /// Initializes execution resources and adds them to the train report.
 ///

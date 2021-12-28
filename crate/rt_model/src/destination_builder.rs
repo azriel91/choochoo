@@ -32,6 +32,7 @@ where
     }
 
     /// Specifies the execution profile identifier.
+    #[must_use]
     pub fn with_profile(mut self, profile: Profile) -> Self {
         self.profile = Some(profile);
         self
@@ -40,6 +41,7 @@ where
     /// Specifies how to discover the workspace directory.
     ///
     /// By default the execution working directory is used.
+    #[must_use]
     pub fn with_workspace_spec(mut self, workspace_spec: WorkspaceSpec) -> Self {
         self.workspace_spec = Some(workspace_spec);
         self
@@ -101,8 +103,8 @@ where
             fn_graph_builder,
         } = self;
 
-        let profile = profile.unwrap_or_else(Profile::default);
-        let workspace_spec = workspace_spec.unwrap_or_else(WorkspaceSpec::default);
+        let profile = profile.unwrap_or_default();
+        let workspace_spec = workspace_spec.unwrap_or_default();
         let station_specs = StationSpecs::new(fn_graph_builder.build());
 
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
