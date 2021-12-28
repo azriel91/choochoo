@@ -1,6 +1,6 @@
 //! Types representing errors and their details.
 
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use tokio::task::JoinError;
 
@@ -37,6 +37,15 @@ pub enum Error<E> {
         /// sent.
         station_spec: StationSpec<E>,
     },
+    /// Failed to read current directory to discover workspace directory.
+    WorkingDirRead(std::io::Error),
+    /// Failed to find workspace marker file to determine workspace directory.
+    WorkspaceFileNotFound {
+        /// Beginning directory of traversal.
+        working_dir: PathBuf,
+        /// File or directory name searched for.
+        file_name: PathBuf,
+    },
 }
 
 impl<E> fmt::Display for Error<E>
@@ -62,6 +71,19 @@ where
                 id = station_spec.id(),
                 name = station_spec.name()
             ),
+            Self::WorkingDirRead(_) => write!(
+                f,
+                "Failed to read current directory to discover workspace directory."
+            ),
+            Self::WorkspaceFileNotFound {
+                working_dir,
+                file_name,
+            } => write!(
+                f,
+                "Failed to determine workspace directory as could not find `{file_name}` in `{working_dir}` or any parent directories.",
+                file_name = file_name.display(),
+                working_dir = working_dir.display(),
+            ),
         }
     }
 }
@@ -77,6 +99,8 @@ where
             Self::StationSetup { .. } => None,
             Self::StationQueue { .. } => None,
             Self::StationVisitNotify { .. } => None,
+            Self::WorkingDirRead(error) => Some(error),
+            Self::WorkspaceFileNotFound { .. } => None,
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-const PROFILE_DEFAULT_STR: &'static str = "default";
+use crate::ProfileError;
 
 /// Execution profile identifier.
 ///
@@ -12,14 +12,10 @@ const PROFILE_DEFAULT_STR: &'static str = "default";
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Profile(String);
 
-/// Error representing a string that is not a valid profile name.
-///
-/// Profiles must be non-empty, and all characters must be lowercase,
-/// alphanumeric or underscore.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProfileError(pub String);
-
 impl Profile {
+    /// Name of the default profile.
+    pub const DEFAULT_STR: &'static str = "default";
+
     /// Returns a new [`Profile`].
     pub fn new<S>(s: S) -> Result<Self, ProfileError>
     where
@@ -49,7 +45,7 @@ impl Profile {
 
 impl Default for Profile {
     fn default() -> Self {
-        Self(String::from(PROFILE_DEFAULT_STR))
+        Self(String::from(Profile::DEFAULT_STR))
     }
 }
 

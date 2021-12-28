@@ -32,15 +32,17 @@ where
     }
 
     /// Specifies the execution profile identifier.
-    pub fn with_profile(&mut self, profile: Profile) {
+    pub fn with_profile(mut self, profile: Profile) -> Self {
         self.profile = Some(profile);
+        self
     }
 
     /// Specifies how to discover the workspace directory.
     ///
     /// By default the execution working directory is used.
-    pub fn with_workspace_spec(&mut self, workspace_spec: WorkspaceSpec) {
+    pub fn with_workspace_spec(mut self, workspace_spec: WorkspaceSpec) -> Self {
         self.workspace_spec = Some(workspace_spec);
+        self
     }
 
     /// Adds a station to this destination.
