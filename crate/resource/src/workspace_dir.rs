@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     ops::Deref,
     path::{Path, PathBuf},
 };
@@ -15,6 +16,12 @@ impl WorkspaceDir {
     /// Returns a new [`WorkspaceDir`].
     pub fn new(path: PathBuf) -> Self {
         Self(path)
+    }
+}
+
+impl AsRef<OsStr> for WorkspaceDir {
+    fn as_ref(&self) -> &OsStr {
+        self.0.as_ref()
     }
 }
 

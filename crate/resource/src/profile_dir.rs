@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsStr,
     ops::Deref,
     path::{Path, PathBuf},
 };
@@ -17,6 +18,12 @@ impl ProfileDir {
     /// Returns a new [`ProfileDir`].
     pub fn new(path: PathBuf) -> Self {
         Self(path)
+    }
+}
+
+impl AsRef<OsStr> for ProfileDir {
+    fn as_ref(&self) -> &OsStr {
+        self.0.as_ref()
     }
 }
 
