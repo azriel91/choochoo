@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ])?;
             }
 
-            let dest = dest_builder.build();
+            let dest = dest_builder.build()?;
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;

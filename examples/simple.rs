@@ -26,13 +26,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     rt.block_on(async move {
         let mut dest = {
-            let mut builder = Destination::builder();
-            let [station_a, station_b] = builder.add_stations([station_a()?, station_b()?]);
-            builder.add_edge(station_a, station_b)?;
+            let mut dest_builder = Destination::builder();
+            let [station_a, station_b] = dest_builder.add_stations([station_a()?, station_b()?]);
+            dest_builder.add_edge(station_a, station_b)?;
 
-            let dest = builder.build();
-
-            dest
+            dest_builder.build()?
         };
         let train_report = Train::reach(&mut dest).await?;
 

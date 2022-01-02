@@ -8,7 +8,7 @@ use choochoo_cfg_model::{
 };
 use choochoo_resource::Profile;
 
-use crate::{Destination, StationProgresses, WorkspaceSpec};
+use crate::{Destination, DestinationDirCalc, Error, StationProgresses, WorkspaceSpec};
 
 #[derive(Debug)]
 pub struct DestinationBuilder<E> {
@@ -96,7 +96,7 @@ where
     }
 
     /// Builds and returns the [`Destination`].
-    pub fn build(self) -> Destination<E> {
+    pub fn build(self) -> Result<Destination<E>, Error<E>> {
         let Self {
             profile,
             workspace_spec,
@@ -107,12 +107,16 @@ where
         let workspace_spec = workspace_spec.unwrap_or_default();
         let station_specs = StationSpecs::new(fn_graph_builder.build());
 
+        let (workspace_dir, profile_dir, station_dirs) =
+            DestinationDirCalc::calc(&workspace_spec, &profile, &station_specs)?;
+
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
         station_specs
             .iter_insertion_with_indices()
             .for_each(|(node_index, station_spec)| {
                 station_id_to_rt_id.insert(station_spec.id().clone(), node_index);
             });
+
         let station_progresses = station_specs
             .iter_insertion_with_indices()
             .map(|(station_rt_id, station_spec)| {
@@ -127,13 +131,16 @@ where
                 },
             );
 
-        Destination {
+        let dest = Destination {
+            workspace_dir,
             profile,
-            workspace_spec,
+            profile_dir,
+            station_dirs,
             station_specs,
             station_id_to_rt_id,
             station_progresses,
-        }
+        };
+        Ok(dest)
     }
 }
 

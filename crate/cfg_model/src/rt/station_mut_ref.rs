@@ -2,7 +2,7 @@ use fn_graph::FnRef;
 use rt_map::{BorrowFail, RefMut};
 
 use crate::{
-    rt::{CheckStatus, StationProgress, StationRtId, TrainReport},
+    rt::{CheckStatus, StationDir, StationProgress, StationRtId, TrainReport},
     StationSpec,
 };
 
@@ -19,6 +19,8 @@ pub struct StationMutRef<'s, E> {
     pub spec: FnRef<'s, StationSpec<E>>,
     /// Runtime identifier for a station.
     pub rt_id: StationRtId,
+    /// Directory to hold data specific to each station.
+    pub dir: &'s StationDir,
     /// Station progress to reaching the destination.
     pub progress: RefMut<'s, StationProgress>,
 }

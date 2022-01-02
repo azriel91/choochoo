@@ -130,7 +130,7 @@ where
 
         let id_ref = &*id;
         let name = name.unwrap_or_else(|| id_ref.clone().into_owned());
-        let description = description.unwrap_or_else(String::new);
+        let description = description.unwrap_or_default();
 
         StationSpec {
             id,
