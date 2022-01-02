@@ -20,6 +20,12 @@ impl ProfileDir {
     }
 }
 
+impl AsRef<Path> for ProfileDir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
 impl Deref for ProfileDir {
     type Target = Path;
 

@@ -17,6 +17,12 @@ impl StationDir {
     }
 }
 
+impl AsRef<Path> for StationDir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
 impl Deref for StationDir {
     type Target = Path;
 

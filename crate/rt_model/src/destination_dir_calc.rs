@@ -9,9 +9,6 @@ use choochoo_resource::{Profile, ProfileDir, WorkspaceDir};
 
 use crate::{Error, StationDirs, WorkspaceSpec};
 
-/// Directory to contain all profile directories.
-const TARGET_DIR: &str = "target";
-
 /// Computes directories for a destination.
 #[derive(Debug)]
 pub struct DestinationDirCalc<E>(PhantomData<E>);
@@ -20,6 +17,9 @@ impl<E> DestinationDirCalc<E>
 where
     E: 'static,
 {
+    /// Directory to contain all profile directories.
+    pub const TARGET_DIR: &'static str = "target";
+
     /// Computes directories for a destination.
     ///
     /// This includes:
@@ -45,12 +45,14 @@ where
                         }
                     })?
                 }
+                WorkspaceSpec::Path(path) => path.clone(),
             };
 
             WorkspaceDir::new(workspace_dir)
         };
 
-        let profile_dir = ProfileDir::new(workspace_dir.join(TARGET_DIR).join(profile.as_ref()));
+        let profile_dir =
+            ProfileDir::new(workspace_dir.join(Self::TARGET_DIR).join(profile.as_ref()));
 
         let station_dirs = {
             let station_dirs = station_specs.iter_insertion_with_indices().fold(

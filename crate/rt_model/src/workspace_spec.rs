@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Describes how to discover the workspace directory.
 #[derive(Clone, Debug, PartialEq)]
@@ -12,6 +12,8 @@ pub enum WorkspaceSpec {
     /// The workspace directory is the parent directory that contains a file or
     /// directory with the provided name.
     FirstDirWithFile(&'static Path),
+    /// Use a specified path.
+    Path(PathBuf),
 }
 
 impl Default for WorkspaceSpec {

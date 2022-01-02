@@ -44,6 +44,21 @@ fn calculates_workspace_dir_from_first_dir_with_file() -> Result<(), Box<dyn std
 }
 
 #[test]
+fn calculates_workspace_dir_from_path() -> Result<(), Box<dyn std::error::Error>> {
+    let tempdir = tempfile::tempdir()?;
+    let workspace_spec = WorkspaceSpec::Path(Path::new(tempdir.path()).to_path_buf());
+    let profile = Profile::default();
+    let station_specs = StationSpecs::<()>::new(FnGraph::new());
+
+    let (workspace_dir, _profile_dir, _station_dirs) =
+        DestinationDirCalc::calc(&workspace_spec, &profile, &station_specs)?;
+
+    assert!(&*workspace_dir == tempdir.path());
+
+    Ok(())
+}
+
+#[test]
 fn calculates_profile_dir_from_working_directory_and_default_profile()
 -> Result<(), Box<dyn std::error::Error>> {
     let workspace_spec = WorkspaceSpec::WorkingDir;

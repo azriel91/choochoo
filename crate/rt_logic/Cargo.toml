@@ -19,4 +19,4 @@ choochoo_cfg_model = { path = "../cfg_model", version = "0.1.0" }
 choochoo_resource = { path = "../resource", version = "0.1.0" }
 choochoo_rt_model = { path = "../rt_model", version = "0.1.0" }
 futures = "0.3.18"
-tokio = { version = "1.14.0", features = ["io-util", "rt", "sync"] }
+tokio = { version = "1.14.0", features = ["fs", "io-util", "rt", "sync"] }

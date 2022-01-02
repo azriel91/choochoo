@@ -18,6 +18,12 @@ impl WorkspaceDir {
     }
 }
 
+impl AsRef<Path> for WorkspaceDir {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
 impl Deref for WorkspaceDir {
     type Target = Path;
 
