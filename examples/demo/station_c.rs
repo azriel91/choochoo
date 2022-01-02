@@ -3,7 +3,7 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, StationMutRef, StationProgress},
+        rt::{CheckStatus, ProgressLimit, StationMutRef, StationProgress, StationRtId},
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
@@ -12,6 +12,7 @@ use choochoo::{
         StationSpecFns,
     },
     resource::{Files, FilesRw},
+    rt_model::StationDirs,
 };
 use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::{
@@ -20,10 +21,8 @@ use tokio::{
 };
 
 use crate::{
-    app_zip::{
-        AppZipFileLength, APP_ZIP_APP_SERVER_PARENT, APP_ZIP_APP_SERVER_PATH,
-        APP_ZIP_ARTIFACT_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH, APP_ZIP_NAME,
-    },
+    app_zip::{AppZipFileLength, APP_ZIP_NAME},
+    artifact_server_dir::ArtifactServerDir,
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -34,9 +33,17 @@ pub struct StationC;
 
 impl StationC {
     /// Returns a station that downloads `app.zip` to a server.
-    pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
+    ///
+    /// # Parameters
+    ///
+    /// * `station_a_rt_id`: Runtime ID of [`StationA`].
+    ///
+    /// [`StationA`]: crate::StationA
+    pub fn build(
+        station_a_rt_id: StationRtId,
+    ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let station_spec_fns =
-            StationSpecFns::new(Self::setup_fn(), StationFn::new(Self::visit_fn))
+            StationSpecFns::new(Self::setup_fn(), Self::visit_fn(station_a_rt_id))
                 .with_check_fn(StationFn::new(Self::check_fn));
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
@@ -61,11 +68,13 @@ impl StationC {
     fn check_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
+        artifact_server_dir: &'f ArtifactServerDir,
     ) -> StationFnReturn<'f, CheckStatus, DemoError> {
         let client = reqwest::Client::new();
         Box::pin(async move {
+            let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
             // Short circuit in case the file doesn't exist locally.
-            if !Path::new(APP_ZIP_APP_SERVER_PATH).exists() {
+            if !Path::new(&app_zip_app_server_path).exists() {
                 return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
             }
 
@@ -74,13 +83,14 @@ impl StationC {
             // TODO: Hash the file and compare with server file hash.
             // Currently we only compare file size
             let local_file_length = {
-                let app_zip = File::open(APP_ZIP_APP_SERVER_PATH)
+                let app_zip = File::open(&app_zip_app_server_path)
                     .await
-                    .map_err(|error| Self::file_open_error(&mut files, error))?;
-                let metadata = app_zip
-                    .metadata()
-                    .await
-                    .map_err(|error| Self::file_metadata_error(&mut files, error))?;
+                    .map_err(|error| {
+                        Self::file_open_error(&mut files, &app_zip_app_server_path, error)
+                    })?;
+                let metadata = app_zip.metadata().await.map_err(|error| {
+                    Self::file_metadata_error(&mut files, &app_zip_app_server_path, error)
+                })?;
                 metadata.len()
             };
 
@@ -95,8 +105,8 @@ impl StationC {
 
             let response = client.get(&app_zip_url).send().await.map_err(|error| {
                 let artifact_server_dir_file_id = files.add(
-                    APP_ZIP_ARTIFACT_SERVER_PATH,
-                    Cow::Borrowed(APP_ZIP_ARTIFACT_SERVER_PATH),
+                    artifact_server_dir,
+                    Cow::Owned(artifact_server_dir.to_string_lossy().into_owned()),
                 );
                 Self::get_error(
                     &SERVER_PARAMS_DEFAULT,
@@ -132,87 +142,97 @@ impl StationC {
         })
     }
 
-    fn visit_fn<'f>(
-        station: &'f mut StationMutRef<'_, DemoError>,
-        files: &'f FilesRw,
-    ) -> StationFnReturn<'f, (), DemoError> {
-        let client = reqwest::Client::new();
-        Box::pin(async move {
-            station.progress.progress_bar().reset();
-            let mut files = files.write().await;
+    fn visit_fn(station_a_rt_id: StationRtId) -> StationFn<(), DemoError> {
+        StationFn::new2(
+            move |station: &mut StationMutRef<'_, DemoError>,
+                  station_dirs: &StationDirs,
+                  files: &FilesRw|
+                  -> StationFnReturn<'_, (), DemoError> {
+                let client = reqwest::Client::new();
+                Box::pin(async move {
+                    station.progress.progress_bar().reset();
+                    let mut files = files.write().await;
 
-            let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
+                    let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
 
-            let mut app_zip_url = address.to_string();
-            app_zip_url.push('/');
-            app_zip_url.push_str(APP_ZIP_NAME);
+                    let mut app_zip_url = address.to_string();
+                    app_zip_url.push('/');
+                    app_zip_url.push_str(APP_ZIP_NAME);
 
-            let address_file_id = files.add("artifact_server_address", address);
+                    let address_file_id = files.add("artifact_server_address", address);
 
-            let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                let app_zip_dir_file_id = files.add(
-                    APP_ZIP_BUILD_AGENT_PARENT_PATH,
-                    Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
-                );
-                let address = files.source(address_file_id);
-                Self::get_error(
-                    &SERVER_PARAMS_DEFAULT,
-                    app_zip_dir_file_id,
-                    address,
-                    address_file_id,
-                    error,
-                )
-            })?;
+                    let response = client.get(&app_zip_url).send().await.map_err(|error| {
+                        let station_a_dir = station_dirs
+                            .get(&station_a_rt_id)
+                            .expect("Failed to find `StationA` directory");
+                        let app_zip_dir_file_id = files.add(
+                            station_a_dir,
+                            Cow::Owned(station_a_dir.to_string_lossy().into_owned()),
+                        );
+                        let address = files.source(address_file_id);
+                        Self::get_error(
+                            &SERVER_PARAMS_DEFAULT,
+                            app_zip_dir_file_id,
+                            address,
+                            address_file_id,
+                            error,
+                        )
+                    })?;
 
-            let status_code = response.status();
-            if status_code.is_success() {
-                Self::app_zip_write(
-                    &station.progress,
-                    &mut files,
-                    app_zip_url,
-                    response.bytes_stream(),
-                )
-                .await?;
-                Result::<(), DemoError>::Ok(())
-            } else {
-                let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
-                let app_zip_url = files.source(app_zip_url_file_id);
-                let app_zip_url_span = Span::from_str(app_zip_url);
-                let server_message = if let Ok(server_message) = response.text().await {
-                    Some(server_message)
-                } else {
-                    // Failed to receive response text.
-                    // Ignore why the sub-operation failed, but still report the download
-                    // reject.
-                    None
-                };
+                    let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
+                    let status_code = response.status();
+                    if status_code.is_success() {
+                        Self::app_zip_write(
+                            &station.progress,
+                            &mut files,
+                            &app_zip_app_server_path,
+                            app_zip_url,
+                            response.bytes_stream(),
+                        )
+                        .await?;
+                        Result::<(), DemoError>::Ok(())
+                    } else {
+                        let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
+                        let app_zip_url = files.source(app_zip_url_file_id);
+                        let app_zip_url_span = Span::from_str(app_zip_url);
+                        let server_message = if let Ok(server_message) = response.text().await {
+                            Some(server_message)
+                        } else {
+                            // Failed to receive response text.
+                            // Ignore why the sub-operation failed, but still report the download
+                            // reject.
+                            None
+                        };
 
-                let code = ErrorCode::AppZipDownload;
-                let detail = ErrorDetail::AppZipDownload {
-                    app_zip_url_file_id,
-                    app_zip_url_span,
-                    server_message,
-                };
-                Err(DemoError::new(code, detail, Severity::Error))
-            }
-        })
+                        let code = ErrorCode::AppZipDownload;
+                        let detail = ErrorDetail::AppZipDownload {
+                            app_zip_url_file_id,
+                            app_zip_url_span,
+                            server_message,
+                        };
+                        Err(DemoError::new(code, detail, Severity::Error))
+                    }
+                })
+            },
+        )
     }
 
     async fn app_zip_write(
         station_progress: &StationProgress,
         files: &mut Files,
+        app_zip_app_server_path: &Path,
         app_zip_url: String,
         byte_stream: impl Stream<Item = reqwest::Result<Bytes>>,
     ) -> Result<(), DemoError> {
         let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url.clone()));
-        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_APP_SERVER_PATH));
+        let app_zip_path_file_id = files.add(
+            APP_ZIP_NAME,
+            Cow::Owned(app_zip_app_server_path.to_string_lossy().into_owned()),
+        );
         let app_zip_url = files.source(app_zip_url_file_id);
         let app_zip_path = files.source(app_zip_path_file_id);
 
-        tokio::fs::create_dir_all(APP_ZIP_APP_SERVER_PARENT)
-            .await
-            .map_err(|error| Self::write_error(app_zip_path_file_id, app_zip_path, error))?;
-        let app_zip_file = File::create(APP_ZIP_APP_SERVER_PATH)
+        let app_zip_file = File::create(app_zip_app_server_path)
             .await
             .map_err(|error| Self::write_error(app_zip_path_file_id, app_zip_path, error))?;
 
@@ -248,8 +268,15 @@ impl StationC {
         Ok(())
     }
 
-    fn file_open_error(files: &mut Files, error: std::io::Error) -> DemoError {
-        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_APP_SERVER_PATH));
+    fn file_open_error(
+        files: &mut Files,
+        app_zip_app_server_path: &Path,
+        error: std::io::Error,
+    ) -> DemoError {
+        let app_zip_path_file_id = files.add(
+            APP_ZIP_NAME,
+            Cow::Owned(app_zip_app_server_path.to_string_lossy().into_owned()),
+        );
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 
@@ -263,8 +290,15 @@ impl StationC {
         DemoError::new(code, detail, Severity::Error)
     }
 
-    fn file_metadata_error(files: &mut Files, error: std::io::Error) -> DemoError {
-        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_APP_SERVER_PATH));
+    fn file_metadata_error(
+        files: &mut Files,
+        app_zip_app_server_path: &Path,
+        error: std::io::Error,
+    ) -> DemoError {
+        let app_zip_path_file_id = files.add(
+            APP_ZIP_NAME,
+            Cow::Owned(app_zip_app_server_path.to_string_lossy().into_owned()),
+        );
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 

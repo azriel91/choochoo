@@ -361,17 +361,21 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                 let app_zip_dir = files.source(*app_zip_dir_file_id);
                 vec![
                     format!(
-                        "Try running `ls -l {app_zip_path}` to check file existence and permissions.",
+                        "Try running the following to check file existence and permissions.\n\
+                        \n\
+                        ```bash\n\
+                        ls -l {app_zip_dir}\n\
+                        ls -l {app_zip_path}\n\
+                        ```",
+                        app_zip_dir = app_zip_dir,
                         app_zip_path = app_zip_path
                     ),
                     format!(
                         "Create the file by running:\n\
                         \n\
                         ```bash\n\
-                        mkdir -p {app_zip_dir}\n\
                         for i in {{0..10000}}; do printf \"application contents ${{i}}\\n\"; done | gzip -cf > {app_zip_path}\n\
                         ```",
-                        app_zip_dir = app_zip_dir,
                         app_zip_path = app_zip_path
                     ),
                 ]

@@ -1,8 +1,8 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, StationMutRef},
+        rt::{CheckStatus, ProgressLimit, StationMut, StationMutRef},
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
@@ -10,7 +10,7 @@ use choochoo::{
         SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
         StationSpecFns,
     },
-    resource::{Files, FilesRw},
+    resource::{Files, FilesRw, ProfileDir},
 };
 use reqwest::{
     multipart::{Form, Part},
@@ -20,10 +20,8 @@ use tokio::fs::File;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use crate::{
-    app_zip::{
-        AppZipFileLength, APP_ZIP_ARTIFACT_SERVER_PATH, APP_ZIP_BUILD_AGENT_PARENT_PATH,
-        APP_ZIP_BUILD_AGENT_PATH, APP_ZIP_NAME,
-    },
+    app_zip::{AppZipFileLength, APP_ZIP_NAME},
+    artifact_server_dir::ArtifactServerDir,
     error::{ErrorCode, ErrorDetail},
     server_params::{ServerParams, SERVER_PARAMS_DEFAULT},
     DemoError,
@@ -51,23 +49,36 @@ impl StationA {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(|_station, train_report| {
+        SetupFn::new(|station, train_report| {
             Box::pin(async move {
                 let local_file_length = {
                     let files = train_report.borrow::<FilesRw>();
                     let mut files = files.write().await;
 
-                    let app_zip = File::open(APP_ZIP_BUILD_AGENT_PATH)
+                    let app_zip_build_agent_path = station.dir.join(APP_ZIP_NAME);
+                    let app_zip = File::open(&app_zip_build_agent_path)
                         .await
-                        .map_err(|error| Self::file_open_error(&mut files, error))?;
-                    let metadata = app_zip
-                        .metadata()
-                        .await
-                        .map_err(|error| Self::file_metadata_error(&mut files, error))?;
+                        .map_err(|error| {
+                            Self::file_open_error(
+                                station,
+                                &mut files,
+                                &app_zip_build_agent_path,
+                                error,
+                            )
+                        })?;
+                    let metadata = app_zip.metadata().await.map_err(|error| {
+                        Self::file_metadata_error(&mut files, &app_zip_build_agent_path, error)
+                    })?;
                     metadata.len()
                 };
 
                 train_report.insert(AppZipFileLength(local_file_length));
+
+                let artifact_server_dir = {
+                    let profile_dir = train_report.borrow::<ProfileDir>();
+                    ArtifactServerDir::new(profile_dir.to_path_buf())
+                };
+                train_report.insert(artifact_server_dir);
 
                 Ok(ProgressLimit::Bytes(local_file_length))
             })
@@ -77,6 +88,7 @@ impl StationA {
     fn check_fn<'f>(
         _station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
+        artifact_server_dir: &'f ArtifactServerDir,
         local_file_length: &'f AppZipFileLength,
     ) -> StationFnReturn<'f, CheckStatus, DemoError> {
         let client = reqwest::Client::new();
@@ -95,8 +107,8 @@ impl StationA {
 
             let response = client.get(&app_zip_url).send().await.map_err(|error| {
                 let artifact_server_dir_file_id = files.add(
-                    APP_ZIP_ARTIFACT_SERVER_PATH,
-                    Cow::Borrowed(APP_ZIP_ARTIFACT_SERVER_PATH),
+                    artifact_server_dir,
+                    Cow::Owned(artifact_server_dir.to_string_lossy().into_owned()),
                 );
                 let address = files.source(address_file_id);
                 Self::connect_error(
@@ -145,7 +157,9 @@ impl StationA {
 
             let mut files = files.write().await;
 
-            let app_zip_byte_stream = Self::app_zip_read(&mut files).await?;
+            let app_zip_build_agent_path = station.dir.join(APP_ZIP_NAME);
+            let app_zip_byte_stream =
+                Self::app_zip_read(station, &mut files, &app_zip_build_agent_path).await?;
 
             let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
             let address_file_id = files.add("artifact_server_address", address);
@@ -163,8 +177,8 @@ impl StationA {
                 .await
                 .map_err(|error| {
                     let app_zip_dir_file_id = files.add(
-                        APP_ZIP_BUILD_AGENT_PARENT_PATH,
-                        Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                        station.dir,
+                        Cow::Owned(station.dir.to_string_lossy().into_owned()),
                     );
                     Self::connect_error(
                         &SERVER_PARAMS_DEFAULT,
@@ -180,8 +194,10 @@ impl StationA {
                 Result::<(), DemoError>::Ok(())
             } else {
                 let address_span = Span::from_str(&address);
-                let app_zip_path_file_id =
-                    files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+                let app_zip_path_file_id = files.add(
+                    APP_ZIP_NAME,
+                    Cow::Owned(app_zip_build_agent_path.to_string_lossy().into_owned()),
+                );
                 let app_zip_path = files.source(app_zip_path_file_id);
                 let app_zip_path_span = Span::from_str(app_zip_path);
                 let server_message = if let Ok(server_message) = response.text().await {
@@ -205,16 +221,22 @@ impl StationA {
         })
     }
 
-    async fn app_zip_read(files: &mut Files) -> Result<FramedRead<File, BytesCodec>, DemoError> {
-        let app_zip_read = File::open(APP_ZIP_BUILD_AGENT_PATH)
+    async fn app_zip_read(
+        station: &mut StationMutRef<'_, DemoError>,
+        files: &mut Files,
+        app_zip_build_agent_path: &Path,
+    ) -> Result<FramedRead<File, BytesCodec>, DemoError> {
+        let app_zip_read = File::open(app_zip_build_agent_path)
             .await
             .map_err(|error| {
                 let app_zip_dir_file_id = files.add(
-                    APP_ZIP_BUILD_AGENT_PARENT_PATH,
-                    Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+                    station.dir,
+                    Cow::Owned(station.dir.to_string_lossy().into_owned()),
                 );
-                let app_zip_path_file_id =
-                    files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+                let app_zip_path_file_id = files.add(
+                    APP_ZIP_NAME,
+                    Cow::Owned(app_zip_build_agent_path.to_string_lossy().into_owned()),
+                );
                 let app_zip_path = files.source(app_zip_path_file_id);
                 let app_zip_path_span = Span::from_str(app_zip_path);
 
@@ -238,12 +260,20 @@ impl StationA {
         DemoError::new(code, detail, Severity::Bug)
     }
 
-    fn file_open_error(files: &mut Files, error: std::io::Error) -> DemoError {
+    fn file_open_error(
+        station: &mut StationMut<'_, DemoError>,
+        files: &mut Files,
+        app_zip_build_agent_path: &Path,
+        error: std::io::Error,
+    ) -> DemoError {
         let app_zip_dir_file_id = files.add(
-            APP_ZIP_BUILD_AGENT_PARENT_PATH,
-            Cow::Borrowed(APP_ZIP_BUILD_AGENT_PARENT_PATH),
+            station.dir,
+            Cow::Owned(station.dir.to_string_lossy().into_owned()),
         );
-        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+        let app_zip_path_file_id = files.add(
+            APP_ZIP_NAME,
+            Cow::Owned(app_zip_build_agent_path.to_string_lossy().into_owned()),
+        );
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 
@@ -258,8 +288,15 @@ impl StationA {
         DemoError::new(code, detail, Severity::Error)
     }
 
-    fn file_metadata_error(files: &mut Files, error: std::io::Error) -> DemoError {
-        let app_zip_path_file_id = files.add(APP_ZIP_NAME, Cow::Borrowed(APP_ZIP_BUILD_AGENT_PATH));
+    fn file_metadata_error(
+        files: &mut Files,
+        app_zip_build_agent_path: &Path,
+        error: std::io::Error,
+    ) -> DemoError {
+        let app_zip_path_file_id = files.add(
+            APP_ZIP_NAME,
+            Cow::Owned(app_zip_build_agent_path.to_string_lossy().into_owned()),
+        );
         let app_zip_path = files.source(app_zip_path_file_id);
         let app_zip_path_span = Span::from_str(app_zip_path);
 
