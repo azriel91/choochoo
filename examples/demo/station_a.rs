@@ -7,8 +7,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
     },
     resource::{Files, FilesRw, ProfileDir},
 };
@@ -33,9 +32,8 @@ pub struct StationA;
 impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_spec_fns =
-            StationSpecFns::new(Self::setup_fn(), StationFn::new(Self::visit_fn))
-                .with_check_fn(StationFn::new(Self::check_fn));
+        let op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::visit_fn))
+            .with_check_fn(StationFn::new(Self::check_fn));
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
@@ -44,7 +42,7 @@ impl StationA {
             station_id,
             station_name,
             station_description,
-            station_spec_fns,
+            op_fns,
         ))
     }
 

@@ -5,12 +5,12 @@ use crate::{rt::CheckStatus, SetupFn, StationFn};
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Grouping of a station's behaviours.
 #[derive(Debug, PartialEq)]
-pub struct StationSpecFns<E> {
+pub struct OpFns<E> {
     /// Verifies input, calculates progress limit, and inserts resources.
     pub setup_fn: SetupFn<E>,
-    /// Checks whether a station needs to be visited.
+    /// Checks whether the operation needs to be executed.
     ///
-    /// If this is `None`, then the station will always be visited.
+    /// If this is `None`, then the operation will always be executed.
     ///
     /// This is run before and after `visit_fn` is executed.
     pub check_fn: Option<StationFn<CheckStatus, E>>,
@@ -18,8 +18,8 @@ pub struct StationSpecFns<E> {
     pub visit_fn: StationFn<(), E>,
 }
 
-impl<E> StationSpecFns<E> {
-    /// Returns new `StationSpecFns` with minimal logic.
+impl<E> OpFns<E> {
+    /// Returns new `OpFns` with minimal logic.
     pub fn new(setup_fn: SetupFn<E>, visit_fn: StationFn<(), E>) -> Self {
         Self {
             setup_fn,
@@ -28,7 +28,7 @@ impl<E> StationSpecFns<E> {
         }
     }
 
-    /// Sets the `check_fn` for this `StationSpecFns`.
+    /// Sets the `check_fn` for this `OpFns`.
     #[must_use]
     pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
         self.check_fn = Some(check_fn);
@@ -36,7 +36,7 @@ impl<E> StationSpecFns<E> {
     }
 }
 
-impl<E> Clone for StationSpecFns<E> {
+impl<E> Clone for OpFns<E> {
     fn clone(&self) -> Self {
         Self {
             setup_fn: self.setup_fn.clone(),
@@ -46,7 +46,7 @@ impl<E> Clone for StationSpecFns<E> {
     }
 }
 
-impl<E> FnMeta for StationSpecFns<E> {
+impl<E> FnMeta for OpFns<E> {
     fn borrows(&self) -> TypeIds {
         self.visit_fn.borrows()
     }

@@ -7,7 +7,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        SetupFn, StationFn, StationId, StationSpec, StationSpecFns,
+        OpFns, SetupFn, StationFn, StationId, StationSpec,
     },
     resource::{Files, FilesRw},
 };
@@ -30,17 +30,12 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationSpec<DemoError> {
-        let station_spec_fns = StationSpecFns::new(
+        let op_fns = OpFns::new(
             Self::setup_fn(),
             Self::visit_fn(station_file_path, error_fn),
         )
         .with_check_fn(Self::check_fn(station_file_path));
-        StationSpec::new(
-            station_id,
-            station_name,
-            station_description,
-            station_spec_fns,
-        )
+        StationSpec::new(station_id, station_name, station_description, op_fns)
     }
 
     fn setup_fn() -> SetupFn<DemoError> {

@@ -2,7 +2,7 @@
 ///
 /// # Development Note
 ///
-/// This does not parameterize the station return type, as [`StationSpecFns`]
+/// This does not parameterize the station return type, as [`OpFns`]
 /// must not be type parameterized in order to be stored as the same node type
 /// in the station graph.
 ///
@@ -10,7 +10,7 @@
 /// [`Resources`].
 ///
 /// [`Resources`]: resman::Resources
-/// [`StationSpecFns`]: crate::StationSpecFns
+/// [`OpFns`]: crate::OpFns
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CheckStatus {
     /// Station is not in desired state.

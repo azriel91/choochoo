@@ -24,7 +24,7 @@ pub struct StationMut<'s, E> {
 impl<'s, E> StationMut<'s, E> {
     /// Verifies input, calculates progress limit, and inserts resources.
     pub async fn setup(&mut self, train_report: &mut TrainReport<E>) -> Result<ProgressLimit, E> {
-        let setup_fn = self.spec.station_spec_fns.setup_fn.clone();
+        let setup_fn = self.spec.op_fns.setup_fn.clone();
         setup_fn.0(self, train_report).await
     }
 }

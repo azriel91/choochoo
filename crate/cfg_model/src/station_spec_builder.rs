@@ -1,8 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::{
-    rt::CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-    StationSpecFns,
+    rt::CheckStatus, OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
 };
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
@@ -19,7 +18,7 @@ pub struct StationSpecBuilder<E> {
     /// Short description of the station's purpose.
     description: Option<String>,
     /// Steps to run when this station is visited.
-    station_spec_fns: StationSpecFns<E>,
+    op_fns: OpFns<E>,
 }
 
 impl<E> StationSpecBuilder<E>
@@ -31,11 +30,8 @@ where
     /// # Parameters
     ///
     /// * `id`: Unique identifier of the station.
-    /// * `station_spec_fns`: Steps to run when this station is visited.
-    pub fn new<Id>(
-        id: Id,
-        station_spec_fns: StationSpecFns<E>,
-    ) -> Result<Self, StationIdInvalidFmt<'static>>
+    /// * `op_fns`: Steps to run when this station is visited.
+    pub fn new<Id>(id: Id, op_fns: OpFns<E>) -> Result<Self, StationIdInvalidFmt<'static>>
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
@@ -44,13 +40,13 @@ where
             id,
             name: None,
             description: None,
-            station_spec_fns,
+            op_fns,
         })
     }
 
     /// Returns a new [`StationSpecBuilder`] to build a mock [`StationSpec`].
     ///
-    /// This defaults the [`StationSpecFns`] to be success / no-op functions.
+    /// This defaults the [`OpFns`] to be success / no-op functions.
     ///
     /// # Parameters
     ///
@@ -62,13 +58,13 @@ where
     {
         use crate::rt::ProgressLimit;
 
-        let station_spec_fns = {
+        let op_fns = {
             let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
             let visit_fn = StationFn::ok(());
-            StationSpecFns::new(setup_fn, visit_fn)
+            OpFns::new(setup_fn, visit_fn)
         };
 
-        Self::new(id, station_spec_fns)
+        Self::new(id, op_fns)
     }
 
     /// Sets the name of the [`StationSpec`].
@@ -91,31 +87,31 @@ where
         self
     }
 
-    /// Sets the [`StationSpecFns`] of the [`StationSpec`].
+    /// Sets the [`OpFns`] of the [`StationSpec`].
     #[must_use]
-    pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
-        self.station_spec_fns = station_spec_fns;
+    pub fn with_op_fns(mut self, op_fns: OpFns<E>) -> Self {
+        self.op_fns = op_fns;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
     pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
-        self.station_spec_fns.setup_fn = setup_fn;
+        self.op_fns.setup_fn = setup_fn;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
     pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
-        self.station_spec_fns.check_fn = Some(check_fn);
+        self.op_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
     pub fn with_visit_fn(mut self, visit_fn: StationFn<(), E>) -> Self {
-        self.station_spec_fns.visit_fn = visit_fn;
+        self.op_fns.visit_fn = visit_fn;
         self
     }
 
@@ -125,7 +121,7 @@ where
             id,
             name,
             description,
-            station_spec_fns,
+            op_fns,
         } = self;
 
         let id_ref = &*id;
@@ -136,7 +132,7 @@ where
             id,
             name,
             description,
-            station_spec_fns,
+            op_fns,
         }
     }
 }

@@ -9,8 +9,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
     },
     cli_fmt::PlainTextFormatter,
     resource::FilesRw,
@@ -147,12 +146,12 @@ fn new_station(
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let station_spec_fns = StationSpecFns::new(SetupFn::ok(ProgressLimit::Steps(1)), visit_fn);
+    let op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), visit_fn);
     Ok(StationSpec::new(
         station_id,
         station_name,
         station_description,
-        station_spec_fns,
+        op_fns,
     ))
 }
 

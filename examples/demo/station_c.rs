@@ -8,8 +8,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
     },
     resource::{Files, FilesRw},
     rt_model::StationDirs,
@@ -42,9 +41,8 @@ impl StationC {
     pub fn build(
         station_a_rt_id: StationRtId,
     ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_spec_fns =
-            StationSpecFns::new(Self::setup_fn(), Self::visit_fn(station_a_rt_id))
-                .with_check_fn(StationFn::new(Self::check_fn));
+        let op_fns = OpFns::new(Self::setup_fn(), Self::visit_fn(station_a_rt_id))
+            .with_check_fn(StationFn::new(Self::check_fn));
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
         let station_description = String::from("Downloads web application onto web server.");
@@ -52,7 +50,7 @@ impl StationC {
             station_id,
             station_name,
             station_description,
-            station_spec_fns,
+            op_fns,
         ))
     }
 

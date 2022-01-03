@@ -34,7 +34,7 @@ where
         &'f mut self,
         train_report: &'f TrainReport<E>,
     ) -> Option<Result<Result<CheckStatus, E>, BorrowFail>> {
-        let check_fn = self.spec.station_spec_fns.check_fn.clone();
+        let check_fn = self.spec.op_fns.check_fn.clone();
         if let Some(check_fn) = check_fn {
             let call = check_fn.f.try_call(self, train_report);
             match call {
@@ -51,7 +51,7 @@ where
         &'f mut self,
         train_report: &'f TrainReport<E>,
     ) -> Result<Result<(), E>, BorrowFail> {
-        let visit_fn = self.spec.station_spec_fns.visit_fn.clone();
+        let visit_fn = self.spec.op_fns.visit_fn.clone();
         let call = visit_fn.f.try_call(self, train_report);
         match call {
             Ok(fut) => Ok(fut.await),
