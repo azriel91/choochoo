@@ -6,14 +6,20 @@
 pub use crate::{
     destination::Destination,
     destination_builder::DestinationBuilder,
+    destination_dir_calc::DestinationDirCalc,
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,
+    station_dirs::StationDirs,
     station_progresses::StationProgresses,
+    workspace_spec::WorkspaceSpec,
 };
 
 pub mod error;
 
 mod destination;
 mod destination_builder;
+mod destination_dir_calc;
 mod ensure_outcome;
+mod station_dirs;
 mod station_progresses;
+mod workspace_spec;

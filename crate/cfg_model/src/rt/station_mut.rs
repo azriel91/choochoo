@@ -1,7 +1,7 @@
 use rt_map::RefMut;
 
 use crate::{
-    rt::{ProgressLimit, StationProgress, StationRtId, TrainReport},
+    rt::{ProgressLimit, StationDir, StationProgress, StationRtId, TrainReport},
     StationSpec,
 };
 
@@ -15,6 +15,8 @@ pub struct StationMut<'s, E> {
     pub spec: &'s StationSpec<E>,
     /// Runtime identifier for a station.
     pub rt_id: StationRtId,
+    /// Directory to hold data specific to each station.
+    pub dir: &'s StationDir,
     /// Station progress to reaching the destination.
     pub progress: RefMut<'s, StationProgress>,
 }

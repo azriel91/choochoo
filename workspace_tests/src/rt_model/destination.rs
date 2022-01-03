@@ -20,7 +20,7 @@ fn stations_iter_returns_stations_in_dependency_order() -> Result<(), Box<dyn st
         //         /
         // f ------
         dest_builder.add_edges([(c, e), (c, b), (b, a), (e, a), (a, d), (f, d)])?;
-        (dest_builder.build(), [a, b, c, d, e, f])
+        (dest_builder.build()?, [a, b, c, d, e, f])
     };
 
     let stations = dest

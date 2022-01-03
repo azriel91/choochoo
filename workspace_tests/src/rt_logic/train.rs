@@ -11,7 +11,7 @@ use tokio::runtime;
 #[test]
 fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
-    let mut dest = Destination::<()>::default();
+    let mut dest = Destination::<()>::builder().build()?;
 
     let train_report = rt.block_on(Train::reach(&mut dest))?;
 
@@ -35,7 +35,7 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
                 .with_visit_fn(StationFn::ok(()))
                 .build(),
         );
-        dest_builder.build()
+        dest_builder.build()?
     };
     let train_report = rt.block_on(Train::reach(&mut dest))?;
 
@@ -63,7 +63,7 @@ fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Erro
                 .with_visit_fn(StationFn::err(()))
                 .build(),
         );
-        let dest = dest_builder.build();
+        let dest = dest_builder.build()?;
 
         (dest, station_a, station_b)
     };
@@ -105,7 +105,7 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
         ]);
         dest_builder.add_edge(station_a, station_b)?;
 
-        let dest = dest_builder.build();
+        let dest = dest_builder.build()?;
 
         (dest, station_a, station_b)
     };
@@ -152,7 +152,7 @@ fn records_check_fn_failure_after_visit_success() -> Result<(), Box<dyn std::err
         ]);
         dest_builder.add_edge(station_a, station_b)?;
 
-        let dest = dest_builder.build();
+        let dest = dest_builder.build()?;
 
         (dest, station_a, station_b)
     };
@@ -196,7 +196,7 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
         ]);
         dest_builder.add_edge(station_a, station_b)?;
 
-        let dest = dest_builder.build();
+        let dest = dest_builder.build()?;
 
         (dest, station_a, station_b)
     };

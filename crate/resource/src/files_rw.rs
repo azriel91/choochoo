@@ -5,7 +5,7 @@ use std::{
 
 use tokio::sync::RwLock;
 
-use crate::rt::Files;
+use crate::Files;
 
 /// Atomic RW access to `Files`.
 #[derive(Debug, Default)]

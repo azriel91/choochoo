@@ -74,7 +74,7 @@ fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error
                 .with_description("k_desc")
                 .build(),
         ]);
-        (dest_builder.build(), station_ids)
+        (dest_builder.build()?, station_ids)
     };
     {
         let station_progresses = dest.station_progresses_mut();

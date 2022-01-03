@@ -72,6 +72,7 @@ where
     }
 
     /// Sets the name of the [`StationSpec`].
+    #[must_use]
     pub fn with_name<S>(mut self, name: S) -> Self
     where
         S: Into<String>,
@@ -81,6 +82,7 @@ where
     }
 
     /// Sets the description of the [`StationSpec`].
+    #[must_use]
     pub fn with_description<S>(mut self, description: S) -> Self
     where
         S: Into<String>,
@@ -90,24 +92,28 @@ where
     }
 
     /// Sets the [`StationSpecFns`] of the [`StationSpec`].
+    #[must_use]
     pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
         self.station_spec_fns = station_spec_fns;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
+    #[must_use]
     pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
         self.station_spec_fns.setup_fn = setup_fn;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
+    #[must_use]
     pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
         self.station_spec_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
+    #[must_use]
     pub fn with_visit_fn(mut self, visit_fn: StationFn<(), E>) -> Self {
         self.station_spec_fns.visit_fn = visit_fn;
         self
@@ -124,7 +130,7 @@ where
 
         let id_ref = &*id;
         let name = name.unwrap_or_else(|| id_ref.clone().into_owned());
-        let description = description.unwrap_or_else(String::new);
+        let description = description.unwrap_or_default();
 
         StationSpec {
             id,

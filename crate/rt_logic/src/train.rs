@@ -10,7 +10,7 @@ use choochoo_rt_model::{
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::task::JoinHandle;
 
-use crate::{Driver, VisitStatusUpdater};
+use crate::{Driver, ResourceInitializer, VisitStatusUpdater};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -28,6 +28,8 @@ where
         if dest.station_specs().node_count() == 0 {
             return Ok(train_report);
         }
+
+        ResourceInitializer::initialize(dest, &mut train_report).await?;
 
         train_report = Self::stations_setup(dest, train_report)
             .await

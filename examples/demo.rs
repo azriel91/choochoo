@@ -17,6 +17,8 @@ use crate::{
 
 #[path = "demo/app_zip.rs"]
 mod app_zip;
+#[path = "demo/artifact_server_dir.rs"]
+mod artifact_server_dir;
 #[path = "demo/demo_error.rs"]
 mod demo_error;
 #[path = "demo/dependency_mode.rs"]
@@ -69,8 +71,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest = {
             let mut dest_builder = Destination::builder();
 
+            let station_a = dest_builder.add_station(StationA::build()?);
             let [
-                station_a,
                 station_b,
                 station_c,
                 station_d,
@@ -79,9 +81,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 station_g,
                 station_h,
             ] = dest_builder.add_stations([
-                StationA::build()?,
                 StationB::build()?,
-                StationC::build()?,
+                StationC::build(station_a)?,
                 StationD::build()?,
                 StationE::build()?,
                 StationF::build()?,
@@ -112,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ])?;
             }
 
-            let dest = dest_builder.build();
+            let dest = dest_builder.build()?;
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;

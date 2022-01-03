@@ -4,9 +4,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use choochoo_resource::FilesRw;
 use resman::{Ref, Resources};
 
-use crate::rt::{FilesRw, StationErrors};
+use crate::rt::StationErrors;
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]
