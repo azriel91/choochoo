@@ -32,7 +32,7 @@ pub struct StationA;
 impl StationA {
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::visit_fn))
+        let op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
             .with_check_fn(StationFn::new(Self::check_fn));
 
         let station_id = StationId::new("a")?;
@@ -141,7 +141,7 @@ impl StationA {
         })
     }
 
-    fn visit_fn<'f>(
+    fn work_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
     ) -> StationFnReturn<'f, (), DemoError> {

@@ -60,8 +60,8 @@ where
 
         let op_fns = {
             let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
-            let visit_fn = StationFn::ok(());
-            OpFns::new(setup_fn, visit_fn)
+            let work_fn = StationFn::ok(());
+            OpFns::new(setup_fn, work_fn)
         };
 
         Self::new(id, op_fns)
@@ -110,8 +110,8 @@ where
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_visit_fn(mut self, visit_fn: StationFn<(), E>) -> Self {
-        self.op_fns.visit_fn = visit_fn;
+    pub fn with_work_fn(mut self, work_fn: StationFn<(), E>) -> Self {
+        self.op_fns.work_fn = work_fn;
         self
     }
 

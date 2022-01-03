@@ -12,19 +12,19 @@ pub struct OpFns<E> {
     ///
     /// If this is `None`, then the operation will always be executed.
     ///
-    /// This is run before and after `visit_fn` is executed.
+    /// This is run before and after `work_fn` is executed.
     pub check_fn: Option<StationFn<CheckStatus, E>>,
     /// Steps to execute when visiting a station.
-    pub visit_fn: StationFn<(), E>,
+    pub work_fn: StationFn<(), E>,
 }
 
 impl<E> OpFns<E> {
     /// Returns new `OpFns` with minimal logic.
-    pub fn new(setup_fn: SetupFn<E>, visit_fn: StationFn<(), E>) -> Self {
+    pub fn new(setup_fn: SetupFn<E>, work_fn: StationFn<(), E>) -> Self {
         Self {
             setup_fn,
             check_fn: None,
-            visit_fn,
+            work_fn,
         }
     }
 
@@ -41,17 +41,17 @@ impl<E> Clone for OpFns<E> {
         Self {
             setup_fn: self.setup_fn.clone(),
             check_fn: self.check_fn.clone(),
-            visit_fn: self.visit_fn.clone(),
+            work_fn: self.work_fn.clone(),
         }
     }
 }
 
 impl<E> FnMeta for OpFns<E> {
     fn borrows(&self) -> TypeIds {
-        self.visit_fn.borrows()
+        self.work_fn.borrows()
     }
 
     fn borrow_muts(&self) -> TypeIds {
-        self.visit_fn.borrow_muts()
+        self.work_fn.borrow_muts()
     }
 }

@@ -51,8 +51,8 @@ where
         &'f mut self,
         train_report: &'f TrainReport<E>,
     ) -> Result<Result<(), E>, BorrowFail> {
-        let visit_fn = self.spec.op_fns.visit_fn.clone();
-        let call = visit_fn.f.try_call(self, train_report);
+        let work_fn = self.spec.op_fns.work_fn.clone();
+        let call = work_fn.f.try_call(self, train_report);
         match call {
             Ok(fut) => Ok(fut.await),
             Err(e) => Err(e),

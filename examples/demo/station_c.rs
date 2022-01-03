@@ -41,7 +41,7 @@ impl StationC {
     pub fn build(
         station_a_rt_id: StationRtId,
     ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let op_fns = OpFns::new(Self::setup_fn(), Self::visit_fn(station_a_rt_id))
+        let op_fns = OpFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
             .with_check_fn(StationFn::new(Self::check_fn));
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
@@ -140,7 +140,7 @@ impl StationC {
         })
     }
 
-    fn visit_fn(station_a_rt_id: StationRtId) -> StationFn<(), DemoError> {
+    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<(), DemoError> {
         StationFn::new2(
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,

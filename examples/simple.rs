@@ -141,12 +141,12 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    visit_fn: StationFn<(), ExampleError>,
+    work_fn: StationFn<(), ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), visit_fn);
+    let op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
     Ok(StationSpec::new(
         station_id,
         station_name,
@@ -246,9 +246,7 @@ mod error {
                     vec![suggestion]
                 }
                 Self::StationSpecError(error) => vec![
-                    String::from(
-                        "Make sure the `visit_fn` updates what the `check_fn` is reading.",
-                    ),
+                    String::from("Make sure the `work_fn` updates what the `check_fn` is reading."),
                     error.to_string(),
                 ],
             }

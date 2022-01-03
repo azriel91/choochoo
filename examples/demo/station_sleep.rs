@@ -30,11 +30,8 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationSpec<DemoError> {
-        let op_fns = OpFns::new(
-            Self::setup_fn(),
-            Self::visit_fn(station_file_path, error_fn),
-        )
-        .with_check_fn(Self::check_fn(station_file_path));
+        let op_fns = OpFns::new(Self::setup_fn(), Self::work_fn(station_file_path, error_fn))
+            .with_check_fn(Self::check_fn(station_file_path));
         StationSpec::new(station_id, station_name, station_description, op_fns)
     }
 
@@ -57,7 +54,7 @@ impl StationSleep {
         })
     }
 
-    fn visit_fn(
+    fn work_fn(
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationFn<(), DemoError> {

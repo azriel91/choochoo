@@ -326,11 +326,11 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
     fn notes(&self, files: &Self::Files) -> Vec<String> {
         match self {
             Self::StationSpecError(error) => vec![
-                String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
+                String::from("Make sure the `work_fn` updates what the `check_fn` is reading."),
                 error.to_string(),
             ],
             Self::ReqwestClientBuild(error) => vec![
-                String::from("Make sure the `visit_fn` updates what the `check_fn` is reading."),
+                String::from("Make sure the `work_fn` updates what the `check_fn` is reading."),
                 error.to_string(),
             ],
             Self::StationDirDiscover { station_file_path } => vec![
