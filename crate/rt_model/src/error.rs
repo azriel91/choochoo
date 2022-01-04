@@ -4,10 +4,7 @@ use std::{fmt, path::PathBuf};
 
 use tokio::task::JoinError;
 
-use choochoo_cfg_model::{
-    rt::{StationDir, TrainReport},
-    StationSpec,
-};
+use choochoo_cfg_model::rt::{StationDir, TrainReport};
 use choochoo_resource::{ProfileDir, WorkspaceDir};
 
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
@@ -43,17 +40,6 @@ pub enum Error<E> {
     StationSetup {
         /// The train report.
         train_report: TrainReport<E>,
-    },
-    /// Failed to queue a station for visiting.
-    StationQueue {
-        /// The specification of the station that failed to be queued.
-        station_spec: StationSpec<E>,
-    },
-    /// Station visitor failed to notify the queuer that a station is completed.
-    StationVisitNotify {
-        /// The specification of the station whose notification failed to be
-        /// sent.
-        station_spec: StationSpec<E>,
     },
     /// Failed to read current directory to discover workspace directory.
     WorkingDirRead(std::io::Error),
@@ -94,18 +80,6 @@ where
                 station_dir.display()
             ),
             Self::StationSetup { .. } => write!(f, "Station setup failed"),
-            Self::StationQueue { station_spec } => write!(
-                f,
-                "Failed to queue station: `{id}: {name}`",
-                id = station_spec.id(),
-                name = station_spec.name()
-            ),
-            Self::StationVisitNotify { station_spec } => write!(
-                f,
-                "Failed to notify completion of station: `{id}: {name}`",
-                id = station_spec.id(),
-                name = station_spec.name()
-            ),
             Self::WorkingDirRead(_) => write!(
                 f,
                 "Failed to read current directory to discover workspace directory."
@@ -139,8 +113,6 @@ where
             Self::ProfileDirCreate { error, .. } => Some(error),
             Self::StationDirCreate { error, .. } => Some(error),
             Self::StationSetup { .. } => None,
-            Self::StationQueue { .. } => None,
-            Self::StationVisitNotify { .. } => None,
             Self::WorkingDirRead(error) => Some(error),
             Self::WorkspaceDirCreate { error, .. } => Some(error),
             Self::WorkspaceFileNotFound { .. } => None,
