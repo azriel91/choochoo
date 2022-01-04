@@ -6,11 +6,10 @@ use choochoo_cfg_model::StationId;
 #[derive(Clone, Debug, PartialEq)]
 pub enum StationSpecError {
     /// The `check_fn` provided in the station spec functions returned
-    /// [`CheckStatus::VisitRequired`] after the station was visited.
+    /// [`CheckStatus::WorkRequired`] after the work was executed.
     ///
-    /// [`CheckStatus::VisitRequired`]:
-    /// choochoo_cfg_model::CheckStatus::VisitRequired
-    VisitRequiredAfterVisit {
+    /// [`CheckStatus::WorkRequired`]: choochoo_cfg_model::CheckStatus::WorkRequired
+    WorkRequiredAfterVisit {
         /// Unique identifier of the station.
         id: StationId,
         /// Human readable name of the station.
@@ -21,9 +20,9 @@ pub enum StationSpecError {
 impl fmt::Display for StationSpecError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::VisitRequiredAfterVisit { id, name } => write!(
+            Self::WorkRequiredAfterVisit { id, name } => write!(
                 f,
-                "Station `{id}: {name}`'s check function reported the station still requires a visit after the visit function was run.",
+                "Station `{id}: {name}`'s check function reported the station still requires work after the work function was run.",
                 id = id,
                 name = name
             ),
@@ -34,7 +33,7 @@ impl fmt::Display for StationSpecError {
 impl std::error::Error for StationSpecError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::VisitRequiredAfterVisit { .. } => None,
+            Self::WorkRequiredAfterVisit { .. } => None,
         }
     }
 }

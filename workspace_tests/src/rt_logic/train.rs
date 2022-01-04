@@ -17,6 +17,7 @@ fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
 
     let station_errors = train_report.station_errors();
     assert!(station_errors.try_read()?.is_empty());
+
     Ok(())
 }
 
@@ -51,7 +52,7 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[test]
-fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Error>> {
+fn records_successful_and_failed_ops() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let (mut dest, station_a, station_b) = {
         let mut dest_builder = Destination::<()>::builder();
@@ -135,7 +136,7 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn records_check_fn_failure_after_visit_success() -> Result<(), Box<dyn std::error::Error>> {
+fn records_check_fn_failure_after_op_success() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let (mut dest, station_a, station_b) = {
         let mut dest_builder = Destination::<()>::builder();
@@ -145,7 +146,7 @@ fn records_check_fn_failure_after_visit_success() -> Result<(), Box<dyn std::err
                     train_report.insert(0u32);
                     async { Ok(ProgressLimit::Steps(1)) }.boxed_local()
                 }))
-                .with_check_fn(StationFn::ok(CheckStatus::VisitRequired))
+                .with_check_fn(StationFn::ok(CheckStatus::WorkRequired))
                 .with_work_fn(StationFn::ok(()))
                 .build(),
             StationSpec::mock("b")?
@@ -188,11 +189,11 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
         let mut dest_builder = Destination::<()>::builder();
         let [station_a, station_b] = dest_builder.add_stations([
             StationSpec::mock("a")?
-                .with_check_fn(StationFn::ok(CheckStatus::VisitNotRequired))
+                .with_check_fn(StationFn::ok(CheckStatus::WorkNotRequired))
                 .with_work_fn(StationFn::ok(()))
                 .build(),
             StationSpec::mock("b")?
-                .with_check_fn(StationFn::ok(CheckStatus::VisitNotRequired))
+                .with_check_fn(StationFn::ok(CheckStatus::WorkNotRequired))
                 .with_work_fn(StationFn::err(())) // proving this is never used
                 .build(),
         ]);

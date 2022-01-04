@@ -9,11 +9,11 @@ pub enum EnsureOutcomeOk {
     Unchanged,
     /// The station was visited.
     Changed {
-        /// Whether any error with the station spec is detected.
+        /// Whether any error with the operation is detected.
         ///
-        /// If the station is successfully visited, but the check function
-        /// reports it still needs to be visited, then there is potentially a
-        /// bug in the station spec.
+        /// If the operation is successfully executed, but the check function
+        /// reports it still needs work, then there is potentially a bug in the
+        /// station spec.
         station_spec_error: Option<StationSpecError>,
     },
 }
@@ -26,13 +26,13 @@ pub enum EnsureOutcomeErr<E> {
     /// Usually this implies the resource was not inserted in the setup
     /// function.
     CheckBorrowFail(BorrowFail),
-    /// The station's check function failed.
+    /// The operation's check function failed.
     CheckFail(E),
     /// Failed to borrow resources for the check function.
     ///
     /// Usually this implies the resource was not inserted in the setup
     /// function, or a previous station did not correctly insert a resource.
     VisitBorrowFail(BorrowFail),
-    /// The station's visit function failed.
+    /// The operation's work function failed.
     WorkFail(E),
 }

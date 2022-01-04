@@ -124,17 +124,17 @@ impl StationA {
                 // body.
                 if let Some(remote_file_length) = response.content_length() {
                     if local_file_length.0 == remote_file_length {
-                        CheckStatus::VisitNotRequired
+                        CheckStatus::WorkNotRequired
                     } else {
-                        CheckStatus::VisitRequired
+                        CheckStatus::WorkRequired
                     }
                 } else {
                     // Not sure of file length, so we download it.
-                    CheckStatus::VisitRequired
+                    CheckStatus::WorkRequired
                 }
             } else {
                 // Failed to check. We don't report an error, but maybe we should.
-                CheckStatus::VisitRequired
+                CheckStatus::WorkRequired
             };
 
             Ok(check_status)

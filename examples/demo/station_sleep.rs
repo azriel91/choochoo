@@ -45,9 +45,9 @@ impl StationSleep {
         StationFn::new0(move |_station| {
             Box::pin(async move {
                 let check_status = if station_file_path.exists() {
-                    CheckStatus::VisitNotRequired
+                    CheckStatus::WorkNotRequired
                 } else {
-                    CheckStatus::VisitRequired
+                    CheckStatus::WorkRequired
                 };
                 Result::<CheckStatus, DemoError>::Ok(check_status)
             })

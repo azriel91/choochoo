@@ -73,7 +73,7 @@ impl StationC {
             let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
             // Short circuit in case the file doesn't exist locally.
             if !Path::new(&app_zip_app_server_path).exists() {
-                return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
+                return Result::<CheckStatus, DemoError>::Ok(CheckStatus::WorkRequired);
             }
 
             let mut files = files.write().await;
@@ -124,17 +124,17 @@ impl StationC {
                         .progress_bar()
                         .set_length(remote_file_length);
                     if local_file_length == remote_file_length {
-                        CheckStatus::VisitNotRequired
+                        CheckStatus::WorkNotRequired
                     } else {
-                        CheckStatus::VisitRequired
+                        CheckStatus::WorkRequired
                     }
                 } else {
                     // Not sure of file length, so we download it.
-                    CheckStatus::VisitRequired
+                    CheckStatus::WorkRequired
                 }
             } else {
                 // Failed to check. We don't report an error, but maybe we should.
-                CheckStatus::VisitRequired
+                CheckStatus::WorkRequired
             };
             Result::<CheckStatus, DemoError>::Ok(check_status)
         })

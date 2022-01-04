@@ -40,17 +40,17 @@ where
     where
         E: From<StationSpecError>,
     {
-        let visit_required = if let Some(check_status) = station.check(train_report).await {
+        let work_required = if let Some(check_status) = station.check(train_report).await {
             check_status
                 .map_err(EnsureOutcomeErr::CheckBorrowFail)?
                 .map_err(EnsureOutcomeErr::CheckFail)?
-                == CheckStatus::VisitRequired
+                == CheckStatus::WorkRequired
         } else {
-            // if there is no check function, always visit the station.
+            // if there is no check function, always do the work.
             true
         };
 
-        if visit_required {
+        if work_required {
             station
                 .visit(train_report)
                 .await
@@ -70,10 +70,10 @@ where
                 None
             };
 
-            let station_spec_error = if let Some(CheckStatus::VisitRequired) = check_status {
+            let station_spec_error = if let Some(CheckStatus::WorkRequired) = check_status {
                 let id = station.spec.id().clone();
                 let name = station.spec.name().to_string();
-                Some(StationSpecError::VisitRequiredAfterVisit { id, name })
+                Some(StationSpecError::WorkRequiredAfterVisit { id, name })
             } else {
                 None
             };
