@@ -2,7 +2,7 @@ use std::{fmt, marker::PhantomData};
 
 use choochoo_cfg_model::{
     indicatif::MultiProgress,
-    rt::{StationRtId, TrainReport, VisitStatus},
+    rt::{OpStatus, StationRtId, TrainReport},
 };
 use choochoo_rt_model::{
     error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
@@ -10,7 +10,7 @@ use choochoo_rt_model::{
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::task::JoinHandle;
 
-use crate::{Driver, ResourceInitializer, VisitStatusUpdater};
+use crate::{Driver, OpStatusUpdater, ResourceInitializer};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -100,13 +100,13 @@ where
 
                 match setup_result {
                     Ok(progress_limit) => {
-                        station.progress.visit_status = VisitStatus::SetupSuccess;
+                        station.progress.op_status = OpStatus::SetupSuccess;
                         station.progress.progress_limit_set(progress_limit);
                         station.progress.progress_style_update();
                         Ok(train_report)
                     }
                     Err(station_error) => {
-                        station.progress.visit_status = VisitStatus::SetupFail;
+                        station.progress.op_status = OpStatus::SetupFail;
                         Self::station_error_insert(&train_report, station.rt_id, station_error)
                             .await;
                         station.progress.progress_style_update();
@@ -123,25 +123,25 @@ where
     ) -> TrainReport<E> {
         let dest = &dest;
 
-        // Set `ParentPending` stations to `VisitQueued` if they have no dependencies.
-        VisitStatusUpdater::update(dest);
+        // Set `ParentPending` stations to `OpQueued` if they have no dependencies.
+        OpStatusUpdater::update(dest);
 
         let report = &train_report;
         dest.stations_mut_stream()
             .map(|mut station| async move {
                 station.progress.progress_style_update();
-                if station.progress.visit_status == VisitStatus::VisitQueued
-                    || station.progress.visit_status == VisitStatus::SetupSuccess
+                if station.progress.op_status == OpStatus::OpQueued
+                    || station.progress.op_status == OpStatus::SetupSuccess
                 {
                     // Because this is in an async block, concurrent tasks may access this
-                    // station's `visit_status` while the `visit()` is
+                    // station's `op_status` while the `visit()` is
                     // `await`ed.
-                    station.progress.visit_status = VisitStatus::InProgress;
+                    station.progress.op_status = OpStatus::WorkInProgress;
                     station.progress.progress_style_update();
 
                     match Driver::ensure(&mut station, report).await {
                         Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
-                            station.progress.visit_status = VisitStatus::VisitSuccess;
+                            station.progress.op_status = OpStatus::WorkSuccess;
 
                             if let Some(station_spec_error) = station_spec_error {
                                 let station_error = E::from(station_spec_error);
@@ -151,25 +151,25 @@ where
                             }
                         }
                         Ok(EnsureOutcomeOk::Unchanged) => {
-                            station.progress.visit_status = VisitStatus::VisitUnnecessary;
+                            station.progress.op_status = OpStatus::WorkUnnecessary;
                         }
                         Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
-                            station.progress.visit_status = VisitStatus::CheckFail;
+                            station.progress.op_status = OpStatus::CheckFail;
 
                             // TODO: insert borrow fail error somewhere
                         }
                         Err(EnsureOutcomeErr::CheckFail(station_error)) => {
-                            station.progress.visit_status = VisitStatus::CheckFail;
+                            station.progress.op_status = OpStatus::CheckFail;
 
                             Self::station_error_insert(report, station.rt_id, station_error).await;
                         }
                         Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
-                            station.progress.visit_status = VisitStatus::VisitFail;
+                            station.progress.op_status = OpStatus::WorkFail;
 
                             // TODO: insert borrow fail error somewhere
                         }
-                        Err(EnsureOutcomeErr::VisitFail(station_error)) => {
-                            station.progress.visit_status = VisitStatus::VisitFail;
+                        Err(EnsureOutcomeErr::WorkFail(station_error)) => {
+                            station.progress.op_status = OpStatus::WorkFail;
 
                             Self::station_error_insert(report, station.rt_id, station_error).await;
                         }
@@ -179,7 +179,7 @@ where
                 station.rt_id
             })
             .for_each_concurrent(4, |station_rt_id| async {
-                VisitStatusUpdater::update_children(dest, station_rt_id.await);
+                OpStatusUpdater::update_children(dest, station_rt_id.await);
             })
             .await;
 

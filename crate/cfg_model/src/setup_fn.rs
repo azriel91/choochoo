@@ -6,7 +6,7 @@ use std::{
 };
 
 #[cfg(feature = "mock")]
-use crate::rt::VisitStatus;
+use crate::rt::OpStatus;
 use crate::rt::{ProgressLimit, StationMut, TrainReport};
 
 /// Return type of the `SetupFn`.
@@ -51,7 +51,7 @@ impl<E> SetupFn<E> {
         SetupFn::new(move |station, _| {
             let e = e.clone();
             Box::pin(async move {
-                station.progress.visit_status = VisitStatus::SetupFail;
+                station.progress.op_status = OpStatus::SetupFail;
                 Result::<ProgressLimit, E>::Err(e)
             })
         })

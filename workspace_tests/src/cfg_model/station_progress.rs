@@ -1,5 +1,5 @@
 use choochoo_cfg_model::{
-    rt::{ProgressLimit, StationProgress, VisitStatus},
+    rt::{OpStatus, ProgressLimit, StationProgress},
     OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
 };
 
@@ -11,10 +11,10 @@ fn display_returns_readable_informative_message() -> Result<(), StationIdInvalid
     let op_fns = { OpFns::<()>::new(SetupFn::ok(ProgressLimit::Unknown), StationFn::ok(())) };
     let station_spec = StationSpec::new(station_id, name, description, op_fns);
     let mut station_progress = StationProgress::new(&station_spec, ProgressLimit::Unknown);
-    station_progress.visit_status = VisitStatus::InProgress;
+    station_progress.op_status = OpStatus::WorkInProgress;
 
     assert_eq!(
-        "[InProgress] Station Name: One liner.",
+        "[WorkInProgress] Station Name: One liner.",
         station_progress.display(&station_spec).to_string()
     );
     Ok(())

@@ -5,7 +5,7 @@ use std::{
 };
 
 use choochoo_cfg_model::{
-    rt::{TrainReport, VisitStatus},
+    rt::{OpStatus, TrainReport},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
 };
 use choochoo_resource::{Files, FilesRw};
@@ -160,17 +160,15 @@ where
         stream::iter(dest.stations())
             .map(Result::<_, io::Error>::Ok)
             .try_fold(write_buf, |mut write_buf, station| async move {
-                let icon = match station.progress.visit_status {
-                    VisitStatus::SetupQueued => "⏳",
-                    VisitStatus::SetupSuccess => "⏳",
-                    VisitStatus::ParentPending => "⏰",
-                    VisitStatus::ParentFail => "☠️",
-                    VisitStatus::VisitQueued => "⏳",
-                    VisitStatus::InProgress => "⏳",
-                    VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::SetupFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
-                        "❌"
-                    }
+                let icon = match station.progress.op_status {
+                    OpStatus::SetupQueued => "⏳",
+                    OpStatus::SetupSuccess => "⏳",
+                    OpStatus::ParentPending => "⏰",
+                    OpStatus::ParentFail => "☠️",
+                    OpStatus::OpQueued => "⏳",
+                    OpStatus::WorkInProgress => "⏳",
+                    OpStatus::WorkUnnecessary | OpStatus::WorkSuccess => "✅",
+                    OpStatus::SetupFail | OpStatus::CheckFail | OpStatus::WorkFail => "❌",
                 };
 
                 b_writeln!(

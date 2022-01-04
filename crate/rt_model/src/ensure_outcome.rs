@@ -34,5 +34,5 @@ pub enum EnsureOutcomeErr<E> {
     /// function, or a previous station did not correctly insert a resource.
     VisitBorrowFail(BorrowFail),
     /// The station's visit function failed.
-    VisitFail(E),
+    WorkFail(E),
 }

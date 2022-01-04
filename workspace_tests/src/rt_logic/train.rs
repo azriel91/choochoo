@@ -1,6 +1,6 @@
 use choochoo_cfg_model::{
     indexmap::IndexMap,
-    rt::{CheckStatus, ProgressLimit, StationRtId, VisitStatus},
+    rt::{CheckStatus, OpStatus, ProgressLimit, StationRtId},
     SetupFn, StationFn, StationSpec,
 };
 use choochoo_rt_logic::Train;
@@ -41,9 +41,11 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
 
     let station_errors = train_report.station_errors();
     assert!(station_errors.try_read()?.is_empty());
-    assert!(dest.station_progresses().values().all(|station_progress| {
-        station_progress.borrow().visit_status == VisitStatus::VisitSuccess
-    }));
+    assert!(
+        dest.station_progresses().values().all(|station_progress| {
+            station_progress.borrow().op_status == OpStatus::WorkSuccess
+        })
+    );
 
     Ok(())
 }
@@ -78,12 +80,12 @@ fn records_successful_and_failed_visits() -> Result<(), Box<dyn std::error::Erro
     let station_errors = train_report.station_errors();
     assert_eq!(&errors_expected, &*station_errors.try_read()?);
     assert_eq!(
-        VisitStatus::VisitSuccess,
-        dest.station_progresses()[&station_a].borrow().visit_status
+        OpStatus::WorkSuccess,
+        dest.station_progresses()[&station_a].borrow().op_status
     );
     assert_eq!(
-        VisitStatus::VisitFail,
-        dest.station_progresses()[&station_b].borrow().visit_status
+        OpStatus::WorkFail,
+        dest.station_progresses()[&station_b].borrow().op_status
     );
 
     Ok(())
@@ -121,12 +123,12 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
     let station_errors = train_report.station_errors();
     assert_eq!(&errors_expected, &*station_errors.try_read()?);
     assert_eq!(
-        VisitStatus::CheckFail,
-        dest.station_progresses()[&station_a].borrow().visit_status
+        OpStatus::CheckFail,
+        dest.station_progresses()[&station_a].borrow().op_status
     );
     assert_eq!(
-        VisitStatus::ParentFail,
-        dest.station_progresses()[&station_b].borrow().visit_status
+        OpStatus::ParentFail,
+        dest.station_progresses()[&station_b].borrow().op_status
     );
 
     Ok(())
@@ -167,12 +169,12 @@ fn records_check_fn_failure_after_visit_success() -> Result<(), Box<dyn std::err
 
     let station_errors = train_report.station_errors();
     assert_eq!(
-        VisitStatus::VisitSuccess,
-        dest.station_progresses()[&station_a].borrow().visit_status
+        OpStatus::WorkSuccess,
+        dest.station_progresses()[&station_a].borrow().op_status
     );
     assert_eq!(
-        VisitStatus::VisitFail,
-        dest.station_progresses()[&station_b].borrow().visit_status
+        OpStatus::WorkFail,
+        dest.station_progresses()[&station_b].borrow().op_status
     );
     assert_eq!(&errors_expected, &*station_errors.try_read()?);
 
@@ -207,12 +209,12 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
     let station_errors = train_report.station_errors();
     assert_eq!(&errors_expected, &*station_errors.try_read()?);
     assert_eq!(
-        VisitStatus::VisitUnnecessary,
-        dest.station_progresses()[&station_a].borrow().visit_status
+        OpStatus::WorkUnnecessary,
+        dest.station_progresses()[&station_a].borrow().op_status
     );
     assert_eq!(
-        VisitStatus::VisitUnnecessary,
-        dest.station_progresses()[&station_b].borrow().visit_status
+        OpStatus::WorkUnnecessary,
+        dest.station_progresses()[&station_b].borrow().op_status
     );
 
     Ok(())
