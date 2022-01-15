@@ -2,10 +2,11 @@ use fn_graph::{FnMeta, TypeIds};
 
 use crate::{rt::CheckStatus, SetupFn, StationFn};
 
-// **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
+// **Note:** `Clone` and `PartialEq` are manually implemented to avoid the trait
+// bound on `WorkRet` and `E`.
 /// Grouping of a station's behaviours.
-#[derive(Debug, PartialEq)]
-pub struct OpFns<E> {
+#[derive(Debug)]
+pub struct OpFns<WorkRet, E> {
     /// Verifies input, calculates progress limit, and inserts resources.
     pub setup_fn: SetupFn<E>,
     /// Checks whether the operation needs to be executed.
@@ -15,12 +16,12 @@ pub struct OpFns<E> {
     /// This is run before and after `work_fn` is executed.
     pub check_fn: Option<StationFn<CheckStatus, E>>,
     /// Steps to execute when visiting a station.
-    pub work_fn: StationFn<(), E>,
+    pub work_fn: StationFn<WorkRet, E>,
 }
 
-impl<E> OpFns<E> {
+impl<WorkRet, E> OpFns<WorkRet, E> {
     /// Returns new `OpFns` with minimal logic.
-    pub fn new(setup_fn: SetupFn<E>, work_fn: StationFn<(), E>) -> Self {
+    pub fn new(setup_fn: SetupFn<E>, work_fn: StationFn<WorkRet, E>) -> Self {
         Self {
             setup_fn,
             check_fn: None,
@@ -36,7 +37,7 @@ impl<E> OpFns<E> {
     }
 }
 
-impl<E> Clone for OpFns<E> {
+impl<WorkRet, E> Clone for OpFns<WorkRet, E> {
     fn clone(&self) -> Self {
         Self {
             setup_fn: self.setup_fn.clone(),
@@ -46,7 +47,15 @@ impl<E> Clone for OpFns<E> {
     }
 }
 
-impl<E> FnMeta for OpFns<E> {
+impl<WorkRet, E> PartialEq for OpFns<WorkRet, E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.setup_fn.eq(&other.setup_fn)
+            && self.check_fn.eq(&other.check_fn)
+            && self.work_fn.eq(&other.work_fn)
+    }
+}
+
+impl<WorkRet, E> FnMeta for OpFns<WorkRet, E> {
     fn borrows(&self) -> TypeIds {
         self.work_fn.borrows()
     }

@@ -2,14 +2,18 @@
 
 pub use self::{
     check_status::CheckStatus, op_status::OpStatus, progress_limit::ProgressLimit,
-    station::Station, station_dir::StationDir, station_errors::StationErrors,
-    station_mut::StationMut, station_mut_ref::StationMutRef, station_progress::StationProgress,
-    station_rt_id::StationRtId, train_report::TrainReport,
+    resource_id_logical::ResourceIdLogical, resource_id_physical::ResourceIdPhysical,
+    resource_ids::ResourceIds, station::Station, station_dir::StationDir,
+    station_errors::StationErrors, station_mut::StationMut, station_mut_ref::StationMutRef,
+    station_progress::StationProgress, station_rt_id::StationRtId, train_report::TrainReport,
 };
 
 mod check_status;
 mod op_status;
 mod progress_limit;
+mod resource_id_logical;
+mod resource_id_physical;
+mod resource_ids;
 mod station;
 mod station_dir;
 mod station_errors;

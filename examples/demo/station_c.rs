@@ -3,12 +3,16 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, StationMutRef, StationProgress, StationRtId},
+        rt::{
+            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIdPhysical, ResourceIds,
+            StationMutRef, StationProgress, StationRtId,
+        },
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
+        StationSpec,
     },
     resource::{Files, FilesRw},
     rt_model::StationDirs,
@@ -31,6 +35,8 @@ use crate::{
 pub struct StationC;
 
 impl StationC {
+    const APP_ZIP_ID: &'static str = "StationC::APP_ZIP";
+
     /// Returns a station that downloads `app.zip` to a server.
     ///
     /// # Parameters
@@ -41,8 +47,10 @@ impl StationC {
     pub fn build(
         station_a_rt_id: StationRtId,
     ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let op_fns = OpFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
+        let create_op_fns = OpFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
             .with_check_fn(StationFn::new(Self::check_fn));
+        let station_op = StationOp::new(create_op_fns, None);
+
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
         let station_description = String::from("Downloads web application onto web server.");
@@ -50,7 +58,7 @@ impl StationC {
             station_id,
             station_name,
             station_description,
-            op_fns,
+            station_op,
         ))
     }
 
@@ -140,12 +148,12 @@ impl StationC {
         })
     }
 
-    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<(), DemoError> {
+    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<ResourceIds, DemoError> {
         StationFn::new2(
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,
                   files: &FilesRw|
-                  -> StationFnReturn<'_, (), DemoError> {
+                  -> StationFnReturn<'_, ResourceIds, DemoError> {
                 let client = reqwest::Client::new();
                 Box::pin(async move {
                     station.progress.progress_bar().reset();
@@ -188,7 +196,21 @@ impl StationC {
                             response.bytes_stream(),
                         )
                         .await?;
-                        Result::<(), DemoError>::Ok(())
+
+                        let mut resource_ids = ResourceIds::new();
+
+                        // We don't have to clean up any existing file, as we overwrite.
+                        let _ = resource_ids.insert(
+                            ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
+                            ResourceIdPhysical(
+                                app_zip_app_server_path
+                                    .to_str()
+                                    .expect("Failed to convert app_zip_app_server_path to string.")
+                                    .to_string(),
+                            ),
+                        );
+
+                        Ok(resource_ids)
                     } else {
                         let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
                         let app_zip_url = files.source(app_zip_url_file_id);

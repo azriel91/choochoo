@@ -2,12 +2,16 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, StationMut, StationMutRef},
+        rt::{
+            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIdPhysical, ResourceIds,
+            StationMut, StationMutRef,
+        },
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
+        StationSpec,
     },
     resource::{Files, FilesRw, ProfileDir},
 };
@@ -30,10 +34,13 @@ use crate::{
 pub struct StationA;
 
 impl StationA {
+    const APP_ZIP_ID: &'static str = "StationA::APP_ZIP";
+
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
+        let create_op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
             .with_check_fn(StationFn::new(Self::check_fn));
+        let station_op = StationOp::new(create_op_fns, None);
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
@@ -42,7 +49,7 @@ impl StationA {
             station_id,
             station_name,
             station_description,
-            op_fns,
+            station_op,
         ))
     }
 
@@ -144,7 +151,7 @@ impl StationA {
     fn work_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
-    ) -> StationFnReturn<'f, (), DemoError> {
+    ) -> StationFnReturn<'f, ResourceIds, DemoError> {
         station.progress.progress_bar().reset();
         station.progress.tick();
         Box::pin(async move {
@@ -189,7 +196,13 @@ impl StationA {
 
             let status_code = response.status();
             if status_code.as_u16() == 302 {
-                Result::<(), DemoError>::Ok(())
+                let mut resource_ids = ResourceIds::new();
+                let _ = resource_ids.insert(
+                    ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
+                    ResourceIdPhysical(address.clone().into_owned()),
+                );
+
+                Ok(resource_ids)
             } else {
                 let address_span = Span::from_str(&address);
                 let app_zip_path_file_id = files.add(

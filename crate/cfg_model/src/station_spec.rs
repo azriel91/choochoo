@@ -2,7 +2,7 @@ use std::{convert::TryFrom, fmt};
 
 use fn_graph::{FnMeta, TypeIds};
 
-use crate::{OpFns, StationId, StationIdInvalidFmt, StationSpecBuilder};
+use crate::{StationId, StationIdInvalidFmt, StationOp, StationSpecBuilder};
 
 // **Note:** `Clone` is manually implemented to avoid the trait bound on `E`.
 /// Behaviour specification of the station.
@@ -14,8 +14,8 @@ pub struct StationSpec<E> {
     pub(crate) name: String,
     /// Short description of the station's purpose.
     pub(crate) description: String,
-    /// Steps to run when this station is visited.
-    pub(crate) op_fns: OpFns<E>,
+    /// Grouping of operations to create and clean up resources.
+    pub(crate) station_op: StationOp<E>,
 }
 
 impl<E> StationSpec<E>
@@ -32,15 +32,15 @@ where
     /// * `id`: Unique identifier of the station.
     /// * `name`: Human readable name of the station.
     /// * `description`: Short description of the station's purpose.
-    /// * `op_fns`: Steps to run when this station is visited.
+    /// * `station_op`: Grouping of operations to create and clean up resources.
     ///
     /// [`builder`]: Self::builder
-    pub fn new(id: StationId, name: String, description: String, op_fns: OpFns<E>) -> Self {
+    pub fn new(id: StationId, name: String, description: String, station_op: StationOp<E>) -> Self {
         Self {
             id,
             name,
             description,
-            op_fns,
+            station_op,
         }
     }
 
@@ -49,20 +49,20 @@ where
     /// # Parameters
     ///
     /// * `id`: Unique identifier of the station.
-    /// * `op_fns`: Steps to run when this station is visited.
+    /// * `station_op`: Grouping of operations to create and clean up resources.
     pub fn builder<Id>(
         id: Id,
-        op_fns: OpFns<E>,
+        station_op: StationOp<E>,
     ) -> Result<StationSpecBuilder<E>, StationIdInvalidFmt<'static>>
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
-        StationSpecBuilder::new(id, op_fns)
+        StationSpecBuilder::new(id, station_op)
     }
 
     /// Returns a new [`StationSpecBuilder`] to build a mock [`StationSpec`].
     ///
-    /// This defaults the [`OpFns`] to be success / no-op functions.
+    /// This defaults the [`StationOp`] to be success / no-op functions.
     ///
     /// # Parameters
     ///
@@ -91,8 +91,8 @@ where
     }
 
     /// Returns this station's behaviours.
-    pub fn op_fns(&self) -> &OpFns<E> {
-        &self.op_fns
+    pub fn station_op(&self) -> &StationOp<E> {
+        &self.station_op
     }
 }
 
@@ -102,7 +102,7 @@ impl<E> Clone for StationSpec<E> {
             id: self.id.clone(),
             name: self.name.clone(),
             description: self.description.clone(),
-            op_fns: self.op_fns.clone(),
+            station_op: self.station_op.clone(),
         }
     }
 }
@@ -115,10 +115,10 @@ impl<E> fmt::Display for StationSpec<E> {
 
 impl<E> FnMeta for StationSpec<E> {
     fn borrows(&self) -> TypeIds {
-        self.op_fns.borrows()
+        self.station_op.create_op_fns().borrows()
     }
 
     fn borrow_muts(&self) -> TypeIds {
-        self.op_fns.borrow_muts()
+        self.station_op.create_op_fns().borrow_muts()
     }
 }

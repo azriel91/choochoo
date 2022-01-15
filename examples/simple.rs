@@ -2,14 +2,15 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{ProgressLimit, StationMutRef},
+        rt::{ProgressLimit, ResourceIds, StationMutRef},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
+        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
+        StationSpec,
     },
     cli_fmt::PlainTextFormatter,
     resource::FilesRw,
@@ -78,10 +79,10 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
 fn station_a_impl<'f>(
     _: &'f mut StationMutRef<'_, ExampleError>,
-) -> StationFnReturn<'f, (), ExampleError> {
+) -> StationFnReturn<'f, ResourceIds, ExampleError> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
-        Result::<(), ExampleError>::Ok(())
+        Result::<ResourceIds, ExampleError>::Ok(ResourceIds::new())
     })
 }
 
@@ -97,7 +98,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 fn station_b_impl<'f>(
     station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
-) -> StationFnReturn<'f, (), ExampleError> {
+) -> StationFnReturn<'f, ResourceIds, ExampleError> {
     async move {
         eprintln!("Visiting {}.", station.spec.name());
 
@@ -108,7 +109,7 @@ fn station_b_impl<'f>(
             .expect("Failed to read simple.toml");
 
         let error = value_out_of_range(file_id);
-        Result::<(), ExampleError>::Err(error)
+        Result::<ResourceIds, ExampleError>::Err(error)
     }
     .boxed_local()
 }
@@ -141,17 +142,18 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    work_fn: StationFn<(), ExampleError>,
+    work_fn: StationFn<ResourceIds, ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
+    let create_op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
+    let station_op = StationOp::new(create_op_fns, None);
     Ok(StationSpec::new(
         station_id,
         station_name,
         station_description,
-        op_fns,
+        station_op,
     ))
 }
 
