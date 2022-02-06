@@ -10,11 +10,11 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
-        StationSpec,
+        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     resource::{Files, FilesRw, ProfileDir},
 };
+use futures::future::LocalBoxFuture;
 use reqwest::{
     multipart::{Form, Part},
     redirect::Policy,
@@ -95,7 +95,7 @@ impl StationA {
         files: &'f FilesRw,
         artifact_server_dir: &'f ArtifactServerDir,
         local_file_length: &'f AppZipFileLength,
-    ) -> StationFnReturn<'f, CheckStatus, DemoError> {
+    ) -> LocalBoxFuture<'f, Result<CheckStatus, DemoError>> {
         let client = reqwest::Client::new();
         Box::pin(async move {
             let mut files = files.write().await;
@@ -151,7 +151,7 @@ impl StationA {
     fn work_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
-    ) -> StationFnReturn<'f, ResourceIds, DemoError> {
+    ) -> LocalBoxFuture<'f, Result<ResourceIds, DemoError>> {
         station.progress.progress_bar().reset();
         station.progress.tick();
         Box::pin(async move {

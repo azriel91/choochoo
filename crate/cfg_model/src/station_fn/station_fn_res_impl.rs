@@ -1,8 +1,10 @@
 use resman::BorrowFail;
 
+use futures::future::LocalBoxFuture;
+
 use crate::{
     rt::{StationMutRef, TrainReport},
-    StationFnRes, StationFnResource, StationFnReturn,
+    StationFnRes, StationFnResource,
 };
 
 // Unfortunately we have to `include!` instead of use a `#[path]` attribute.

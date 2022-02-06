@@ -1,11 +1,9 @@
 use std::ops::Deref;
 
+use futures::future::LocalBoxFuture;
 use resman::BorrowFail;
 
-use crate::{
-    rt::{StationMutRef, TrainReport},
-    StationFnReturn,
-};
+use crate::rt::{StationMutRef, TrainReport};
 
 /// Function that gets its arguments / parameters from a `TrainReport`.
 ///
@@ -18,13 +16,13 @@ pub trait StationFnRes<R, E> {
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
-    ) -> StationFnReturn<'f2, R, E>;
+    ) -> LocalBoxFuture<'f2, Result<R, E>>;
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
-    ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail>;
+    ) -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail>;
 }
 
 impl<Fun, R, E> StationFnRes<R, E> for Box<Fun>
@@ -35,7 +33,7 @@ where
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
-    ) -> StationFnReturn<'f2, R, E> {
+    ) -> LocalBoxFuture<'f2, Result<R, E>> {
         self.deref().call(station, train_report)
     }
 
@@ -43,7 +41,7 @@ where
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         train_report: &'f2 TrainReport<E>,
-    ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {
+    ) -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {
         self.deref().try_call(station, train_report)
     }
 }

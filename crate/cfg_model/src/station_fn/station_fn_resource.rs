@@ -1,10 +1,11 @@
 use std::marker::PhantomData;
 
+use futures::future::LocalBoxFuture;
 use resman::BorrowFail;
 
 use crate::{
     rt::{StationMutRef, TrainReport},
-    StationFnRes, StationFnReturn,
+    StationFnRes,
 };
 
 /// Function that gets its arguments / parameters from a `TrainReport`.
@@ -27,13 +28,13 @@ impl<Fun, R, E, Args> StationFnResource<Fun, R, E, Args> {
 
 impl<Fun, R, E> StationFnRes<R, E> for StationFnResource<Fun, R, E, ()>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> StationFnReturn<'f, R, E>,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> LocalBoxFuture<'f, Result<R, E>>,
 {
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
-    ) -> StationFnReturn<'f2, R, E> {
+    ) -> LocalBoxFuture<'f2, Result<R, E>> {
         (self.func)(station)
     }
 
@@ -41,7 +42,7 @@ where
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
-    ) -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {
+    ) -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {
         Ok((self.func)(station))
     }
 }

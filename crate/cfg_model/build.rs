@@ -347,10 +347,10 @@ mod station_fn_metadata_ext {
             r#"
 impl<Fun, R, E, {args_csv}> StationFnMetadataExt<Fun, R, E, ({arg_refs_csv})> for Fun
 where
-    Fun: for<'f> FnOnce(&'f mut StationMutRef<'_, E>, {arg_refs_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    Fun: for<'f> FnOnce(&'f mut StationMutRef<'_, E>, {arg_refs_csv}) -> LocalBoxFuture<'f, Result<R, E>> + 'static,
     {arg_bounds_list}
 {{
-    fn metadata<'f>(&self) -> FnMetadata<Fun, StationFnReturn<'f, R, E>, ({arg_refs_csv})> {{
+    fn metadata<'f>(&self) -> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, ({arg_refs_csv})> {{
         FnMetadata(PhantomData)
     }}
 }}
@@ -388,14 +388,14 @@ mod station_fn_res_impl {
             r#"
 impl<Fun, R, E, {args_csv}> StationFnRes<R, E> for StationFnResource<Fun, R, E, ({arg_refs_csv})>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, E>> + 'static,
     {arg_bounds_list}
 {{
     fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> StationFnReturn<'f2, R, E> {{
+    -> LocalBoxFuture<'f2, Result<R, E>> {{
         Self::call(self, station, train_report)
     }}
 
@@ -403,7 +403,7 @@ where
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {{
+    -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {{
         Self::try_call(self, station, train_report)
     }}
 }}
@@ -444,14 +444,14 @@ mod station_fn_resource {
             r#"
 impl<Fun, R, E, {args_csv}> StationFnResource<Fun, R, E, ({arg_refs_csv})>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> StationFnReturn<'f, R, E> + 'static,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, E>> + 'static,
     {arg_bounds_list}
 {{
     pub fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> StationFnReturn<'f2, R, E> {{
+    -> LocalBoxFuture<'f2, Result<R, E>> {{
         Box::pin(async move {{
             {resource_arg_borrows}
 
@@ -463,7 +463,7 @@ where
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> Result<StationFnReturn<'f2, R, E>, BorrowFail> {{
+    -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {{
         {resource_arg_try_borrows}
         Ok(Box::pin(async move {{
             (self.func)(station, {resource_arg_vars}).await

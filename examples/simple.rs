@@ -9,15 +9,14 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
-        StationSpec,
+        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     cli_fmt::PlainTextFormatter,
     resource::FilesRw,
     rt_logic::Train,
     rt_model::{error::StationSpecError, Destination},
 };
-use futures::future::FutureExt;
+use futures::future::{FutureExt, LocalBoxFuture};
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
@@ -79,7 +78,7 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
 fn station_a_impl<'f>(
     _: &'f mut StationMutRef<'_, ExampleError>,
-) -> StationFnReturn<'f, ResourceIds, ExampleError> {
+) -> LocalBoxFuture<'f, Result<ResourceIds, ExampleError>> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
         Result::<ResourceIds, ExampleError>::Ok(ResourceIds::new())
@@ -98,7 +97,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 fn station_b_impl<'f>(
     station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
-) -> StationFnReturn<'f, ResourceIds, ExampleError> {
+) -> LocalBoxFuture<'f, Result<ResourceIds, ExampleError>> {
     async move {
         eprintln!("Visiting {}.", station.spec.name());
 

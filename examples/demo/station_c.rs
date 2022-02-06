@@ -11,13 +11,12 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationOp,
-        StationSpec,
+        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     resource::{Files, FilesRw},
     rt_model::StationDirs,
 };
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{future::LocalBoxFuture, Stream, StreamExt, TryStreamExt};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -75,7 +74,7 @@ impl StationC {
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
         artifact_server_dir: &'f ArtifactServerDir,
-    ) -> StationFnReturn<'f, CheckStatus, DemoError> {
+    ) -> LocalBoxFuture<'f, Result<CheckStatus, DemoError>> {
         let client = reqwest::Client::new();
         Box::pin(async move {
             let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
@@ -153,7 +152,7 @@ impl StationC {
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,
                   files: &FilesRw|
-                  -> StationFnReturn<'_, ResourceIds, DemoError> {
+                  -> LocalBoxFuture<'_, Result<ResourceIds, DemoError>> {
                 let client = reqwest::Client::new();
                 Box::pin(async move {
                     station.progress.progress_bar().reset();

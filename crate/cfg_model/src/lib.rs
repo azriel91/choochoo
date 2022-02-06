@@ -14,7 +14,7 @@ pub use srcerr;
 pub use crate::{
     op_fns::OpFns,
     setup_fn::{SetupFn, SetupFnReturn},
-    station_fn::{StationFn, StationFnRes, StationFnResource, StationFnReturn},
+    station_fn::{StationFn, StationFnRes, StationFnResource},
     station_fn_metadata_ext::StationFnMetadataExt,
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
