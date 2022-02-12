@@ -141,7 +141,7 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    work_fn: StationFn<(ResourceIds, Result<(), ExampleError>), ExampleError>,
+    work_fn: StationFn<ResourceIds, ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);

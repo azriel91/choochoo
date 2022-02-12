@@ -50,7 +50,7 @@ where
     pub async fn visit<'f>(
         &'f mut self,
         train_report: &'f TrainReport<E>,
-    ) -> Result<(ResourceIds, Result<(), E>), BorrowFail> {
+    ) -> Result<Result<ResourceIds, E>, BorrowFail> {
         let work_fn = self.spec.station_op.create_op_fns().work_fn.clone();
         let call = work_fn.f.try_call(self, train_report);
         match call {
