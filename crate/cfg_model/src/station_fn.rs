@@ -7,7 +7,7 @@ use fn_graph::{FnMeta, FnMetadata, TypeIds};
 use futures::future::{FutureExt, LocalBoxFuture};
 
 #[cfg(feature = "mock")]
-use crate::rt::StationMutRef;
+use crate::rt::{ResourceIds, StationMutRef};
 use crate::StationFnMetadataExt;
 
 pub use self::{
@@ -25,12 +25,12 @@ mod station_fn_resource;
 // trait bound on `E`.
 /// Steps to run for this part of the station's logic.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
-pub struct StationFn<R, E> {
+pub struct StationFn<Ret, E> {
     /// Function that gets its arguments / parameters from a `TrainReport`.
     ///
     /// This is wrapped in an [`Arc`] because we are unable to clone trait
     /// objects.
-    pub f: Arc<Box<dyn StationFnRes<R, E>>>,
+    pub f: Arc<Box<dyn StationFnRes<Ret, E>>>,
     /// [`TypeId`]s of borrowed arguments.
     ///
     /// [`TypeId`]: core::any::TypeId
@@ -41,9 +41,9 @@ pub struct StationFn<R, E> {
     borrow_muts: TypeIds,
 }
 
-impl<R, E> StationFn<R, E>
+impl<Ret, E> StationFn<Ret, E>
 where
-    R: 'static,
+    Ret: 'static,
     E: 'static,
 {
     /// Returns a new `StationFn`.
@@ -58,10 +58,10 @@ where
     /// * `f`: Logic to run.
     pub fn new<Fun, ArgRefs>(f: Fun) -> Self
     where
-        Fun: IntoStationFnRes<Fun, R, E, ArgRefs>
-            + StationFnMetadataExt<Fun, R, E, ArgRefs>
+        Fun: IntoStationFnRes<Fun, Ret, E, ArgRefs>
+            + StationFnMetadataExt<Fun, Ret, E, ArgRefs>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, ArgRefs>: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, ArgRefs>: FnMeta,
         ArgRefs: 'static,
     {
         let metadata = f.metadata();
@@ -91,11 +91,11 @@ where
     /// * `f`: Logic to run.
     pub fn new0<Fun>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, ()>
-            + StationFnMetadataExt<Fun, R, E, ()>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, ()>
+            + StationFnMetadataExt<Fun, Ret, E, ()>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, ()>: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, ()>: FnMeta,
     {
         Self::new(f)
     }
@@ -118,11 +118,11 @@ where
     /// * `f`: Logic to run.
     pub fn new1<Fun, A0>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, &'f A0) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0,)>
-            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0,)>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, &'f A0) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0,)>
+            + for<'f> StationFnMetadataExt<Fun, Ret, E, (&'f A0,)>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, (&'f A0,)>: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0,)>: FnMeta,
         A0: 'static,
     {
         Self::new(f)
@@ -146,15 +146,11 @@ where
     /// * `f`: Logic to run.
     pub fn new2<Fun, A0, A1>(f: Fun) -> Self
     where
-        Fun: for<'f> Fn(
-                &'f mut StationMutRef<'_, E>,
-                &'f A0,
-                &'f A1,
-            ) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
-            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1)>
+        Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, &'f A0, &'f A1) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, Ret, E, (&'f A0, &'f A1)>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, (&'f A0, &'f A1)>: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0, &'f A1)>: FnMeta,
         A0: 'static,
         A1: 'static,
     {
@@ -184,11 +180,11 @@ where
                 &'f A0,
                 &'f A1,
                 &'f A2,
-            ) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
-            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2)>
+            ) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, Ret, E, (&'f A0, &'f A1, &'f A2)>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, (&'f A0, &'f A1, &'f A2)>: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0, &'f A1, &'f A2)>: FnMeta,
         A0: 'static,
         A1: 'static,
         A2: 'static,
@@ -220,12 +216,11 @@ where
                 &'f A1,
                 &'f A2,
                 &'f A3,
-            ) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
-            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2, &'f A3)>
+            ) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, Ret, E, (&'f A0, &'f A1, &'f A2, &'f A3)>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, (&'f A0, &'f A1, &'f A2, &'f A3)>:
-            FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0, &'f A1, &'f A2, &'f A3)>: FnMeta,
         A0: 'static,
         A1: 'static,
         A2: 'static,
@@ -259,11 +254,11 @@ where
                 &'f A2,
                 &'f A3,
                 &'f A4,
-            ) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
-            + for<'f> StationFnMetadataExt<Fun, R, E, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>
+            ) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0, &'static A1)>
+            + for<'f> StationFnMetadataExt<Fun, Ret, E, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>
             + 'static,
-        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Result<R, E>>, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>:
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4)>:
             FnMeta,
         A0: 'static,
         A1: 'static,
@@ -300,19 +295,16 @@ where
                 &'f A3,
                 &'f A4,
                 &'f A5,
-            ) -> LocalBoxFuture<'f, Result<R, E>>
-            + IntoStationFnRes<Fun, R, E, (&'static A0, &'static A1)>
+            ) -> LocalBoxFuture<'f, Ret>
+            + IntoStationFnRes<Fun, Ret, E, (&'static A0, &'static A1)>
             + for<'f> StationFnMetadataExt<
                 Fun,
-                R,
+                Ret,
                 E,
                 (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4, &'f A5),
             > + 'static,
-        for<'f> FnMetadata<
-            Fun,
-            LocalBoxFuture<'f, Result<R, E>>,
-            (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4, &'f A5),
-        >: FnMeta,
+        for<'f> FnMetadata<Fun, LocalBoxFuture<'f, Ret>, (&'f A0, &'f A1, &'f A2, &'f A3, &'f A4, &'f A5)>:
+            FnMeta,
         A0: 'static,
         A1: 'static,
         A2: 'static,
@@ -322,9 +314,15 @@ where
     {
         Self::new(f)
     }
+}
 
+#[cfg(feature = "mock")]
+impl<R, E> StationFn<Result<R, E>, E>
+where
+    R: 'static,
+    E: 'static,
+{
     /// Returns a `StationFn` that always returns `Result::Ok`.
-    #[cfg(feature = "mock")]
     pub fn ok(r: R) -> Self
     where
         R: Clone + 'static,
@@ -336,7 +334,6 @@ where
     }
 
     /// Returns a `StationFn` that always returns `Result::Err`.
-    #[cfg(feature = "mock")]
     pub fn err(e: E) -> Self
     where
         E: Clone + 'static,
@@ -348,9 +345,35 @@ where
     }
 }
 
+#[cfg(feature = "mock")]
+impl<E> StationFn<(ResourceIds, Result<(), E>), E>
+where
+    E: 'static,
+{
+    /// Returns a `StationFn` that always returns `Result::Ok`.
+    pub fn create_ok(resource_ids: ResourceIds) -> Self {
+        StationFn::new0(move |_: &mut StationMutRef<'_, E>| {
+            let resource_ids = resource_ids.clone();
+            async move { (resource_ids, Result::<(), E>::Ok(())) }.boxed_local()
+        })
+    }
+
+    /// Returns a `StationFn` that always returns `Result::Err`.
+    pub fn create_err(resource_ids: ResourceIds, e: E) -> Self
+    where
+        E: Clone + 'static,
+    {
+        StationFn::new0(move |_: &mut StationMutRef<'_, E>| {
+            let resource_ids = resource_ids.clone();
+            let e = e.clone();
+            async move { (resource_ids, Result::<(), E>::Err(e)) }.boxed_local()
+        })
+    }
+}
+
 // We `impl Clone` to avoid the `E: Clone` bound generated by the derive.
 #[cfg(not(tarpaulin_include))]
-impl<R, E> Clone for StationFn<R, E> {
+impl<Ret, E> Clone for StationFn<Ret, E> {
     fn clone(&self) -> Self {
         Self {
             f: Arc::clone(&self.f),
@@ -360,19 +383,19 @@ impl<R, E> Clone for StationFn<R, E> {
     }
 }
 
-impl<R, E> Debug for StationFn<R, E> {
+impl<Ret, E> Debug for StationFn<Ret, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("StationFn(fn(&'_ mut Station<R, E>) -> LocalBoxFuture<'_, Result<R, E>>)")
+        f.write_str("StationFn(fn(&'_ mut Station<'_, E>) -> LocalBoxFuture<'_, Ret>)")
     }
 }
 
-impl<R, E> PartialEq for StationFn<R, E> {
+impl<Ret, E> PartialEq for StationFn<Ret, E> {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(&self.f, &other.f)
     }
 }
 
-impl<R, E> FnMeta for StationFn<R, E> {
+impl<Ret, E> FnMeta for StationFn<Ret, E> {
     fn borrows(&self) -> TypeIds {
         self.borrows.clone()
     }

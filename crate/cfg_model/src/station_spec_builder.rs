@@ -61,7 +61,7 @@ where
 
         let station_op = {
             let setup_fn = SetupFn::<E>::ok(ProgressLimit::Steps(10));
-            let work_fn = StationFn::ok(ResourceIds::new());
+            let work_fn = StationFn::create_ok(ResourceIds::new());
             let create_op_fns = OpFns::new(setup_fn, work_fn);
             let clean_op_fns = None;
 
@@ -107,14 +107,14 @@ where
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
+    pub fn with_check_fn(mut self, check_fn: StationFn<Result<CheckStatus, E>, E>) -> Self {
         self.station_op.create_op_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_work_fn(mut self, work_fn: StationFn<ResourceIds, E>) -> Self {
+    pub fn with_work_fn(mut self, work_fn: StationFn<(ResourceIds, Result<(), E>), E>) -> Self {
         self.station_op.create_op_fns.work_fn = work_fn;
         self
     }

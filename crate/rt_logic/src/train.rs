@@ -139,7 +139,9 @@ where
                     station.progress.op_status = OpStatus::WorkInProgress;
                     station.progress.progress_style_update();
 
-                    match Driver::ensure(&mut station, report).await {
+                    let (resource_ids, ensure_outcome) = Driver::ensure(&mut station, report).await;
+
+                    match ensure_outcome {
                         Ok(EnsureOutcomeOk::Changed { station_spec_error }) => {
                             station.progress.op_status = OpStatus::WorkSuccess;
 

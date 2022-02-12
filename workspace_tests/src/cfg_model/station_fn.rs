@@ -5,7 +5,7 @@ fn debug_impl_includes_all_fields() {
     let work_fn = StationFn::<(), ()>::ok(());
 
     assert_eq!(
-        "StationFn(fn(&'_ mut Station<R, E>) -> LocalBoxFuture<'_, Result<R, E>>)",
+        "StationFn(fn(&'_ mut Station<'_, E>) -> LocalBoxFuture<'_, Ret>)",
         format!("{:?}", work_fn)
     );
 }

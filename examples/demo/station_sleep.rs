@@ -43,7 +43,9 @@ impl StationSleep {
         })
     }
 
-    fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
+    fn check_fn(
+        station_file_path: &'static Path,
+    ) -> StationFn<Result<CheckStatus, DemoError>, DemoError> {
         StationFn::new0(move |_station| {
             Box::pin(async move {
                 let check_status = if station_file_path.exists() {

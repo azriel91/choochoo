@@ -5,14 +5,17 @@ use crate::{rt::ResourceIds, OpFns};
 #[derive(Debug)]
 pub struct StationOp<E> {
     /// Steps to run when this station is visited.
-    pub(crate) create_op_fns: OpFns<ResourceIds, E>,
+    pub(crate) create_op_fns: OpFns<(ResourceIds, Result<(), E>), E>,
     /// Steps to run to clean up the station.
     pub(crate) clean_op_fns: Option<OpFns<(), E>>,
 }
 
 impl<E> StationOp<E> {
     /// Returns a new `StationOp`.
-    pub fn new(create_op_fns: OpFns<ResourceIds, E>, clean_op_fns: Option<OpFns<(), E>>) -> Self {
+    pub fn new(
+        create_op_fns: OpFns<(ResourceIds, Result<(), E>), E>,
+        clean_op_fns: Option<OpFns<(), E>>,
+    ) -> Self {
         Self {
             create_op_fns,
             clean_op_fns,
@@ -20,7 +23,7 @@ impl<E> StationOp<E> {
     }
 
     /// Returns this station's [`OpFns`] for creating resources.
-    pub fn create_op_fns(&self) -> &OpFns<ResourceIds, E> {
+    pub fn create_op_fns(&self) -> &OpFns<(ResourceIds, Result<(), E>), E> {
         &self.create_op_fns
     }
 
