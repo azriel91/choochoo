@@ -7,7 +7,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationId, StationOp, StationSpec,
+        CreateFns, SetupFn, StationFn, StationId, StationOp, StationSpec,
     },
     resource::{Files, FilesRw},
 };
@@ -30,10 +30,10 @@ impl StationSleep {
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
     ) -> StationSpec<DemoError> {
-        let create_op_fns =
-            OpFns::new(Self::setup_fn(), Self::work_fn(station_file_path, error_fn))
+        let create_fns =
+            CreateFns::new(Self::setup_fn(), Self::work_fn(station_file_path, error_fn))
                 .with_check_fn(Self::check_fn(station_file_path));
-        let station_op = StationOp::new(create_op_fns, None);
+        let station_op = StationOp::new(create_fns, None);
         StationSpec::new(station_id, station_name, station_description, station_op)
     }
 
@@ -43,7 +43,7 @@ impl StationSleep {
         })
     }
 
-    fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError> {
+    fn check_fn(station_file_path: &'static Path) -> StationFn<CheckStatus, DemoError, DemoError> {
         StationFn::new0(move |_station| {
             Box::pin(async move {
                 let check_status = if station_file_path.exists() {
@@ -59,7 +59,7 @@ impl StationSleep {
     fn work_fn(
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
-    ) -> StationFn<ResourceIds, DemoError> {
+    ) -> StationFn<ResourceIds, (ResourceIds, DemoError), DemoError> {
         StationFn::new1(
             move |station: &mut StationMutRef<'_, DemoError>, files: &FilesRw| {
                 Box::pin(async move {
@@ -71,12 +71,16 @@ impl StationSleep {
                             tokio::time::sleep(Duration::from_millis(10)).await;
                         })
                         .await;
+                    let resource_ids = ResourceIds::new();
 
-                    let station_dir = station_file_path.parent().ok_or_else(|| {
-                        let code = ErrorCode::StationDirDiscover;
-                        let detail = ErrorDetail::StationDirDiscover { station_file_path };
-                        DemoError::new(code, detail, Severity::Bug)
-                    })?;
+                    let station_dir = station_file_path
+                        .parent()
+                        .ok_or_else(|| {
+                            let code = ErrorCode::StationDirDiscover;
+                            let detail = ErrorDetail::StationDirDiscover { station_file_path };
+                            DemoError::new(code, detail, Severity::Bug)
+                        })
+                        .map_err(|e| (resource_ids.clone(), e))?;
                     let mut files = files.write().await;
                     tokio::fs::create_dir_all(station_dir)
                         .await
@@ -85,7 +89,8 @@ impl StationSleep {
                             {
                                 Ok(e) | Err(e) => e,
                             }
-                        })?;
+                        })
+                        .map_err(|e| (resource_ids.clone(), e))?;
                     tokio::fs::write(station_file_path, b"Station visited!\n")
                         .await
                         .map_err(|error| {
@@ -93,9 +98,10 @@ impl StationSleep {
                             {
                                 Ok(e) | Err(e) => e,
                             }
-                        })?;
+                        })
+                        .map_err(|e| (resource_ids.clone(), e))?;
 
-                    Ok(ResourceIds::new())
+                    Ok(resource_ids)
                 })
             },
         )

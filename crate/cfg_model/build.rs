@@ -386,16 +386,16 @@ mod station_fn_res_impl {
         write!(
             station_fn_res_impl,
             r#"
-impl<Fun, R, E, {args_csv}> StationFnRes<R, E> for StationFnResource<Fun, R, E, ({arg_refs_csv})>
+impl<Fun, R, RErr, E, {args_csv}> StationFnRes<R, RErr, E> for StationFnResource<Fun, R, RErr, E, ({arg_refs_csv})>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, E>> + 'static,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, RErr>> + 'static,
     {arg_bounds_list}
 {{
     fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> LocalBoxFuture<'f2, Result<R, E>> {{
+    -> LocalBoxFuture<'f2, Result<R, RErr>> {{
         Self::call(self, station, train_report)
     }}
 
@@ -403,7 +403,7 @@ where
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {{
+    -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {{
         Self::try_call(self, station, train_report)
     }}
 }}
@@ -442,16 +442,16 @@ mod station_fn_resource {
         write!(
             station_fn_resource,
             r#"
-impl<Fun, R, E, {args_csv}> StationFnResource<Fun, R, E, ({arg_refs_csv})>
+impl<Fun, R, RErr, E, {args_csv}> StationFnResource<Fun, R, RErr, E, ({arg_refs_csv})>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, E>> + 'static,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>, {arg_refs_lifetime_csv}) -> LocalBoxFuture<'f, Result<R, RErr>> + 'static,
     {arg_bounds_list}
 {{
     pub fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> LocalBoxFuture<'f2, Result<R, E>> {{
+    -> LocalBoxFuture<'f2, Result<R, RErr>> {{
         Box::pin(async move {{
             {resource_arg_borrows}
 
@@ -463,7 +463,7 @@ where
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
             train_report: &'f2 TrainReport<E>)
-    -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {{
+    -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {{
         {resource_arg_try_borrows}
         Ok(Box::pin(async move {{
             (self.func)(station, {resource_arg_vars}).await

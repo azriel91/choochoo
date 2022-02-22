@@ -11,7 +11,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
+        CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     resource::{Files, FilesRw},
     rt_model::StationDirs,
@@ -46,9 +46,9 @@ impl StationC {
     pub fn build(
         station_a_rt_id: StationRtId,
     ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let create_op_fns = OpFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
+        let create_fns = CreateFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
             .with_check_fn(StationFn::new(Self::check_fn));
-        let station_op = StationOp::new(create_op_fns, None);
+        let station_op = StationOp::new(create_fns, None);
 
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
@@ -147,15 +147,18 @@ impl StationC {
         })
     }
 
-    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<ResourceIds, DemoError> {
+    fn work_fn(
+        station_a_rt_id: StationRtId,
+    ) -> StationFn<ResourceIds, (ResourceIds, DemoError), DemoError> {
         StationFn::new2(
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,
                   files: &FilesRw|
-                  -> LocalBoxFuture<'_, Result<ResourceIds, DemoError>> {
+                  -> LocalBoxFuture<'_, Result<ResourceIds, (ResourceIds, DemoError)>> {
                 let client = reqwest::Client::new();
                 Box::pin(async move {
                     station.progress.progress_bar().reset();
+                    let mut resource_ids = ResourceIds::new();
                     let mut files = files.write().await;
 
                     let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
@@ -166,23 +169,28 @@ impl StationC {
 
                     let address_file_id = files.add("artifact_server_address", address);
 
-                    let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                        let station_a_dir = station_dirs
-                            .get(&station_a_rt_id)
-                            .expect("Failed to find `StationA` directory");
-                        let app_zip_dir_file_id = files.add(
-                            station_a_dir,
-                            Cow::Owned(station_a_dir.to_string_lossy().into_owned()),
-                        );
-                        let address = files.source(address_file_id);
-                        Self::get_error(
-                            &SERVER_PARAMS_DEFAULT,
-                            app_zip_dir_file_id,
-                            address,
-                            address_file_id,
-                            error,
-                        )
-                    })?;
+                    let response = client
+                        .get(&app_zip_url)
+                        .send()
+                        .await
+                        .map_err(|error| {
+                            let station_a_dir = station_dirs
+                                .get(&station_a_rt_id)
+                                .expect("Failed to find `StationA` directory");
+                            let app_zip_dir_file_id = files.add(
+                                station_a_dir,
+                                Cow::Owned(station_a_dir.to_string_lossy().into_owned()),
+                            );
+                            let address = files.source(address_file_id);
+                            Self::get_error(
+                                &SERVER_PARAMS_DEFAULT,
+                                app_zip_dir_file_id,
+                                address,
+                                address_file_id,
+                                error,
+                            )
+                        })
+                        .map_err(|e| (resource_ids.clone(), e))?;
 
                     let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
                     let status_code = response.status();
@@ -194,9 +202,8 @@ impl StationC {
                             app_zip_url,
                             response.bytes_stream(),
                         )
-                        .await?;
-
-                        let mut resource_ids = ResourceIds::new();
+                        .await
+                        .map_err(|e| (resource_ids.clone(), e))?;
 
                         // We don't have to clean up any existing file, as we overwrite.
                         let _ = resource_ids.insert(
@@ -229,7 +236,7 @@ impl StationC {
                             app_zip_url_span,
                             server_message,
                         };
-                        Err(DemoError::new(code, detail, Severity::Error))
+                        Err((resource_ids, DemoError::new(code, detail, Severity::Error)))
                     }
                 })
             },

@@ -9,7 +9,7 @@ use choochoo::{
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
+        CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     cli_fmt::PlainTextFormatter,
     resource::FilesRw,
@@ -78,10 +78,10 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
 fn station_a_impl<'f>(
     _: &'f mut StationMutRef<'_, ExampleError>,
-) -> LocalBoxFuture<'f, Result<ResourceIds, ExampleError>> {
+) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, ExampleError)>> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
-        Result::<ResourceIds, ExampleError>::Ok(ResourceIds::new())
+        Result::<ResourceIds, (ResourceIds, ExampleError)>::Ok(ResourceIds::new())
     })
 }
 
@@ -97,7 +97,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 fn station_b_impl<'f>(
     station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
-) -> LocalBoxFuture<'f, Result<ResourceIds, ExampleError>> {
+) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, ExampleError)>> {
     async move {
         eprintln!("Visiting {}.", station.spec.name());
 
@@ -108,7 +108,7 @@ fn station_b_impl<'f>(
             .expect("Failed to read simple.toml");
 
         let error = value_out_of_range(file_id);
-        Result::<ResourceIds, ExampleError>::Err(error)
+        Result::<ResourceIds, (ResourceIds, ExampleError)>::Err((ResourceIds::new(), error))
     }
     .boxed_local()
 }
@@ -141,13 +141,13 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    work_fn: StationFn<ResourceIds, ExampleError>,
+    work_fn: StationFn<ResourceIds, (ResourceIds, ExampleError), ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let create_op_fns = OpFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
-    let station_op = StationOp::new(create_op_fns, None);
+    let create_fns = CreateFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
+    let station_op = StationOp::new(create_fns, None);
     Ok(StationSpec::new(
         station_id,
         station_name,

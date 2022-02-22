@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use crate::{
     rt::{CheckStatus, ResourceIds},
-    OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
+    CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
 };
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
@@ -47,7 +47,7 @@ where
 
     /// Returns a new [`StationSpecBuilder`] to build a mock [`StationSpec`].
     ///
-    /// This defaults the [`OpFns`] to be success / no-op functions.
+    /// This defaults the [`CreateFns`] to be success / no-op functions.
     ///
     /// # Parameters
     ///
@@ -62,10 +62,10 @@ where
         let station_op = {
             let setup_fn = SetupFn::<E>::ok(ProgressLimit::Steps(10));
             let work_fn = StationFn::ok(ResourceIds::new());
-            let create_op_fns = OpFns::new(setup_fn, work_fn);
+            let create_fns = CreateFns::new(setup_fn, work_fn);
             let clean_op_fns = None;
 
-            StationOp::new(create_op_fns, clean_op_fns)
+            StationOp::new(create_fns, clean_op_fns)
         };
 
         Self::new(id, station_op)
@@ -91,7 +91,7 @@ where
         self
     }
 
-    /// Sets the [`OpFns`] of the [`StationSpec`].
+    /// Sets the [`CreateFns`] of the [`StationSpec`].
     #[must_use]
     pub fn with_station_op(mut self, station_op: StationOp<E>) -> Self {
         self.station_op = station_op;
@@ -101,21 +101,21 @@ where
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
     pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
-        self.station_op.create_op_fns.setup_fn = setup_fn;
+        self.station_op.create_fns.setup_fn = setup_fn;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
-        self.station_op.create_op_fns.check_fn = Some(check_fn);
+    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E, E>) -> Self {
+        self.station_op.create_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_work_fn(mut self, work_fn: StationFn<ResourceIds, E>) -> Self {
-        self.station_op.create_op_fns.work_fn = work_fn;
+    pub fn with_work_fn(mut self, work_fn: StationFn<ResourceIds, (ResourceIds, E), E>) -> Self {
+        self.station_op.create_fns.work_fn = work_fn;
         self
     }
 

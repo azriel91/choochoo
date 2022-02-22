@@ -168,7 +168,10 @@ where
 
                             // TODO: insert borrow fail error somewhere
                         }
-                        Err(EnsureOutcomeErr::WorkFail(station_error)) => {
+                        Err(EnsureOutcomeErr::WorkFail {
+                            resource_ids,
+                            error: station_error,
+                        }) => {
                             station.progress.op_status = OpStatus::WorkFail;
 
                             Self::station_error_insert(report, station.rt_id, station_error).await;

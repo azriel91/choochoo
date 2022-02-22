@@ -10,7 +10,7 @@ use choochoo::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
+        CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     resource::{Files, FilesRw, ProfileDir},
 };
@@ -38,9 +38,9 @@ impl StationA {
 
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let create_op_fns = OpFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
+        let create_fns = CreateFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
             .with_check_fn(StationFn::new(Self::check_fn));
-        let station_op = StationOp::new(create_op_fns, None);
+        let station_op = StationOp::new(create_fns, None);
 
         let station_id = StationId::new("a")?;
         let station_name = String::from("Upload App");
@@ -151,20 +151,24 @@ impl StationA {
     fn work_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
-    ) -> LocalBoxFuture<'f, Result<ResourceIds, DemoError>> {
+    ) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, DemoError)>> {
         station.progress.progress_bar().reset();
         station.progress.tick();
         Box::pin(async move {
+            let mut resource_ids = ResourceIds::new();
             let client = reqwest::Client::builder()
                 .redirect(Policy::none())
                 .build()
-                .map_err(|error| Self::client_build_error(error))?;
+                .map_err(|error| Self::client_build_error(error))
+                .map_err(|e| (resource_ids.clone(), e))?;
 
             let mut files = files.write().await;
 
             let app_zip_build_agent_path = station.dir.join(APP_ZIP_NAME);
             let app_zip_byte_stream =
-                Self::app_zip_read(station, &mut files, &app_zip_build_agent_path).await?;
+                Self::app_zip_read(station, &mut files, &app_zip_build_agent_path)
+                    .await
+                    .map_err(|e| (resource_ids.clone(), e))?;
 
             let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
             let address_file_id = files.add("artifact_server_address", address);
@@ -192,11 +196,11 @@ impl StationA {
                         address_file_id,
                         error,
                     )
-                })?;
+                })
+                .map_err(|e| (resource_ids.clone(), e))?;
 
             let status_code = response.status();
             if status_code.as_u16() == 302 {
-                let mut resource_ids = ResourceIds::new();
                 let _ = resource_ids.insert(
                     ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
                     ResourceIdPhysical(address.clone().into_owned()),
@@ -227,7 +231,7 @@ impl StationA {
                     address_span,
                     server_message,
                 };
-                Err(DemoError::new(code, detail, Severity::Error))
+                Err((resource_ids, DemoError::new(code, detail, Severity::Error)))
             }
         })
     }

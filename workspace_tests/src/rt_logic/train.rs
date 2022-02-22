@@ -63,7 +63,7 @@ fn records_successful_and_failed_ops() -> Result<(), Box<dyn std::error::Error>>
         );
         let station_b = dest_builder.add_station(
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err(()))
+                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
                 .build(),
         );
         let dest = dest_builder.build()?;
@@ -103,7 +103,7 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
                 .with_check_fn(StationFn::err(()))
                 .build(),
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err(()))
+                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;
@@ -150,7 +150,7 @@ fn records_check_fn_failure_after_op_success() -> Result<(), Box<dyn std::error:
                 .with_work_fn(StationFn::ok(ResourceIds::new()))
                 .build(),
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err(()))
+                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;
@@ -194,7 +194,7 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
                 .build(),
             StationSpec::mock("b")?
                 .with_check_fn(StationFn::ok(CheckStatus::WorkNotRequired))
-                .with_work_fn(StationFn::err(())) // proving this is never used
+                .with_work_fn(StationFn::err((ResourceIds::new(), ()))) // proving this is never used
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;

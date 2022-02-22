@@ -115,10 +115,10 @@ impl<E> fmt::Display for StationSpec<E> {
 
 impl<E> FnMeta for StationSpec<E> {
     fn borrows(&self) -> TypeIds {
-        self.station_op.create_op_fns().borrows()
+        self.station_op.create_fns().borrows()
     }
 
     fn borrow_muts(&self) -> TypeIds {
-        self.station_op.create_op_fns().borrow_muts()
+        self.station_op.create_fns().borrow_muts()
     }
 }

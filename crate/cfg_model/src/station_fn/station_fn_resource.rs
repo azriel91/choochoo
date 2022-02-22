@@ -9,14 +9,14 @@ use crate::{
 };
 
 /// Function that gets its arguments / parameters from a `TrainReport`.
-pub struct StationFnResource<Fun, R, E, Args> {
+pub struct StationFnResource<Fun, R, RErr, E, Args> {
     /// The actual function.
     pub func: Fun,
     /// Marker.
-    pub(crate) marker: PhantomData<(Fun, R, E, Args)>,
+    pub(crate) marker: PhantomData<(Fun, R, RErr, E, Args)>,
 }
 
-impl<Fun, R, E, Args> StationFnResource<Fun, R, E, Args> {
+impl<Fun, R, RErr, E, Args> StationFnResource<Fun, R, RErr, E, Args> {
     /// Returns a new `StationFnResource`.
     pub fn new(func: Fun) -> Self {
         Self {
@@ -26,15 +26,15 @@ impl<Fun, R, E, Args> StationFnResource<Fun, R, E, Args> {
     }
 }
 
-impl<Fun, R, E> StationFnRes<R, E> for StationFnResource<Fun, R, E, ()>
+impl<Fun, R, RErr, E> StationFnRes<R, RErr, E> for StationFnResource<Fun, R, RErr, E, ()>
 where
-    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> LocalBoxFuture<'f, Result<R, E>>,
+    Fun: for<'f> Fn(&'f mut StationMutRef<'_, E>) -> LocalBoxFuture<'f, Result<R, RErr>>,
 {
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
-    ) -> LocalBoxFuture<'f2, Result<R, E>> {
+    ) -> LocalBoxFuture<'f2, Result<R, RErr>> {
         (self.func)(station)
     }
 
@@ -42,7 +42,7 @@ where
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
         _train_report: &'f2 TrainReport<E>,
-    ) -> Result<LocalBoxFuture<'f2, Result<R, E>>, BorrowFail> {
+    ) -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {
         Ok((self.func)(station))
     }
 }

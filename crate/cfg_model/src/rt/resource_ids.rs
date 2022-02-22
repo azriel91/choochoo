@@ -21,7 +21,7 @@ use crate::rt::{ResourceIdLogical, ResourceIdPhysical};
 /// which is sensible for runtime values. We would have to create a new trait
 /// and a new map type if we wanted that. However the TypeId key serialization
 /// problem is still there.
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct ResourceIds(pub HashMap<ResourceIdLogical, ResourceIdPhysical>);
 
 impl ResourceIds {

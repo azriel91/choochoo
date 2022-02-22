@@ -12,13 +12,12 @@ pub use rt_map;
 pub use srcerr;
 
 pub use crate::{
-    op_fns::OpFns,
     setup_fn::{SetupFn, SetupFnReturn},
     station_fn::{StationFn, StationFnRes, StationFnResource},
     station_fn_metadata_ext::StationFnMetadataExt,
     station_id::StationId,
     station_id_invalid_fmt::StationIdInvalidFmt,
-    station_op::StationOp,
+    station_op::{CleanFns, CreateFns, OpFns, StationOp},
     station_spec::StationSpec,
     station_spec_builder::StationSpecBuilder,
     station_specs::StationSpecs,
@@ -26,7 +25,6 @@ pub use crate::{
 
 pub mod rt;
 
-mod op_fns;
 mod setup_fn;
 mod station_fn;
 mod station_fn_metadata_ext;
