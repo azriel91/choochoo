@@ -4,11 +4,11 @@ use futures::future::LocalBoxFuture;
 use resman::BorrowFail;
 
 use crate::{
-    rt::{StationMutRef, TrainReport},
+    rt::{StationMutRef, TrainResources},
     StationFnRes,
 };
 
-/// Function that gets its arguments / parameters from a `TrainReport`.
+/// Function that gets its arguments / parameters from a `TrainResources`.
 pub struct StationFnResource<Fun, R, RErr, E, Args> {
     /// The actual function.
     pub func: Fun,
@@ -33,7 +33,7 @@ where
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        _train_report: &'f2 TrainReport<E>,
+        _train_resources: &'f2 TrainResources<E>,
     ) -> LocalBoxFuture<'f2, Result<R, RErr>> {
         (self.func)(station)
     }
@@ -41,7 +41,7 @@ where
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        _train_report: &'f2 TrainReport<E>,
+        _train_resources: &'f2 TrainResources<E>,
     ) -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {
         Ok((self.func)(station))
     }

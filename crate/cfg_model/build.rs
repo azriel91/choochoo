@@ -145,8 +145,8 @@ mod common {
                 arg_refs_lifetime_csv
             };
 
-            // let a0 = train_report.borrow::<A0>();
-            // let mut a1 = train_report.borrow_mut::<A1>();
+            // let a0 = train_resources.borrow::<A0>();
+            // let mut a1 = train_resources.borrow_mut::<A1>();
             // ..
             let resource_arg_borrows = resource_arg_borrows(arg_refs);
             let resource_arg_try_borrows = resource_arg_try_borrows(arg_refs);
@@ -202,12 +202,12 @@ mod common {
             .try_for_each(|(index, arg_ref)| match arg_ref {
                 Ref::Immutable => writeln!(
                     resource_arg_borrows,
-                    "let a{index} = train_report.borrow::<A{index}>();",
+                    "let a{index} = train_resources.borrow::<A{index}>();",
                     index = index
                 ),
                 Ref::Mutable => writeln!(
                     resource_arg_borrows,
-                    "let mut a{index} = train_report.borrow_mut::<A{index}>();",
+                    "let mut a{index} = train_resources.borrow_mut::<A{index}>();",
                     index = index
                 ),
             })
@@ -222,12 +222,12 @@ mod common {
             .try_for_each(|(index, arg_ref)| match arg_ref {
                 Ref::Immutable => writeln!(
                     resource_arg_try_borrows,
-                    "let a{index} = train_report.try_borrow::<A{index}>()?;",
+                    "let a{index} = train_resources.try_borrow::<A{index}>()?;",
                     index = index
                 ),
                 Ref::Mutable => writeln!(
                     resource_arg_try_borrows,
-                    "let mut a{index} = train_report.try_borrow_mut::<A{index}>()?;",
+                    "let mut a{index} = train_resources.try_borrow_mut::<A{index}>()?;",
                     index = index
                 ),
             })
@@ -394,17 +394,17 @@ where
     fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
-            train_report: &'f2 TrainReport<E>)
+            train_resources: &'f2 TrainResources<E>)
     -> LocalBoxFuture<'f2, Result<R, RErr>> {{
-        Self::call(self, station, train_report)
+        Self::call(self, station, train_resources)
     }}
 
     fn try_call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
-            train_report: &'f2 TrainReport<E>)
+            train_resources: &'f2 TrainResources<E>)
     -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {{
-        Self::try_call(self, station, train_report)
+        Self::try_call(self, station, train_resources)
     }}
 }}
 "#,
@@ -450,7 +450,7 @@ where
     pub fn call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
-            train_report: &'f2 TrainReport<E>)
+            train_resources: &'f2 TrainResources<E>)
     -> LocalBoxFuture<'f2, Result<R, RErr>> {{
         Box::pin(async move {{
             {resource_arg_borrows}
@@ -462,7 +462,7 @@ where
     pub fn try_call<'f1: 'f2, 'f2>(
             &'f2 self,
             station: &'f1 mut StationMutRef<'_, E>,
-            train_report: &'f2 TrainReport<E>)
+            train_resources: &'f2 TrainResources<E>)
     -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {{
         {resource_arg_try_borrows}
         Ok(Box::pin(async move {{

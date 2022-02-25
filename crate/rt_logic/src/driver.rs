@@ -1,6 +1,6 @@
 use std::{fmt, marker::PhantomData};
 
-use choochoo_cfg_model::rt::{CheckStatus, StationMutRef, TrainReport};
+use choochoo_cfg_model::rt::{CheckStatus, StationMutRef, TrainResources};
 use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk};
 
 /// Logic that conditionally executes an operation's work.
@@ -35,12 +35,12 @@ where
     /// * Serializing state to disk.
     pub async fn ensure(
         station: &mut StationMutRef<'_, E>,
-        train_report: &TrainReport<E>,
+        train_resources: &TrainResources<E>,
     ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
-        let work_required = if let Some(check_status) = station.check(train_report).await {
+        let work_required = if let Some(check_status) = station.check(train_resources).await {
             check_status
                 .map_err(EnsureOutcomeErr::CheckBorrowFail)?
                 .map_err(EnsureOutcomeErr::CheckFail)?
@@ -52,7 +52,7 @@ where
 
         if work_required {
             let resource_ids = station
-                .visit(train_report)
+                .visit(train_resources)
                 .await
                 .map_err(EnsureOutcomeErr::VisitBorrowFail)?
                 .map_err(|(resource_ids, error)| EnsureOutcomeErr::WorkFail {
@@ -63,7 +63,7 @@ where
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
-            let check_status = if let Some(check_status) = station.check(train_report).await {
+            let check_status = if let Some(check_status) = station.check(train_resources).await {
                 Some(
                     check_status
                         .map_err(EnsureOutcomeErr::CheckBorrowFail)?

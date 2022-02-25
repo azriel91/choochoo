@@ -3,9 +3,9 @@ use std::ops::Deref;
 use futures::future::LocalBoxFuture;
 use resman::BorrowFail;
 
-use crate::rt::{StationMutRef, TrainReport};
+use crate::rt::{StationMutRef, TrainResources};
 
-/// Function that gets its arguments / parameters from a `TrainReport`.
+/// Function that gets its arguments / parameters from a `TrainResources`.
 ///
 /// This allows consumers of this library to hold onto multiple *resource
 /// functions* as `Box<dyn StationFnRes<R, E>>`, even though their arguments
@@ -15,13 +15,13 @@ pub trait StationFnRes<R, RErr, E> {
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        train_report: &'f2 TrainReport<E>,
+        train_resources: &'f2 TrainResources<E>,
     ) -> LocalBoxFuture<'f2, Result<R, RErr>>;
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        _train_report: &'f2 TrainReport<E>,
+        _train_resources: &'f2 TrainResources<E>,
     ) -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail>;
 }
 
@@ -32,16 +32,16 @@ where
     fn call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        train_report: &'f2 TrainReport<E>,
+        train_resources: &'f2 TrainResources<E>,
     ) -> LocalBoxFuture<'f2, Result<R, RErr>> {
-        self.deref().call(station, train_report)
+        self.deref().call(station, train_resources)
     }
 
     fn try_call<'f1: 'f2, 'f2>(
         &'f2 self,
         station: &'f1 mut StationMutRef<'_, E>,
-        train_report: &'f2 TrainReport<E>,
+        train_resources: &'f2 TrainResources<E>,
     ) -> Result<LocalBoxFuture<'f2, Result<R, RErr>>, BorrowFail> {
-        self.deref().try_call(station, train_report)
+        self.deref().try_call(station, train_resources)
     }
 }

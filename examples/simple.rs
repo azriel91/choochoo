@@ -31,11 +31,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             dest_builder.build()?
         };
-        let train_report = Train::reach(&mut dest).await?;
+        let train_resources = Train::reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
 
-        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
+        PlainTextFormatter::fmt(&mut stdout, &dest, &train_resources).await?;
 
         Result::<(), Box<dyn std::error::Error>>::Ok(())
     })?;

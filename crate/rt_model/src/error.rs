@@ -5,7 +5,7 @@ use std::{fmt, path::PathBuf};
 use tokio::task::JoinError;
 
 use choochoo_cfg_model::{
-    rt::{ResourceIds, StationDir, TrainReport},
+    rt::{ResourceIds, StationDir, TrainResources},
     StationId,
 };
 use choochoo_resource::{ProfileDir, WorkspaceDir};
@@ -47,11 +47,11 @@ pub enum Error<E> {
     },
     /// Station setup failed.
     ///
-    /// Details of failures are recorded in the TrainReport instead of this
+    /// Details of failures are recorded in the TrainResources instead of this
     /// variant.
     StationSetup {
-        /// The train report.
-        train_report: TrainReport<E>,
+        /// The train resources.
+        train_resources: TrainResources<E>,
     },
     /// Failed to read current directory to discover workspace directory.
     WorkingDirRead(std::io::Error),

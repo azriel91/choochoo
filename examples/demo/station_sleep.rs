@@ -38,7 +38,7 @@ impl StationSleep {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(move |_station, _train_report| {
+        SetupFn::new(move |_station, _train_resources| {
             Box::pin(async move { Ok(ProgressLimit::Steps(PROGRESS_LENGTH)) })
         })
     }

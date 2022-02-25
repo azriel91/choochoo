@@ -117,10 +117,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
-        let train_report = Train::reach(&mut dest).await?;
+        let train_resources = Train::reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
-        PlainTextFormatter::fmt_errors(&mut stdout, &train_report).await?;
+        PlainTextFormatter::fmt_errors(&mut stdout, &train_resources).await?;
 
         Result::<_, Box<dyn std::error::Error>>::Ok(())
     })?;

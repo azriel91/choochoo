@@ -3,7 +3,7 @@ use resman::BorrowFail;
 use futures::future::LocalBoxFuture;
 
 use crate::{
-    rt::{StationMutRef, TrainReport},
+    rt::{StationMutRef, TrainResources},
     StationFnRes, StationFnResource,
 };
 

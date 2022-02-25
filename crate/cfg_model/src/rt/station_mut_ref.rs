@@ -2,7 +2,7 @@ use fn_graph::FnRef;
 use rt_map::{BorrowFail, RefMut};
 
 use crate::{
-    rt::{CheckStatus, ResourceIds, StationDir, StationProgress, StationRtId, TrainReport},
+    rt::{CheckStatus, ResourceIds, StationDir, StationProgress, StationRtId, TrainResources},
     StationSpec,
 };
 
@@ -32,11 +32,11 @@ where
     /// Checks if the station needs to be visited.
     pub async fn check<'f>(
         &'f mut self,
-        train_report: &'f TrainReport<E>,
+        train_resources: &'f TrainResources<E>,
     ) -> Option<Result<Result<CheckStatus, E>, BorrowFail>> {
         let check_fn = self.spec.station_op.create_fns().check_fn.clone();
         if let Some(check_fn) = check_fn {
-            let call = check_fn.f.try_call(self, train_report);
+            let call = check_fn.f.try_call(self, train_resources);
             match call {
                 Ok(fut) => Some(Ok(fut.await)),
                 Err(e) => Some(Err(e)),
@@ -49,10 +49,10 @@ where
     /// Visits the station.
     pub async fn visit<'f>(
         &'f mut self,
-        train_report: &'f TrainReport<E>,
+        train_resources: &'f TrainResources<E>,
     ) -> Result<Result<ResourceIds, (ResourceIds, E)>, BorrowFail> {
         let work_fn = self.spec.station_op.create_fns().work_fn.clone();
-        let call = work_fn.f.try_call(self, train_report);
+        let call = work_fn.f.try_call(self, train_resources);
         match call {
             Ok(fut) => Ok(fut.await),
             Err(e) => Err(e),

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use choochoo_cfg_model::{fn_graph::FnId, rt::TrainReport, StationSpec};
+use choochoo_cfg_model::{fn_graph::FnId, rt::TrainResources, StationSpec};
 use choochoo_resource::{Profile, ProfileDir, WorkspaceDir};
 use choochoo_rt_logic::ResourceInitializer;
 use choochoo_rt_model::{Destination, StationDirs, WorkspaceSpec};
@@ -12,12 +12,12 @@ fn inserts_workspace_dir() -> Result<(), Box<dyn std::error::Error>> {
     let dest = Destination::<()>::builder()
         .with_workspace_spec(WorkspaceSpec::Path(Path::new(tempdir.path()).to_path_buf()))
         .build()?;
-    let mut train_report = TrainReport::new();
+    let mut train_resources = TrainResources::new();
 
     let rt = runtime::Builder::new_current_thread().build()?;
-    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_report))?;
+    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_resources))?;
 
-    let workspace_dir = train_report.borrow::<WorkspaceDir>();
+    let workspace_dir = train_resources.borrow::<WorkspaceDir>();
     assert!(&**workspace_dir == tempdir.path());
 
     Ok(())
@@ -30,12 +30,12 @@ fn inserts_profile() -> Result<(), Box<dyn std::error::Error>> {
         .with_workspace_spec(WorkspaceSpec::Path(Path::new(tempdir.path()).to_path_buf()))
         .with_profile(Profile::new("profile")?)
         .build()?;
-    let mut train_report = TrainReport::new();
+    let mut train_resources = TrainResources::new();
 
     let rt = runtime::Builder::new_current_thread().build()?;
-    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_report))?;
+    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_resources))?;
 
-    assert_eq!("profile", &**train_report.borrow::<Profile>());
+    assert_eq!("profile", &**train_resources.borrow::<Profile>());
 
     Ok(())
 }
@@ -47,12 +47,12 @@ fn inserts_profile_dir() -> Result<(), Box<dyn std::error::Error>> {
         .with_workspace_spec(WorkspaceSpec::Path(Path::new(tempdir.path()).to_path_buf()))
         .with_profile(Profile::new("profile")?)
         .build()?;
-    let mut train_report = TrainReport::new();
+    let mut train_resources = TrainResources::new();
 
     let rt = runtime::Builder::new_current_thread().build()?;
-    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_report))?;
+    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_resources))?;
 
-    let profile_dir = train_report.borrow::<ProfileDir>();
+    let profile_dir = train_resources.borrow::<ProfileDir>();
     assert!(
         profile_dir.ends_with("target/profile"),
         "Expected profile directory `{}` to end with `target/profile`",
@@ -76,12 +76,12 @@ fn inserts_station_dirs() -> Result<(), Box<dyn std::error::Error>> {
 
         dest_builder.build()?
     };
-    let mut train_report = TrainReport::new();
+    let mut train_resources = TrainResources::new();
 
     let rt = runtime::Builder::new_current_thread().build()?;
-    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_report))?;
+    rt.block_on(ResourceInitializer::initialize(&dest, &mut train_resources))?;
 
-    let station_dirs = train_report.borrow::<StationDirs>();
+    let station_dirs = train_resources.borrow::<StationDirs>();
     assert!(
         station_dirs
             .iter()

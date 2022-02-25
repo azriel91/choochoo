@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 
-use choochoo_cfg_model::rt::TrainReport;
+use choochoo_cfg_model::rt::TrainResources;
 use choochoo_rt_model::{Destination, DestinationDirCalc, Error};
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::fs;
 
-/// Initializes execution resources and adds them to the train report.
+/// Initializes execution resources and adds them to the train resources.
 ///
 /// This includes:
 ///
@@ -21,7 +21,7 @@ impl<E> ResourceInitializer<E>
 where
     E: 'static,
 {
-    /// Initializes execution resources and adds them to the train report.
+    /// Initializes execution resources and adds them to the train resources.
     ///
     /// This includes:
     ///
@@ -32,7 +32,7 @@ where
     /// The [`ProfileDir`] and [`StationDir`]s are ensured to exist.
     pub async fn initialize(
         dest: &Destination<E>,
-        train_report: &mut TrainReport<E>,
+        train_resources: &mut TrainResources<E>,
     ) -> Result<(), Error<E>> {
         let workspace_dir = dest.workspace_dir().clone();
         let target_dir = workspace_dir.join(DestinationDirCalc::<E>::TARGET_DIR);
@@ -80,10 +80,10 @@ where
             })
             .await?;
 
-        train_report.insert(workspace_dir);
-        train_report.insert(profile);
-        train_report.insert(profile_dir);
-        train_report.insert(station_dirs);
+        train_resources.insert(workspace_dir);
+        train_resources.insert(profile);
+        train_resources.insert(profile_dir);
+        train_resources.insert(station_dirs);
 
         Ok(())
     }

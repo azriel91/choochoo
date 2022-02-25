@@ -62,9 +62,9 @@ impl StationC {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(move |_station, train_report| {
+        SetupFn::new(move |_station, train_resources| {
             Box::pin(async move {
-                let app_zip_file_length = train_report.borrow::<AppZipFileLength>().0;
+                let app_zip_file_length = train_resources.borrow::<AppZipFileLength>().0;
                 Ok(ProgressLimit::Bytes(app_zip_file_length))
             })
         })

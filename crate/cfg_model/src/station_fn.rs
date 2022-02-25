@@ -26,7 +26,7 @@ mod station_fn_resource;
 /// Steps to run for this part of the station's logic.
 #[allow(clippy::type_complexity)] // trait aliases don't exist yet, so we have to suppress clippy.
 pub struct StationFn<R, RErr, E> {
-    /// Function that gets its arguments / parameters from a `TrainReport`.
+    /// Function that gets its arguments / parameters from a `TrainResources`.
     ///
     /// This is wrapped in an [`Arc`] because we are unable to clone trait
     /// objects.

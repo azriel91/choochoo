@@ -54,10 +54,10 @@ impl StationA {
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(|station, train_report| {
+        SetupFn::new(|station, train_resources| {
             Box::pin(async move {
                 let local_file_length = {
-                    let files = train_report.borrow::<FilesRw>();
+                    let files = train_resources.borrow::<FilesRw>();
                     let mut files = files.write().await;
 
                     let app_zip_build_agent_path = station.dir.join(APP_ZIP_NAME);
@@ -77,13 +77,13 @@ impl StationA {
                     metadata.len()
                 };
 
-                train_report.insert(AppZipFileLength(local_file_length));
+                train_resources.insert(AppZipFileLength(local_file_length));
 
                 let artifact_server_dir = {
-                    let profile_dir = train_report.borrow::<ProfileDir>();
+                    let profile_dir = train_resources.borrow::<ProfileDir>();
                     ArtifactServerDir::new(profile_dir.to_path_buf())
                 };
-                train_report.insert(artifact_server_dir);
+                train_resources.insert(artifact_server_dir);
 
                 Ok(ProgressLimit::Bytes(local_file_length))
             })

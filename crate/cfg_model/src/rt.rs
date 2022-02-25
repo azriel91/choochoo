@@ -5,7 +5,7 @@ pub use self::{
     resource_id_logical::ResourceIdLogical, resource_id_physical::ResourceIdPhysical,
     resource_ids::ResourceIds, station::Station, station_dir::StationDir,
     station_errors::StationErrors, station_mut::StationMut, station_mut_ref::StationMutRef,
-    station_progress::StationProgress, station_rt_id::StationRtId, train_report::TrainReport,
+    station_progress::StationProgress, station_rt_id::StationRtId, train_resources::TrainResources,
 };
 
 mod check_status;
@@ -21,4 +21,4 @@ mod station_mut;
 mod station_mut_ref;
 mod station_progress;
 mod station_rt_id;
-mod train_report;
+mod train_resources;
