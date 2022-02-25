@@ -81,7 +81,10 @@ where
                 None
             };
 
-            Ok(EnsureOutcomeOk::Changed { station_spec_error })
+            Ok(EnsureOutcomeOk::Changed {
+                resource_ids,
+                station_spec_error,
+            })
         } else {
             Ok(EnsureOutcomeOk::Unchanged)
         }

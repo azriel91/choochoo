@@ -9,6 +9,8 @@ pub enum EnsureOutcomeOk {
     Unchanged,
     /// The station was visited.
     Changed {
+        /// Resource IDs generated during the visit.
+        resource_ids: ResourceIds,
         /// Whether any error with the operation is detected.
         ///
         /// If the operation is successfully executed, but the check function
