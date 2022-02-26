@@ -24,8 +24,8 @@ where
 
     /// Returns a reference to [`StationErrors`].
     ///
-    /// There is `errors_mut` as [`StationErrors`] is behind a [`RwLock`], and
-    /// you can choose to [`read`] or [`write`] as necessary.
+    /// Note that [`StationErrors`] is behind a [`RwLock`], and you can choose
+    /// to [`read`] or [`write`] as necessary.
     ///
     /// [`RwLock`]: tokio::sync::RwLock
     /// [`read`]: tokio::sync::RwLock::read

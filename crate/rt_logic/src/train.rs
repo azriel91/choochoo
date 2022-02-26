@@ -5,7 +5,7 @@ use choochoo_cfg_model::{
     rt::{OpStatus, ResourceIds, StationMutRef, StationRtId, TrainResources},
 };
 use choochoo_rt_model::{
-    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
+    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::{sync::mpsc, task::JoinHandle};
@@ -21,14 +21,15 @@ where
     E: From<StationSpecError> + fmt::Debug + Send + Sync + 'static,
 {
     /// Ensures the given destination is reached.
-    pub async fn reach(dest: &mut Destination<E>) -> Result<TrainResources<E>, Error<E>> {
+    pub async fn reach(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
         let progress_fut = Self::progress_tracker_init(dest);
 
-        let mut train_resources = TrainResources::new();
         if dest.station_specs().node_count() == 0 {
-            return Ok(train_resources);
+            Self::progress_tracker_join(dest, progress_fut).await?;
+            return Ok(TrainReport::default());
         }
 
+        let mut train_resources = TrainResources::new();
         ResourceInitializer::initialize(dest, &mut train_resources).await?;
 
         train_resources = Self::stations_setup(dest, train_resources)
@@ -41,13 +42,17 @@ where
                 }
             })?;
 
-        if train_resources.station_errors().read().await.is_empty() {
-            train_resources = Self::stations_visit(dest, train_resources).await?;
-        }
+        // If here are no errors during setup, then we visit each station.
+        let train_report = if train_resources.station_errors().read().await.is_empty() {
+            let train_report = Self::stations_visit(dest, train_resources).await?;
+            Self::progress_tracker_join(dest, progress_fut).await?;
+            train_report
+        } else {
+            Self::progress_tracker_join(dest, progress_fut).await?;
+            TrainReport::new(train_resources, ResourceIds::new())
+        };
 
-        Self::progress_tracker_join(dest, progress_fut).await?;
-
-        Ok(train_resources)
+        Ok(train_report)
     }
 
     /// Initializes the progress tracker.
@@ -109,13 +114,13 @@ where
                         }
                         Err(station_error) => {
                             station.progress.op_status = OpStatus::SetupFail;
+                            station.progress.progress_style_update();
                             Self::station_error_insert(
                                 &train_resources,
                                 station.rt_id,
                                 station_error,
                             )
                             .await;
-                            station.progress.progress_style_update();
                             Err(Error::StationSetup { train_resources })
                         }
                     }
@@ -127,7 +132,7 @@ where
     async fn stations_visit(
         dest: &mut Destination<E>,
         train_resources: TrainResources<E>,
-    ) -> Result<TrainResources<E>, Error<E>> {
+    ) -> Result<TrainReport<E>, Error<E>> {
         let dest = &dest;
 
         // Set `ParentPending` stations to `OpQueued` if they have no dependencies.
@@ -135,7 +140,7 @@ where
 
         let resources = &train_resources;
         let (resource_ids_tx, mut resource_ids_rx) = mpsc::unbounded_channel::<ResourceIds>();
-        let resource_ids_tx = &resource_ids_tx;
+        let resource_ids_tx_ref = &resource_ids_tx;
         dest.stations_mut_stream()
             .map(Result::<_, Error<E>>::Ok)
             .map_ok(|mut station| async move {
@@ -156,7 +161,7 @@ where
                 station.progress.progress_style_update();
 
                 let resource_ids_result = resource_ids.map(|resource_ids| {
-                    resource_ids_tx.send(resource_ids).map_err(|error| {
+                    resource_ids_tx_ref.send(resource_ids).map_err(|error| {
                         Error::ResourceIdsChannelClosed {
                             station_id: station.spec.id().clone(),
                             error,
@@ -171,13 +176,13 @@ where
                     station_rt_id_and_resource_ids_result.await;
 
                 OpStatusUpdater::update_children(dest, station_rt_id);
-                resource_ids_result.unwrap_or_else(|| Result::Ok(()))
+                resource_ids_result.unwrap_or(Result::Ok(()))
             })
             .await?;
         drop(resource_ids_tx);
 
         resource_ids_rx.close();
-        let resource_ids_all = stream::poll_fn(|ctx| resource_ids_rx.poll_recv(ctx))
+        let resource_ids = stream::poll_fn(|ctx| resource_ids_rx.poll_recv(ctx))
             .fold(
                 ResourceIds::new(),
                 |mut resource_ids_all, resource_ids_current| async move {
@@ -187,14 +192,15 @@ where
             )
             .await;
 
-        Ok(train_resources)
+        let train_report = TrainReport::new(train_resources, resource_ids);
+        Ok(train_report)
     }
 
     async fn stations_visit_ensure(
         station: &mut StationMutRef<'_, E>,
-        report: &TrainResources<E>,
+        train_resources: &TrainResources<E>,
     ) -> Option<ResourceIds> {
-        match Driver::ensure(station, report).await {
+        match Driver::ensure(station, train_resources).await {
             Ok(EnsureOutcomeOk::Changed {
                 resource_ids,
                 station_spec_error,
@@ -204,7 +210,7 @@ where
                 if let Some(station_spec_error) = station_spec_error {
                     let station_error = E::from(station_spec_error);
 
-                    Self::station_error_insert(report, station.rt_id, station_error).await;
+                    Self::station_error_insert(train_resources, station.rt_id, station_error).await;
                 }
 
                 Some(resource_ids)
@@ -223,7 +229,7 @@ where
             Err(EnsureOutcomeErr::CheckFail(station_error)) => {
                 station.progress.op_status = OpStatus::CheckFail;
 
-                Self::station_error_insert(report, station.rt_id, station_error).await;
+                Self::station_error_insert(train_resources, station.rt_id, station_error).await;
 
                 None
             }
@@ -240,7 +246,7 @@ where
             }) => {
                 station.progress.op_status = OpStatus::WorkFail;
 
-                Self::station_error_insert(report, station.rt_id, station_error).await;
+                Self::station_error_insert(train_resources, station.rt_id, station_error).await;
                 Some(resource_ids)
             }
         }

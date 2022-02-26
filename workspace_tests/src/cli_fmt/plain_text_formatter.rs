@@ -5,7 +5,7 @@ use choochoo_cfg_model::{
     StationSpec,
 };
 use choochoo_cli_fmt::PlainTextFormatter;
-use choochoo_rt_model::Destination;
+use choochoo_rt_model::{Destination, TrainReport};
 
 #[test]
 fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error::Error>> {
@@ -90,13 +90,9 @@ fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error
         station_progresses[&station_i].borrow_mut().op_status = OpStatus::WorkUnnecessary;
         station_progresses[&station_j].borrow_mut().op_status = OpStatus::WorkFail;
     }
-    let train_resources = TrainResources::new();
+    let train_report = TrainReport::default();
 
-    rt.block_on(PlainTextFormatter::fmt(
-        &mut output,
-        &dest,
-        &train_resources,
-    ))?;
+    rt.block_on(PlainTextFormatter::fmt(&mut output, &dest, &train_report))?;
 
     assert_eq!(
         "\

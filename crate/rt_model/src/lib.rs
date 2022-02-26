@@ -11,6 +11,7 @@ pub use crate::{
     error::Error,
     station_dirs::StationDirs,
     station_progresses::StationProgresses,
+    train_report::TrainReport,
     workspace_spec::WorkspaceSpec,
 };
 
@@ -22,4 +23,5 @@ mod destination_dir_calc;
 mod ensure_outcome;
 mod station_dirs;
 mod station_progresses;
+mod train_report;
 mod workspace_spec;

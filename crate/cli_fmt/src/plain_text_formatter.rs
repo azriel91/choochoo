@@ -9,7 +9,7 @@ use choochoo_cfg_model::{
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
 };
 use choochoo_resource::{Files, FilesRw};
-use choochoo_rt_model::{error::AsDiagnostic, Destination};
+use choochoo_rt_model::{error::AsDiagnostic, Destination, TrainReport};
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -66,14 +66,16 @@ where
     W: AsyncWrite + Unpin,
     E: AsDiagnostic<'static, Files = Files> + fmt::Debug + Send + Sync + 'static,
 {
-    /// Formats the value using the given formatter.
+    /// Formats the train report as a human readable text report.
     pub async fn fmt(
         w: &mut W,
         dest: &Destination<E>,
-        train_resources: &TrainResources<E>,
+        train_report: &TrainReport<E>,
     ) -> Result<(), io::Error> {
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = Self::write_station_statuses(dest, write_buf).await?;
+
+        let train_resources = train_report.train_resources();
 
         // `E` should either:
         //
@@ -86,7 +88,7 @@ where
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_resources.borrow::<FilesRw>();
+        let files = train_resources.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 
@@ -111,7 +113,8 @@ where
         write_buf.writer.flush().await
     }
 
-    /// Formats the errors using the given formatter.
+    /// Formats the errors in the train resources as a human readable text
+    /// report.
     pub async fn fmt_errors(
         w: &mut W,
         train_resources: &TrainResources<E>,
