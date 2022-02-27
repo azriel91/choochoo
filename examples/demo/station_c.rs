@@ -4,8 +4,8 @@ use bytes::Bytes;
 use choochoo::{
     cfg_model::{
         rt::{
-            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIdPhysical, ResourceIds,
-            StationMutRef, StationProgress, StationRtId,
+            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIds, StationMutRef,
+            StationProgress, StationRtId,
         },
         srcerr::{
             codespan::{FileId, Span},
@@ -208,12 +208,7 @@ impl StationC {
                         // We don't have to clean up any existing file, as we overwrite.
                         let _ = resource_ids.insert(
                             ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
-                            ResourceIdPhysical(
-                                app_zip_app_server_path
-                                    .to_str()
-                                    .expect("Failed to convert app_zip_app_server_path to string.")
-                                    .to_string(),
-                            ),
+                            app_zip_app_server_path,
                         );
 
                         Ok(resource_ids)

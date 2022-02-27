@@ -1,19 +1,15 @@
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
-use serde::{Deserialize, Serialize};
+use type_reg::untagged::TypeMap;
 
-use crate::rt::{ResourceIdLogical, ResourceIdPhysical};
+use crate::rt::ResourceIdLogical;
 
-/// List of [`ResourceIdPhysical`]s, `HashMap<ResourceIdLogical,
-/// ResourceIdPhysical>` newtype.
+/// List of [`ResourceIdPhysical`]s, `TypeMap<ResourceIdLogical>` newtype.
 ///
 /// This should be `Deserialize, Serialize`, but TypeId is not const, and may
 /// not ever be across compiler versions.
 ///
-/// HashMap<String, ..> for users to keep track of their resources as strings?
+/// TypeMap<String, ..> for users to keep track of their resources as strings?
 /// Maybe, but we want them to get back a strong type, from which they can
 /// reason how to delete it.
 ///
@@ -21,8 +17,8 @@ use crate::rt::{ResourceIdLogical, ResourceIdPhysical};
 /// which is sensible for runtime values. We would have to create a new trait
 /// and a new map type if we wanted that. However the TypeId key serialization
 /// problem is still there.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
-pub struct ResourceIds(pub HashMap<ResourceIdLogical, ResourceIdPhysical>);
+#[derive(Clone, Debug, Default)]
+pub struct ResourceIds(pub TypeMap<ResourceIdLogical>);
 
 impl ResourceIds {
     /// Returns an empty map of resource IDs.
@@ -32,12 +28,12 @@ impl ResourceIds {
 
     /// Returns an empty map of resource IDs with the specified capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        Self(HashMap::with_capacity(capacity))
+        Self(TypeMap::with_capacity(capacity))
     }
 }
 
 impl Deref for ResourceIds {
-    type Target = HashMap<ResourceIdLogical, ResourceIdPhysical>;
+    type Target = TypeMap<ResourceIdLogical>;
 
     #[cfg(not(tarpaulin_include))]
     fn deref(&self) -> &Self::Target {

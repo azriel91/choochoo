@@ -3,8 +3,7 @@ use std::{borrow::Cow, path::Path};
 use choochoo::{
     cfg_model::{
         rt::{
-            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIdPhysical, ResourceIds,
-            StationMut, StationMutRef,
+            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIds, StationMut, StationMutRef,
         },
         srcerr::{
             codespan::{FileId, Span},
@@ -203,7 +202,7 @@ impl StationA {
             if status_code.as_u16() == 302 {
                 let _ = resource_ids.insert(
                     ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
-                    ResourceIdPhysical(address.clone().into_owned()),
+                    address.clone().into_owned(),
                 );
 
                 Ok(resource_ids)

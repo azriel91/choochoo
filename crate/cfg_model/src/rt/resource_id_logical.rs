@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 ///
 /// A logical resource ID is defined by code, and does not change.
 ///
+/// A physical resource ID is one generated during execution, which generally is
+/// random or computed.
+///
 /// Examples of logical IDs and corresponding physical IDs:
 ///
 /// | Logical ID               | Physical ID                            |

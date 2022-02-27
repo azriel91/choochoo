@@ -185,8 +185,8 @@ where
         let resource_ids = stream::poll_fn(|ctx| resource_ids_rx.poll_recv(ctx))
             .fold(
                 ResourceIds::new(),
-                |mut resource_ids_all, resource_ids_current| async move {
-                    resource_ids_all.extend(resource_ids_current.0.into_iter());
+                |mut resource_ids_all, mut resource_ids_current| async move {
+                    resource_ids_all.extend(resource_ids_current.drain(..));
                     resource_ids_all
                 },
             )

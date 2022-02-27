@@ -3,7 +3,7 @@ use choochoo_cfg_model::{resman::BorrowFail, rt::ResourceIds};
 use crate::error::StationSpecError;
 
 /// Ensure outcome is `Ok`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum EnsureOutcomeOk {
     /// The station was already in the desired state.
     Unchanged,
@@ -21,7 +21,7 @@ pub enum EnsureOutcomeOk {
 }
 
 /// Ensure outcome is an error.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum EnsureOutcomeErr<E> {
     /// Failed to borrow resources for the check function.
     ///
