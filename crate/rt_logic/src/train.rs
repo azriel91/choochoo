@@ -8,7 +8,10 @@ use choochoo_rt_model::{
     error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{
+    sync::mpsc::{self, UnboundedReceiver},
+    task::JoinHandle,
+};
 
 use crate::{Driver, OpStatusUpdater, ResourceInitializer};
 
@@ -151,13 +154,27 @@ where
         dest: &mut Destination<E>,
         train_resources: TrainResources<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
-        let dest = &dest;
-
         // Set `ParentPending` stations to `OpQueued` if they have no dependencies.
         OpStatusUpdater::update(dest);
 
-        let resources = &train_resources;
         let (res_ids_tx, mut res_ids_rx) = mpsc::unbounded_channel::<ResIds>();
+        self.stations_visit_each(dest, &train_resources, res_ids_tx)
+            .await?;
+
+        res_ids_rx.close();
+
+        let res_ids = Self::stations_visit_res_ids_wait(res_ids_rx).await;
+
+        let train_report = TrainReport::new(train_resources, res_ids);
+        Ok(train_report)
+    }
+
+    async fn stations_visit_each(
+        &self,
+        dest: &mut Destination<E>,
+        train_resources: &TrainResources<E>,
+        res_ids_tx: mpsc::UnboundedSender<ResIds>,
+    ) -> Result<(), Error<E>> {
         let res_ids_tx_ref = &res_ids_tx;
         dest.stations_mut_stream()
             .map(Result::<_, Error<E>>::Ok)
@@ -172,7 +189,7 @@ where
                     station.progress.op_status = OpStatus::WorkInProgress;
                     station.progress.progress_style_update();
 
-                    Self::stations_visit_ensure(&mut station, resources).await
+                    Self::stations_visit_station_ensure(&mut station, train_resources).await
                 } else {
                     None
                 };
@@ -200,23 +217,10 @@ where
             )
             .await?;
         drop(res_ids_tx);
-
-        res_ids_rx.close();
-        let res_ids = stream::poll_fn(|ctx| res_ids_rx.poll_recv(ctx))
-            .fold(
-                ResIds::new(),
-                |mut res_ids_all, mut res_ids_current| async move {
-                    res_ids_all.extend(res_ids_current.drain(..));
-                    res_ids_all
-                },
-            )
-            .await;
-
-        let train_report = TrainReport::new(train_resources, res_ids);
-        Ok(train_report)
+        Ok(())
     }
 
-    async fn stations_visit_ensure(
+    async fn stations_visit_station_ensure(
         station: &mut StationMutRef<'_, E>,
         train_resources: &TrainResources<E>,
     ) -> Option<ResIds> {
@@ -270,6 +274,19 @@ where
                 Some(res_ids)
             }
         }
+    }
+
+    async fn stations_visit_res_ids_wait(mut res_ids_rx: UnboundedReceiver<ResIds>) -> ResIds {
+        let res_ids = stream::poll_fn(|ctx| res_ids_rx.poll_recv(ctx))
+            .fold(
+                ResIds::new(),
+                |mut res_ids_all, mut res_ids_current| async move {
+                    res_ids_all.extend(res_ids_current.drain(..));
+                    res_ids_all
+                },
+            )
+            .await;
+        res_ids
     }
 
     async fn station_error_insert(
