@@ -30,6 +30,18 @@ where
 {
     /// Returns a `Train` to visit stations.
     ///
+    /// The `concurrency_max` parameter is used as follows:
+    ///
+    /// * `None`: There is no concurrency limit.
+    ///
+    ///     This is the same as using [`Train::default`] to initialize a train.
+    ///
+    /// * `Some(n)`: At most `n` stations will be visited concurrently.
+    ///
+    ///     You may wish to use the [`std::thread::available_parallelism`]
+    ///     function which  usually corresponds to the amount of CPUs or
+    ///     processors a computer has.
+    ///
     /// # Parameters
     ///
     /// * `concurrency_max`: Maximum number of stations to visit concurrently.
