@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             dest_builder.build()?
         };
-        let train_resources = Train::reach(&mut dest).await?;
+        let train_resources = Train::default().reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
 

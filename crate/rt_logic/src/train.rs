@@ -1,4 +1,4 @@
-use std::{fmt, marker::PhantomData};
+use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 
 use choochoo_cfg_model::{
     indicatif::MultiProgress,
@@ -14,14 +14,31 @@ use crate::{Driver, OpStatusUpdater, ResourceInitializer};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
-pub struct Train<E>(PhantomData<E>);
+pub struct Train<E> {
+    /// Maximum number of stations to run concurrently.
+    concurrency_max: Option<NonZeroUsize>,
+    /// Marker.
+    marker: PhantomData<E>,
+}
 
 impl<E> Train<E>
 where
     E: From<StationSpecError> + fmt::Debug + Send + Sync + 'static,
 {
+    /// Returns a `Train` to visit stations.
+    ///
+    /// # Parameters
+    ///
+    /// * `concurrency_max`: Maximum number of stations to visit concurrently.
+    fn new(concurrency_max: Option<NonZeroUsize>) -> Self {
+        Self {
+            concurrency_max,
+            marker: PhantomData,
+        }
+    }
+
     /// Ensures the given destination is reached.
-    pub async fn reach(dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
+    pub async fn reach(&self, dest: &mut Destination<E>) -> Result<TrainReport<E>, Error<E>> {
         let progress_fut = Self::progress_tracker_init(dest);
 
         if dest.station_specs().node_count() == 0 {
@@ -44,7 +61,7 @@ where
 
         // If here are no errors during setup, then we visit each station.
         let train_report = if train_resources.station_errors().read().await.is_empty() {
-            let train_report = Self::stations_visit(dest, train_resources).await?;
+            let train_report = self.stations_visit(dest, train_resources).await?;
             Self::progress_tracker_join(dest, progress_fut).await?;
             train_report
         } else {
@@ -130,6 +147,7 @@ where
     }
 
     async fn stations_visit(
+        &self,
         dest: &mut Destination<E>,
         train_resources: TrainResources<E>,
     ) -> Result<TrainReport<E>, Error<E>> {
@@ -171,12 +189,15 @@ where
 
                 (station.rt_id, res_ids_result)
             })
-            .try_for_each_concurrent(4, |station_rt_id_and_res_ids_result| async {
-                let (station_rt_id, res_ids_result) = station_rt_id_and_res_ids_result.await;
+            .try_for_each_concurrent(
+                self.concurrency_max.map(NonZeroUsize::get),
+                |station_rt_id_and_res_ids_result| async {
+                    let (station_rt_id, res_ids_result) = station_rt_id_and_res_ids_result.await;
 
-                OpStatusUpdater::update_children(dest, station_rt_id);
-                res_ids_result.unwrap_or(Result::Ok(()))
-            })
+                    OpStatusUpdater::update_children(dest, station_rt_id);
+                    res_ids_result.unwrap_or(Result::Ok(()))
+                },
+            )
             .await?;
         drop(res_ids_tx);
 
@@ -259,5 +280,14 @@ where
         let station_errors = train_resources.station_errors();
         let mut station_errors = station_errors.write().await;
         station_errors.insert(station_rt_id, station_error);
+    }
+}
+
+impl<E> Default for Train<E>
+where
+    E: From<StationSpecError> + fmt::Debug + Send + Sync + 'static,
+{
+    fn default() -> Self {
+        Self::new(None)
     }
 }

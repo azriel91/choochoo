@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
-        let train_report = Train::reach(&mut dest).await?;
+        let train_report = Train::default().reach(&mut dest).await?;
 
         let mut stdout = tokio::io::stdout();
         PlainTextFormatter::fmt_errors(&mut stdout, &train_report.train_resources()).await?;
