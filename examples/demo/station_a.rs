@@ -2,9 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{
-            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIds, StationMut, StationMutRef,
-        },
+        rt::{CheckStatus, ProgressLimit, ResIdLogical, ResIds, StationMut, StationMutRef},
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
@@ -150,16 +148,16 @@ impl StationA {
     fn work_fn<'f>(
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
-    ) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, DemoError)>> {
+    ) -> LocalBoxFuture<'f, Result<ResIds, (ResIds, DemoError)>> {
         station.progress.progress_bar().reset();
         station.progress.tick();
         Box::pin(async move {
-            let mut resource_ids = ResourceIds::new();
+            let mut res_ids = ResIds::new();
             let client = reqwest::Client::builder()
                 .redirect(Policy::none())
                 .build()
                 .map_err(|error| Self::client_build_error(error))
-                .map_err(|e| (resource_ids.clone(), e))?;
+                .map_err(|e| (res_ids.clone(), e))?;
 
             let mut files = files.write().await;
 
@@ -167,7 +165,7 @@ impl StationA {
             let app_zip_byte_stream =
                 Self::app_zip_read(station, &mut files, &app_zip_build_agent_path)
                     .await
-                    .map_err(|e| (resource_ids.clone(), e))?;
+                    .map_err(|e| (res_ids.clone(), e))?;
 
             let address = Cow::Owned(SERVER_PARAMS_DEFAULT.address());
             let address_file_id = files.add("artifact_server_address", address);
@@ -196,16 +194,16 @@ impl StationA {
                         error,
                     )
                 })
-                .map_err(|e| (resource_ids.clone(), e))?;
+                .map_err(|e| (res_ids.clone(), e))?;
 
             let status_code = response.status();
             if status_code.as_u16() == 302 {
-                let _ = resource_ids.insert(
-                    ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
+                let _ = res_ids.insert(
+                    ResIdLogical(Self::APP_ZIP_ID.to_string()),
                     address.clone().into_owned(),
                 );
 
-                Ok(resource_ids)
+                Ok(res_ids)
             } else {
                 let address_span = Span::from_str(&address);
                 let app_zip_path_file_id = files.add(
@@ -230,7 +228,7 @@ impl StationA {
                     address_span,
                     server_message,
                 };
-                Err((resource_ids, DemoError::new(code, detail, Severity::Error)))
+                Err((res_ids, DemoError::new(code, detail, Severity::Error)))
             }
         })
     }

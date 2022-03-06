@@ -1,6 +1,6 @@
 use std::fmt;
 
-use choochoo_cfg_model::rt::{ResourceIds, TrainResources};
+use choochoo_cfg_model::rt::{ResIds, TrainResources};
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]
@@ -8,7 +8,7 @@ pub struct TrainReport<E> {
     /// Record of what happened during a train's drive.
     train_resources: TrainResources<E>,
     /// Resource IDs produced by visiting each station.
-    resource_ids: ResourceIds,
+    res_ids: ResIds,
 }
 
 impl<E> TrainReport<E>
@@ -16,10 +16,10 @@ where
     E: fmt::Debug + Send + Sync + 'static,
 {
     /// Returns a new TrainReport.
-    pub fn new(train_resources: TrainResources<E>, resource_ids: ResourceIds) -> Self {
+    pub fn new(train_resources: TrainResources<E>, res_ids: ResIds) -> Self {
         Self {
             train_resources,
-            resource_ids,
+            res_ids,
         }
     }
 
@@ -29,8 +29,8 @@ where
     }
 
     /// Resource IDs produced by visiting each station.
-    pub fn resource_ids(&self) -> &ResourceIds {
-        &self.resource_ids
+    pub fn res_ids(&self) -> &ResIds {
+        &self.res_ids
     }
 }
 
@@ -41,7 +41,7 @@ where
     fn default() -> Self {
         Self {
             train_resources: TrainResources::<E>::new(),
-            resource_ids: ResourceIds::default(),
+            res_ids: ResIds::default(),
         }
     }
 }

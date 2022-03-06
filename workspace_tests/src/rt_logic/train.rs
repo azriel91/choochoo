@@ -1,6 +1,6 @@
 use choochoo_cfg_model::{
     indexmap::IndexMap,
-    rt::{CheckStatus, OpStatus, ProgressLimit, ResourceIds, StationRtId},
+    rt::{CheckStatus, OpStatus, ProgressLimit, ResIds, StationRtId},
     SetupFn, StationFn, StationSpec,
 };
 use choochoo_rt_logic::Train;
@@ -28,12 +28,12 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
         let mut dest_builder = Destination::<()>::builder();
         dest_builder.add_station(
             StationSpec::mock("a")?
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .build(),
         );
         dest_builder.add_station(
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .build(),
         );
         dest_builder.build()?
@@ -58,12 +58,12 @@ fn records_successful_and_failed_ops() -> Result<(), Box<dyn std::error::Error>>
         let mut dest_builder = Destination::<()>::builder();
         let station_a = dest_builder.add_station(
             StationSpec::mock("a")?
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .build(),
         );
         let station_b = dest_builder.add_station(
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
+                .with_work_fn(StationFn::err((ResIds::new(), ())))
                 .build(),
         );
         let dest = dest_builder.build()?;
@@ -99,11 +99,11 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
         let mut dest_builder = Destination::<()>::builder();
         let [station_a, station_b] = dest_builder.add_stations([
             StationSpec::mock("a")?
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .with_check_fn(StationFn::err(()))
                 .build(),
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
+                .with_work_fn(StationFn::err((ResIds::new(), ())))
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;
@@ -147,10 +147,10 @@ fn records_check_fn_failure_after_op_success() -> Result<(), Box<dyn std::error:
                     async { Ok(ProgressLimit::Steps(1)) }.boxed_local()
                 }))
                 .with_check_fn(StationFn::ok(CheckStatus::WorkRequired))
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .build(),
             StationSpec::mock("b")?
-                .with_work_fn(StationFn::err((ResourceIds::new(), ())))
+                .with_work_fn(StationFn::err((ResIds::new(), ())))
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;
@@ -190,11 +190,11 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
         let [station_a, station_b] = dest_builder.add_stations([
             StationSpec::mock("a")?
                 .with_check_fn(StationFn::ok(CheckStatus::WorkNotRequired))
-                .with_work_fn(StationFn::ok(ResourceIds::new()))
+                .with_work_fn(StationFn::ok(ResIds::new()))
                 .build(),
             StationSpec::mock("b")?
                 .with_check_fn(StationFn::ok(CheckStatus::WorkNotRequired))
-                .with_work_fn(StationFn::err((ResourceIds::new(), ()))) // proving this is never used
+                .with_work_fn(StationFn::err((ResIds::new(), ()))) // proving this is never used
                 .build(),
         ]);
         dest_builder.add_edge(station_a, station_b)?;

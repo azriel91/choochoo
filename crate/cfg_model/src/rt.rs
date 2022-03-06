@@ -2,17 +2,16 @@
 
 pub use self::{
     check_status::CheckStatus, op_status::OpStatus, progress_limit::ProgressLimit,
-    resource_id_logical::ResourceIdLogical, resource_ids::ResourceIds, station::Station,
-    station_dir::StationDir, station_errors::StationErrors, station_mut::StationMut,
-    station_mut_ref::StationMutRef, station_progress::StationProgress, station_rt_id::StationRtId,
-    train_resources::TrainResources,
+    res_id_logical::ResIdLogical, res_ids::ResIds, station::Station, station_dir::StationDir,
+    station_errors::StationErrors, station_mut::StationMut, station_mut_ref::StationMutRef,
+    station_progress::StationProgress, station_rt_id::StationRtId, train_resources::TrainResources,
 };
 
 mod check_status;
 mod op_status;
 mod progress_limit;
-mod resource_id_logical;
-mod resource_ids;
+mod res_id_logical;
+mod res_ids;
 mod station;
 mod station_dir;
 mod station_errors;

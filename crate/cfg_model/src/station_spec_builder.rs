@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::{
-    rt::{CheckStatus, ResourceIds},
+    rt::{CheckStatus, ResIds},
     CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
 };
 
@@ -61,7 +61,7 @@ where
 
         let station_op = {
             let setup_fn = SetupFn::<E>::ok(ProgressLimit::Steps(10));
-            let work_fn = StationFn::ok(ResourceIds::new());
+            let work_fn = StationFn::ok(ResIds::new());
             let create_fns = CreateFns::new(setup_fn, work_fn);
             let clean_op_fns = None;
 
@@ -114,7 +114,7 @@ where
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_work_fn(mut self, work_fn: StationFn<ResourceIds, (ResourceIds, E), E>) -> Self {
+    pub fn with_work_fn(mut self, work_fn: StationFn<ResIds, (ResIds, E), E>) -> Self {
         self.station_op.create_fns.work_fn = work_fn;
         self
     }

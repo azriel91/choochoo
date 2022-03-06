@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{ProgressLimit, ResourceIds, StationMutRef},
+        rt::{ProgressLimit, ResIds, StationMutRef},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -78,10 +78,10 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
 fn station_a_impl<'f>(
     _: &'f mut StationMutRef<'_, ExampleError>,
-) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, ExampleError)>> {
+) -> LocalBoxFuture<'f, Result<ResIds, (ResIds, ExampleError)>> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
-        Result::<ResourceIds, (ResourceIds, ExampleError)>::Ok(ResourceIds::new())
+        Result::<ResIds, (ResIds, ExampleError)>::Ok(ResIds::new())
     })
 }
 
@@ -97,7 +97,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 fn station_b_impl<'f>(
     station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
-) -> LocalBoxFuture<'f, Result<ResourceIds, (ResourceIds, ExampleError)>> {
+) -> LocalBoxFuture<'f, Result<ResIds, (ResIds, ExampleError)>> {
     async move {
         eprintln!("Visiting {}.", station.spec.name());
 
@@ -108,7 +108,7 @@ fn station_b_impl<'f>(
             .expect("Failed to read simple.toml");
 
         let error = value_out_of_range(file_id);
-        Result::<ResourceIds, (ResourceIds, ExampleError)>::Err((ResourceIds::new(), error))
+        Result::<ResIds, (ResIds, ExampleError)>::Err((ResIds::new(), error))
     }
     .boxed_local()
 }
@@ -141,7 +141,7 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    work_fn: StationFn<ResourceIds, (ResourceIds, ExampleError), ExampleError>,
+    work_fn: StationFn<ResIds, (ResIds, ExampleError), ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);

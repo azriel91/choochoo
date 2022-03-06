@@ -4,8 +4,8 @@ use bytes::Bytes;
 use choochoo::{
     cfg_model::{
         rt::{
-            CheckStatus, ProgressLimit, ResourceIdLogical, ResourceIds, StationMutRef,
-            StationProgress, StationRtId,
+            CheckStatus, ProgressLimit, ResIdLogical, ResIds, StationMutRef, StationProgress,
+            StationRtId,
         },
         srcerr::{
             codespan::{FileId, Span},
@@ -147,18 +147,16 @@ impl StationC {
         })
     }
 
-    fn work_fn(
-        station_a_rt_id: StationRtId,
-    ) -> StationFn<ResourceIds, (ResourceIds, DemoError), DemoError> {
+    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<ResIds, (ResIds, DemoError), DemoError> {
         StationFn::new2(
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,
                   files: &FilesRw|
-                  -> LocalBoxFuture<'_, Result<ResourceIds, (ResourceIds, DemoError)>> {
+                  -> LocalBoxFuture<'_, Result<ResIds, (ResIds, DemoError)>> {
                 let client = reqwest::Client::new();
                 Box::pin(async move {
                     station.progress.progress_bar().reset();
-                    let mut resource_ids = ResourceIds::new();
+                    let mut res_ids = ResIds::new();
                     let mut files = files.write().await;
 
                     let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
@@ -190,7 +188,7 @@ impl StationC {
                                 error,
                             )
                         })
-                        .map_err(|e| (resource_ids.clone(), e))?;
+                        .map_err(|e| (res_ids.clone(), e))?;
 
                     let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
                     let status_code = response.status();
@@ -203,15 +201,15 @@ impl StationC {
                             response.bytes_stream(),
                         )
                         .await
-                        .map_err(|e| (resource_ids.clone(), e))?;
+                        .map_err(|e| (res_ids.clone(), e))?;
 
                         // We don't have to clean up any existing file, as we overwrite.
-                        let _ = resource_ids.insert(
-                            ResourceIdLogical(Self::APP_ZIP_ID.to_string()),
+                        let _ = res_ids.insert(
+                            ResIdLogical(Self::APP_ZIP_ID.to_string()),
                             app_zip_app_server_path,
                         );
 
-                        Ok(resource_ids)
+                        Ok(res_ids)
                     } else {
                         let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
                         let app_zip_url = files.source(app_zip_url_file_id);
@@ -231,7 +229,7 @@ impl StationC {
                             app_zip_url_span,
                             server_message,
                         };
-                        Err((resource_ids, DemoError::new(code, detail, Severity::Error)))
+                        Err((res_ids, DemoError::new(code, detail, Severity::Error)))
                     }
                 })
             },

@@ -2,9 +2,9 @@ use std::ops::{Deref, DerefMut};
 
 use type_reg::untagged::TypeMap;
 
-use crate::rt::ResourceIdLogical;
+use crate::rt::ResIdLogical;
 
-/// List of [`ResourceIdPhysical`]s, `TypeMap<ResourceIdLogical>` newtype.
+/// List of [`ResourceIdPhysical`]s, `TypeMap<ResIdLogical>` newtype.
 ///
 /// This should be `Deserialize, Serialize`, but TypeId is not const, and may
 /// not ever be across compiler versions.
@@ -18,9 +18,9 @@ use crate::rt::ResourceIdLogical;
 /// and a new map type if we wanted that. However the TypeId key serialization
 /// problem is still there.
 #[derive(Clone, Debug, Default)]
-pub struct ResourceIds(pub TypeMap<ResourceIdLogical>);
+pub struct ResIds(pub TypeMap<ResIdLogical>);
 
-impl ResourceIds {
+impl ResIds {
     /// Returns an empty map of resource IDs.
     pub fn new() -> Self {
         Self::default()
@@ -32,8 +32,8 @@ impl ResourceIds {
     }
 }
 
-impl Deref for ResourceIds {
-    type Target = TypeMap<ResourceIdLogical>;
+impl Deref for ResIds {
+    type Target = TypeMap<ResIdLogical>;
 
     #[cfg(not(tarpaulin_include))]
     fn deref(&self) -> &Self::Target {
@@ -41,7 +41,7 @@ impl Deref for ResourceIds {
     }
 }
 
-impl DerefMut for ResourceIds {
+impl DerefMut for ResIds {
     #[cfg(not(tarpaulin_include))]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0

@@ -5,7 +5,7 @@ use std::{fmt, path::PathBuf};
 use tokio::task::JoinError;
 
 use choochoo_cfg_model::{
-    rt::{ResourceIds, StationDir, TrainResources},
+    rt::{ResIds, StationDir, TrainResources},
     StationId,
 };
 use choochoo_resource::{ProfileDir, WorkspaceDir};
@@ -29,14 +29,14 @@ pub enum Error<E> {
         /// Underlying IO error.
         error: std::io::Error,
     },
-    /// Channel receiver for [`ResourceIds`] produced by stations was closed.
+    /// Channel receiver for [`ResIds`] produced by stations was closed.
     ///
     /// Should be impossible to hit.
-    ResourceIdsChannelClosed {
+    ResIdsChannelClosed {
         /// Runtime ID of the station when the error occurred.
         station_id: StationId,
         /// Underlying channel send error.
-        error: tokio::sync::mpsc::error::SendError<ResourceIds>,
+        error: tokio::sync::mpsc::error::SendError<ResIds>,
     },
     /// Failed to create station directory.
     StationDirCreate {
@@ -86,9 +86,9 @@ where
                 "Failed to create profile directory: `{}`.",
                 profile_dir.display()
             ),
-            Self::ResourceIdsChannelClosed { station_id, .. } => write!(
+            Self::ResIdsChannelClosed { station_id, .. } => write!(
                 f,
-                "Channel receiver for `ResourceIds` produced by stations was closed while sending resource IDs for {station_id}"
+                "Channel receiver for `ResIds` produced by stations was closed while sending resource IDs for {station_id}"
             ),
             Self::StationDirCreate { station_dir, .. } => write!(
                 f,
@@ -127,7 +127,7 @@ where
             Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
             Self::ProfileDirCreate { error, .. } => Some(error),
-            Self::ResourceIdsChannelClosed { error, .. } => Some(error),
+            Self::ResIdsChannelClosed { error, .. } => Some(error),
             Self::StationDirCreate { error, .. } => Some(error),
             Self::StationSetup { .. } => None,
             Self::WorkingDirRead(error) => Some(error),

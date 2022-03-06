@@ -1,4 +1,4 @@
-use choochoo_cfg_model::{resman::BorrowFail, rt::ResourceIds};
+use choochoo_cfg_model::{resman::BorrowFail, rt::ResIds};
 
 use crate::error::StationSpecError;
 
@@ -10,7 +10,7 @@ pub enum EnsureOutcomeOk {
     /// The station was visited.
     Changed {
         /// Resource IDs generated during the visit.
-        resource_ids: ResourceIds,
+        res_ids: ResIds,
         /// Whether any error with the operation is detected.
         ///
         /// If the operation is successfully executed, but the check function
@@ -38,7 +38,7 @@ pub enum EnsureOutcomeErr<E> {
     /// The operation's work function failed.
     WorkFail {
         /// Resource IDs generated during the visit.
-        resource_ids: ResourceIds,
+        res_ids: ResIds,
         /// The visit error.
         error: E,
     },

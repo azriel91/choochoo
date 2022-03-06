@@ -2,7 +2,7 @@ use std::path::Path;
 
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, ResourceIds, StationMutRef},
+        rt::{CheckStatus, ProgressLimit, ResIds, StationMutRef},
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
@@ -59,7 +59,7 @@ impl StationSleep {
     fn work_fn(
         station_file_path: &'static Path,
         error_fn: fn(FileId, Span, std::io::Error) -> DemoError,
-    ) -> StationFn<ResourceIds, (ResourceIds, DemoError), DemoError> {
+    ) -> StationFn<ResIds, (ResIds, DemoError), DemoError> {
         StationFn::new1(
             move |station: &mut StationMutRef<'_, DemoError>, files: &FilesRw| {
                 Box::pin(async move {
@@ -71,7 +71,7 @@ impl StationSleep {
                             tokio::time::sleep(Duration::from_millis(10)).await;
                         })
                         .await;
-                    let resource_ids = ResourceIds::new();
+                    let res_ids = ResIds::new();
 
                     let station_dir = station_file_path
                         .parent()
@@ -80,7 +80,7 @@ impl StationSleep {
                             let detail = ErrorDetail::StationDirDiscover { station_file_path };
                             DemoError::new(code, detail, Severity::Bug)
                         })
-                        .map_err(|e| (resource_ids.clone(), e))?;
+                        .map_err(|e| (res_ids.clone(), e))?;
                     let mut files = files.write().await;
                     tokio::fs::create_dir_all(station_dir)
                         .await
@@ -90,7 +90,7 @@ impl StationSleep {
                                 Ok(e) | Err(e) => e,
                             }
                         })
-                        .map_err(|e| (resource_ids.clone(), e))?;
+                        .map_err(|e| (res_ids.clone(), e))?;
                     tokio::fs::write(station_file_path, b"Station visited!\n")
                         .await
                         .map_err(|error| {
@@ -99,9 +99,9 @@ impl StationSleep {
                                 Ok(e) | Err(e) => e,
                             }
                         })
-                        .map_err(|e| (resource_ids.clone(), e))?;
+                        .map_err(|e| (res_ids.clone(), e))?;
 
-                    Ok(resource_ids)
+                    Ok(res_ids)
                 })
             },
         )

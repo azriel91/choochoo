@@ -1,5 +1,5 @@
 use choochoo_cfg_model::{
-    rt::{OpStatus, ProgressLimit, ResourceIds, StationProgress},
+    rt::{OpStatus, ProgressLimit, ResIds, StationProgress},
     OpFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
 };
 
@@ -8,9 +8,9 @@ fn display_returns_readable_informative_message() -> Result<(), StationIdInvalid
     let station_id = StationId::new("station_id")?;
     let name = String::from("Station Name");
     let description = String::from("One liner.");
-    let work_op_fns = OpFns::<ResourceIds, _, ()>::new(
+    let work_op_fns = OpFns::<ResIds, _, ()>::new(
         SetupFn::ok(ProgressLimit::Unknown),
-        StationFn::ok(ResourceIds::new()),
+        StationFn::ok(ResIds::new()),
     );
     let station_op = StationOp::new(work_op_fns, None);
     let station_spec = StationSpec::new(station_id, name, description, station_op);

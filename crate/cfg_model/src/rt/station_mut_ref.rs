@@ -2,7 +2,7 @@ use fn_graph::FnRef;
 use rt_map::{BorrowFail, RefMut};
 
 use crate::{
-    rt::{CheckStatus, ResourceIds, StationDir, StationProgress, StationRtId, TrainResources},
+    rt::{CheckStatus, ResIds, StationDir, StationProgress, StationRtId, TrainResources},
     StationSpec,
 };
 
@@ -50,7 +50,7 @@ where
     pub async fn visit<'f>(
         &'f mut self,
         train_resources: &'f TrainResources<E>,
-    ) -> Result<Result<ResourceIds, (ResourceIds, E)>, BorrowFail> {
+    ) -> Result<Result<ResIds, (ResIds, E)>, BorrowFail> {
         let work_fn = self.spec.station_op.create_fns().work_fn.clone();
         let call = work_fn.f.try_call(self, train_resources);
         match call {

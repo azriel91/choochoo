@@ -51,14 +51,11 @@ where
         };
 
         if work_required {
-            let resource_ids = station
+            let res_ids = station
                 .visit(train_resources)
                 .await
                 .map_err(EnsureOutcomeErr::VisitBorrowFail)?
-                .map_err(|(resource_ids, error)| EnsureOutcomeErr::WorkFail {
-                    resource_ids,
-                    error,
-                })?;
+                .map_err(|(res_ids, error)| EnsureOutcomeErr::WorkFail { res_ids, error })?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
@@ -82,7 +79,7 @@ where
             };
 
             Ok(EnsureOutcomeOk::Changed {
-                resource_ids,
+                res_ids,
                 station_spec_error,
             })
         } else {

@@ -1,4 +1,4 @@
-use crate::{rt::ResourceIds, OpFns};
+use crate::{rt::ResIds, OpFns};
 
 /// Functions for creating an operation's resources.
-pub type CreateFns<E> = OpFns<ResourceIds, (ResourceIds, E), E>;
+pub type CreateFns<E> = OpFns<ResIds, (ResIds, E), E>;
