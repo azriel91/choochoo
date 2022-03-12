@@ -25,6 +25,8 @@ mod demo_error;
 mod dependency_mode;
 #[path = "demo/error.rs"]
 mod error;
+#[path = "demo/res_ids.rs"]
+mod res_ids;
 #[path = "demo/server_params.rs"]
 mod server_params;
 #[path = "demo/station_a.rs"]

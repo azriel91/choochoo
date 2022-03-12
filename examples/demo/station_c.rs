@@ -34,8 +34,6 @@ use crate::{
 pub struct StationC;
 
 impl StationC {
-    const APP_ZIP_ID: &'static str = "StationC::APP_ZIP";
-
     /// Returns a station that downloads `app.zip` to a server.
     ///
     /// # Parameters
@@ -205,7 +203,7 @@ impl StationC {
 
                         // We don't have to clean up any existing file, as we overwrite.
                         let _ = res_ids.insert(
-                            ResIdLogical(Self::APP_ZIP_ID.to_string()),
+                            ResIdLogical::new(crate::res_ids::APP_SERVER_APP_ZIP),
                             app_zip_app_server_path,
                         );
 

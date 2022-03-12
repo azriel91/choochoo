@@ -31,8 +31,6 @@ use crate::{
 pub struct StationA;
 
 impl StationA {
-    const APP_ZIP_ID: &'static str = "StationA::APP_ZIP";
-
     /// Returns a station that uploads `app.zip` to a server.
     pub fn build() -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
         let create_fns = CreateFns::new(Self::setup_fn(), StationFn::new(Self::work_fn))
@@ -198,9 +196,11 @@ impl StationA {
 
             let status_code = response.status();
             if status_code.as_u16() == 302 {
+                // If the server supported delete, this would be the url.
+                let artifact_server_app_zip_url = address + "/" + APP_ZIP_NAME;
                 let _ = res_ids.insert(
-                    ResIdLogical(Self::APP_ZIP_ID.to_string()),
-                    address.clone().into_owned(),
+                    ResIdLogical::new(crate::res_ids::ARTIFACT_SERVER_APP_ZIP),
+                    artifact_server_app_zip_url,
                 );
 
                 Ok(res_ids)
