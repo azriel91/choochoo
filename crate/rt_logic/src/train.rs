@@ -3,9 +3,11 @@ use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 use choochoo_cfg_model::{
     indicatif::MultiProgress,
     rt::{OpStatus, ResIds, StationMutRef, StationRtId, TrainResources},
+    StationSpecs,
 };
 use choochoo_rt_model::{
-    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
+    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
+    ProfileHistoryStationDirs, TrainReport,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::{
@@ -13,7 +15,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{Driver, OpStatusUpdater, ResourceInitializer};
+use crate::{Driver, OpStatusUpdater, ResIdPersister, ResourceInitializer};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -169,13 +171,20 @@ where
         // Set `ParentPending` stations to `OpQueued` if they have no dependencies.
         OpStatusUpdater::update(dest);
 
-        let (res_ids_tx, mut res_ids_rx) = mpsc::unbounded_channel::<ResIds>();
+        let (res_ids_tx, mut res_ids_rx) = mpsc::unbounded_channel::<(StationRtId, ResIds)>();
         self.stations_visit_each(dest, &train_resources, res_ids_tx)
             .await?;
 
         res_ids_rx.close();
 
-        let res_ids = Self::stations_visit_res_ids_wait(res_ids_rx).await;
+        let profile_history_station_dirs = train_resources.borrow::<ProfileHistoryStationDirs>();
+        let res_ids = Self::stations_visit_res_ids_wait(
+            dest.station_specs(),
+            &profile_history_station_dirs,
+            res_ids_rx,
+        )
+        .await?;
+        drop(profile_history_station_dirs);
 
         let train_report = TrainReport::new(train_resources, res_ids);
         Ok(train_report)
@@ -185,7 +194,7 @@ where
         &self,
         dest: &mut Destination<E>,
         train_resources: &TrainResources<E>,
-        res_ids_tx: mpsc::UnboundedSender<ResIds>,
+        res_ids_tx: mpsc::UnboundedSender<(StationRtId, ResIds)>,
     ) -> Result<(), Error<E>> {
         let res_ids_tx_ref = &res_ids_tx;
         dest.stations_mut_stream()
@@ -209,7 +218,7 @@ where
 
                 let res_ids_result = res_ids.map(|res_ids| {
                     res_ids_tx_ref
-                        .send(res_ids)
+                        .send((station.rt_id, res_ids))
                         .map_err(|error| Error::ResIdsChannelClosed {
                             station_id: station.spec.id().clone(),
                             error,
@@ -288,17 +297,35 @@ where
         }
     }
 
-    async fn stations_visit_res_ids_wait(mut res_ids_rx: UnboundedReceiver<ResIds>) -> ResIds {
+    async fn stations_visit_res_ids_wait(
+        station_specs: &StationSpecs<E>,
+        profile_history_station_dirs: &ProfileHistoryStationDirs,
+        mut res_ids_rx: UnboundedReceiver<(StationRtId, ResIds)>,
+    ) -> Result<ResIds, Error<E>> {
         let res_ids = stream::poll_fn(|ctx| res_ids_rx.poll_recv(ctx))
-            .fold(
+            .map(Result::<_, Error<E>>::Ok)
+            .and_then(|(station_rt_id, res_ids_current)| async move {
+                let profile_history_station_dir = &profile_history_station_dirs[&station_rt_id];
+                let station_id = station_specs[station_rt_id].id();
+                ResIdPersister::<E>::persist(
+                    profile_history_station_dir,
+                    station_id,
+                    &res_ids_current,
+                )
+                .await?;
+                Ok(res_ids_current)
+            })
+            .try_fold(
                 ResIds::new(),
                 |mut res_ids_all, mut res_ids_current| async move {
                     res_ids_all.extend(res_ids_current.drain(..));
-                    res_ids_all
+
+                    Ok(res_ids_all)
                 },
             )
-            .await;
-        res_ids
+            .await?;
+
+        Ok(res_ids)
     }
 
     async fn station_error_insert(

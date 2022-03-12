@@ -18,4 +18,5 @@ test = false
 choochoo_resource = { path = "../resource", version = "0.1.0" }
 choochoo_cfg_model = { path = "../cfg_model", version = "0.1.0" }
 futures = "0.3.18"
+serde_json = "1.0.79"
 tokio = { version = "1.14.0", features = ["io-util", "rt", "sync"] }

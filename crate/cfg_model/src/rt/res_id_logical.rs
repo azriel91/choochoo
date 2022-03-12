@@ -23,6 +23,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct ResIdLogical(pub String);
 
+impl ResIdLogical {
+    /// Returns a new [`ResIdLogical`].
+    pub fn new<S>(s: S) -> Self
+    where
+        S: Into<String>,
+    {
+        Self(s.into())
+    }
+}
+
 impl Deref for ResIdLogical {
     type Target = String;
 

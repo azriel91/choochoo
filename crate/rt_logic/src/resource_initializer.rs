@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use choochoo_cfg_model::rt::TrainResources;
-use choochoo_rt_model::{Destination, DestinationDirCalc, Error};
+use choochoo_rt_model::{Destination, DestinationDirCalc, DestinationDirs, Error};
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::fs;
 
@@ -9,11 +9,15 @@ use tokio::fs;
 ///
 /// This includes:
 ///
+/// * [`WorkspaceDir`]
+/// * [`HistoryDir`]
+/// * [`ProfileHistoryDir`]
+/// * [`ProfileHistoryStationDirs`]
 /// * [`Profile`]
 /// * [`ProfileDir`]
-/// * [`WorkspaceDir`]
+/// * [`StationDirs`]
 ///
-/// The [`ProfileDir`] and [`StationDir`]s are ensured to exist.
+/// All directories are ensured to exist.
 #[derive(Debug)]
 pub struct ResourceInitializer<E>(PhantomData<E>);
 
@@ -34,53 +38,55 @@ where
         dest: &Destination<E>,
         train_resources: &mut TrainResources<E>,
     ) -> Result<(), Error<E>> {
-        let workspace_dir = dest.workspace_dir().clone();
-        let target_dir = workspace_dir.join(DestinationDirCalc::<E>::TARGET_DIR);
+        let DestinationDirs {
+            workspace_dir,
+            history_dir,
+            profile_history_dir,
+            profile_history_station_dirs,
+            profile_dir,
+            station_dirs,
+        } = dest.dirs().clone();
         let profile = dest.profile().clone();
-        let profile_dir = dest.profile_dir().clone();
-        let station_dirs = dest.station_dirs().clone();
+        let target_dir = workspace_dir.join(DestinationDirCalc::<E>::TARGET_DIR_NAME);
 
-        if !workspace_dir.exists() {
-            fs::create_dir_all(&workspace_dir).await.map_err(|error| {
-                Error::WorkspaceDirCreate {
-                    workspace_dir: workspace_dir.clone(),
-                    error,
+        macro_rules! ensure_dir_exists {
+            ($dir:ident, $error_variant:ident) => {
+                if !$dir.exists() {
+                    fs::create_dir_all(&$dir)
+                        .await
+                        .map_err(|error| Error::$error_variant {
+                            $dir: $dir.clone(),
+                            error,
+                        })?;
                 }
-            })?;
+            };
         }
-        if !target_dir.exists() {
-            fs::create_dir(&target_dir)
-                .await
-                .map_err(|error| Error::ProfileDirCreate {
-                    profile_dir: profile_dir.clone(),
-                    error,
-                })?;
-        }
-        if !profile_dir.exists() {
-            fs::create_dir(&profile_dir)
-                .await
-                .map_err(|error| Error::ProfileDirCreate {
-                    profile_dir: profile_dir.clone(),
-                    error,
-                })?;
-        }
+
+        ensure_dir_exists!(workspace_dir, WorkspaceDirCreate);
+        ensure_dir_exists!(target_dir, TargetDirCreate);
+        ensure_dir_exists!(history_dir, HistoryDirCreate);
+        ensure_dir_exists!(profile_history_dir, ProfileHistoryDirCreate);
+        stream::iter(profile_history_station_dirs.iter())
+            .map(Result::<_, Error<E>>::Ok)
+            .try_for_each_concurrent(4, |(_, profile_history_station_dir)| async move {
+                ensure_dir_exists!(profile_history_station_dir, ProfileHistoryStationDirCreate);
+                Ok(())
+            })
+            .await?;
+
+        ensure_dir_exists!(profile_dir, ProfileDirCreate);
         stream::iter(station_dirs.iter())
             .map(Result::<_, Error<E>>::Ok)
             .try_for_each_concurrent(4, |(_, station_dir)| async move {
-                if !station_dir.exists() {
-                    fs::create_dir(station_dir)
-                        .await
-                        .map_err(|error| Error::StationDirCreate {
-                            station_dir: station_dir.clone(),
-                            error,
-                        })
-                } else {
-                    Ok(())
-                }
+                ensure_dir_exists!(station_dir, StationDirCreate);
+                Ok(())
             })
             .await?;
 
         train_resources.insert(workspace_dir);
+        train_resources.insert(history_dir);
+        train_resources.insert(profile_history_dir);
+        train_resources.insert(profile_history_station_dirs);
         train_resources.insert(profile);
         train_resources.insert(profile_dir);
         train_resources.insert(station_dirs);
