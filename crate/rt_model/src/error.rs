@@ -10,8 +10,6 @@ use choochoo_cfg_model::{
 };
 use choochoo_resource::{HistoryDir, ProfileDir, ProfileHistoryDir, WorkspaceDir};
 
-use crate::ProfileHistoryStationDir;
-
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
 
 mod as_diagnostic;
@@ -42,13 +40,6 @@ pub enum Error<E> {
     ProfileHistoryDirCreate {
         /// The directory that was attempted to be created.
         profile_history_dir: ProfileHistoryDir,
-        /// Underlying IO error.
-        error: std::io::Error,
-    },
-    /// Failed to create profile history station directory.
-    ProfileHistoryStationDirCreate {
-        /// The directory that was attempted to be created.
-        profile_history_station_dir: ProfileHistoryStationDir,
         /// Underlying IO error.
         error: std::io::Error,
     },
@@ -143,14 +134,6 @@ where
                 "Failed to create profile history directory: `{}`.",
                 profile_history_dir.display()
             ),
-            Self::ProfileHistoryStationDirCreate {
-                profile_history_station_dir,
-                ..
-            } => write!(
-                f,
-                "Failed to create profile history station directory: `{}`.",
-                profile_history_station_dir.display()
-            ),
             Self::ResIdsChannelClosed { station_id, .. } => write!(
                 f,
                 "Channel receiver for `ResIds` produced by stations was closed while sending resource IDs for {station_id}"
@@ -207,7 +190,6 @@ where
             Self::HistoryDirCreate { error, .. } => Some(error),
             Self::ProfileDirCreate { error, .. } => Some(error),
             Self::ProfileHistoryDirCreate { error, .. } => Some(error),
-            Self::ProfileHistoryStationDirCreate { error, .. } => Some(error),
             Self::ResIdsChannelClosed { error, .. } => Some(error),
             Self::ResIdSerialize { error, .. } => Some(error),
             Self::ResIdWrite { error, .. } => Some(error),

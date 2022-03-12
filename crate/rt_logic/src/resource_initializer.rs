@@ -29,11 +29,15 @@ where
     ///
     /// This includes:
     ///
+    /// * [`WorkspaceDir`]
+    /// * [`HistoryDir`]
+    /// * [`ProfileHistoryDir`]
+    /// * [`ProfileHistoryStationDirs`]
     /// * [`Profile`]
     /// * [`ProfileDir`]
-    /// * [`WorkspaceDir`]
+    /// * [`StationDirs`]
     ///
-    /// The [`ProfileDir`] and [`StationDir`]s are ensured to exist.
+    /// All directories are ensured to exist.
     pub async fn initialize(
         dest: &Destination<E>,
         train_resources: &mut TrainResources<E>,
@@ -42,7 +46,6 @@ where
             workspace_dir,
             history_dir,
             profile_history_dir,
-            profile_history_station_dirs,
             profile_dir,
             station_dirs,
         } = dest.dirs().clone();
@@ -66,13 +69,6 @@ where
         ensure_dir_exists!(target_dir, TargetDirCreate);
         ensure_dir_exists!(history_dir, HistoryDirCreate);
         ensure_dir_exists!(profile_history_dir, ProfileHistoryDirCreate);
-        stream::iter(profile_history_station_dirs.iter())
-            .map(Result::<_, Error<E>>::Ok)
-            .try_for_each_concurrent(4, |(_, profile_history_station_dir)| async move {
-                ensure_dir_exists!(profile_history_station_dir, ProfileHistoryStationDirCreate);
-                Ok(())
-            })
-            .await?;
 
         ensure_dir_exists!(profile_dir, ProfileDirCreate);
         stream::iter(station_dirs.iter())
@@ -86,7 +82,6 @@ where
         train_resources.insert(workspace_dir);
         train_resources.insert(history_dir);
         train_resources.insert(profile_history_dir);
-        train_resources.insert(profile_history_station_dirs);
         train_resources.insert(profile);
         train_resources.insert(profile_dir);
         train_resources.insert(station_dirs);

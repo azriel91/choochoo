@@ -5,9 +5,9 @@ use choochoo_cfg_model::{
     rt::{OpStatus, ResIds, StationMutRef, StationRtId, TrainResources},
     StationSpecs,
 };
+use choochoo_resource::ProfileHistoryDir;
 use choochoo_rt_model::{
-    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error,
-    ProfileHistoryStationDirs, TrainReport,
+    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::{
@@ -177,14 +177,14 @@ where
 
         res_ids_rx.close();
 
-        let profile_history_station_dirs = train_resources.borrow::<ProfileHistoryStationDirs>();
+        let profile_history_dir = train_resources.borrow::<ProfileHistoryDir>();
         let res_ids = Self::stations_visit_res_ids_wait(
             dest.station_specs(),
-            &profile_history_station_dirs,
+            &profile_history_dir,
             res_ids_rx,
         )
         .await?;
-        drop(profile_history_station_dirs);
+        drop(profile_history_dir);
 
         let train_report = TrainReport::new(train_resources, res_ids);
         Ok(train_report)
@@ -299,20 +299,15 @@ where
 
     async fn stations_visit_res_ids_wait(
         station_specs: &StationSpecs<E>,
-        profile_history_station_dirs: &ProfileHistoryStationDirs,
+        profile_history_dir: &ProfileHistoryDir,
         mut res_ids_rx: UnboundedReceiver<(StationRtId, ResIds)>,
     ) -> Result<ResIds, Error<E>> {
         let res_ids = stream::poll_fn(|ctx| res_ids_rx.poll_recv(ctx))
             .map(Result::<_, Error<E>>::Ok)
             .and_then(|(station_rt_id, res_ids_current)| async move {
-                let profile_history_station_dir = &profile_history_station_dirs[&station_rt_id];
                 let station_id = station_specs[station_rt_id].id();
-                ResIdPersister::<E>::persist(
-                    profile_history_station_dir,
-                    station_id,
-                    &res_ids_current,
-                )
-                .await?;
+                ResIdPersister::<E>::persist(profile_history_dir, station_id, &res_ids_current)
+                    .await?;
                 Ok(res_ids_current)
             })
             .try_fold(

@@ -1,6 +1,6 @@
 use choochoo_resource::{HistoryDir, ProfileDir, ProfileHistoryDir, WorkspaceDir};
 
-use crate::{ProfileHistoryStationDirs, StationDirs};
+use crate::StationDirs;
 
 /// Directories used during `choochoo` execution.
 ///
@@ -17,8 +17,6 @@ pub struct DestinationDirs {
     pub history_dir: HistoryDir,
     /// Directory to store all resource IDs produced by a profile's executions.
     pub profile_history_dir: ProfileHistoryDir,
-    /// Map from [`StationRtId`] to each station's history directory.
-    pub profile_history_station_dirs: ProfileHistoryStationDirs,
     /// Directory to store all data produced by the current profile's execution.
     pub profile_dir: ProfileDir,
     /// Map from [`StationRtId`] to each station's execution directory.
@@ -39,11 +37,6 @@ impl DestinationDirs {
     /// Returns a reference to the profile history dir.
     pub fn profile_history_dir(&self) -> &ProfileHistoryDir {
         &self.profile_history_dir
-    }
-
-    /// Returns a reference to the profile history dirs.
-    pub fn profile_history_station_dirs(&self) -> &ProfileHistoryStationDirs {
-        &self.profile_history_station_dirs
     }
 
     /// Returns a reference to the profile dir.

@@ -10,8 +10,6 @@ pub use crate::{
     destination_dirs::DestinationDirs,
     ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,
-    profile_history_station_dir::ProfileHistoryStationDir,
-    profile_history_station_dirs::ProfileHistoryStationDirs,
     station_dirs::StationDirs,
     station_progresses::StationProgresses,
     train_report::TrainReport,
@@ -25,8 +23,6 @@ mod destination_builder;
 mod destination_dir_calc;
 mod destination_dirs;
 mod ensure_outcome;
-mod profile_history_station_dir;
-mod profile_history_station_dirs;
 mod station_dirs;
 mod station_progresses;
 mod train_report;

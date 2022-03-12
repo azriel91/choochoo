@@ -4,9 +4,9 @@ use choochoo_cfg_model::{
     rt::{ResIdLogical, ResIds, StationRtId, TrainResources},
     StationSpec,
 };
-use choochoo_resource::Profile;
+use choochoo_resource::{Profile, ProfileHistoryDir};
 use choochoo_rt_logic::{ResIdPersister, ResourceInitializer};
-use choochoo_rt_model::{Destination, ProfileHistoryStationDirs, WorkspaceSpec};
+use choochoo_rt_model::{Destination, WorkspaceSpec};
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 use tokio::runtime;
@@ -17,8 +17,7 @@ fn writes_res_ids_in_profile_history_dir() -> Result<(), Box<dyn std::error::Err
     rt.block_on(async {
         let (_tempdir, dest, train_resources, station_rt_id) = setup().await?;
 
-        let profile_history_station_dirs = train_resources.borrow::<ProfileHistoryStationDirs>();
-        let profile_history_station_dir = &profile_history_station_dirs[&station_rt_id];
+        let profile_history_dir = train_resources.borrow::<ProfileHistoryDir>();
         let station_id = dest.station_specs()[station_rt_id].id();
         let mut res_ids = ResIds::new();
         res_ids.insert(ResIdLogical::new("res_a"), ResA(123));
@@ -28,14 +27,14 @@ fn writes_res_ids_in_profile_history_dir() -> Result<(), Box<dyn std::error::Err
                 value: "a string".to_string(),
             },
         );
-        ResIdPersister::<()>::persist(&profile_history_station_dir, &station_id, &res_ids).await?;
+        ResIdPersister::<()>::persist(&profile_history_dir, &station_id, &res_ids).await?;
 
         let res_a_serialized =
-            tokio::fs::read_to_string(profile_history_station_dir.join("res_a.json")).await?;
+            tokio::fs::read_to_string(profile_history_dir.join("res_a.json")).await?;
         assert_eq!("123", res_a_serialized);
 
         let res_b_serialized =
-            tokio::fs::read_to_string(profile_history_station_dir.join("res_b.json")).await?;
+            tokio::fs::read_to_string(profile_history_dir.join("res_b.json")).await?;
         assert_eq!(
             r#"{
   "value": "a string"

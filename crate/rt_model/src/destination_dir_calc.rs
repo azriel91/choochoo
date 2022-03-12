@@ -7,10 +7,7 @@ use std::{
 use choochoo_cfg_model::{rt::StationDir, StationSpecs};
 use choochoo_resource::{HistoryDir, Profile, ProfileDir, ProfileHistoryDir, WorkspaceDir};
 
-use crate::{
-    DestinationDirs, Error, ProfileHistoryStationDir, ProfileHistoryStationDirs, StationDirs,
-    WorkspaceSpec,
-};
+use crate::{DestinationDirs, Error, StationDirs, WorkspaceSpec};
 
 /// Computes directories for a destination.
 #[derive(Debug)]
@@ -64,21 +61,6 @@ where
                 .join(Self::HISTORY_DIR_NAME),
         );
         let profile_history_dir = ProfileHistoryDir::new(history_dir.join(profile.as_ref()));
-        let profile_history_station_dirs = {
-            let profile_history_station_dirs = station_specs.iter_insertion_with_indices().fold(
-                HashMap::with_capacity(station_specs.node_count()),
-                |mut profile_history_station_dirs, (station_rt_id, station_spec)| {
-                    let station_dir = ProfileHistoryStationDir::new(
-                        profile_history_dir.join(station_spec.id().as_ref()),
-                    );
-
-                    profile_history_station_dirs.insert(station_rt_id, station_dir);
-                    profile_history_station_dirs
-                },
-            );
-
-            ProfileHistoryStationDirs(profile_history_station_dirs)
-        };
 
         let profile_dir = ProfileDir::new(
             workspace_dir
@@ -103,7 +85,6 @@ where
             workspace_dir,
             history_dir,
             profile_history_dir,
-            profile_history_station_dirs,
             profile_dir,
             station_dirs,
         })
