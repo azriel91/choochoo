@@ -171,19 +171,17 @@ where
         // Set `ParentPending` stations to `OpQueued` if they have no dependencies.
         OpStatusUpdater::update(dest);
 
-        let (res_ids_tx, mut res_ids_rx) = mpsc::unbounded_channel::<(StationRtId, ResIds)>();
-        self.stations_visit_each(dest, &train_resources, res_ids_tx)
-            .await?;
-
-        res_ids_rx.close();
+        let (res_ids_tx, res_ids_rx) = mpsc::unbounded_channel::<(StationRtId, ResIds)>();
+        let stations_visit_each = self.stations_visit_each(dest, &train_resources, res_ids_tx);
 
         let profile_history_dir = train_resources.borrow::<ProfileHistoryDir>();
-        let res_ids = Self::stations_visit_res_ids_wait(
+        let stations_visit_res_ids_wait = Self::stations_visit_res_ids_wait(
             dest.station_specs(),
             &profile_history_dir,
             res_ids_rx,
-        )
-        .await?;
+        );
+
+        let ((), res_ids) = futures::try_join!(stations_visit_each, stations_visit_res_ids_wait)?;
         drop(profile_history_dir);
 
         let train_report = TrainReport::new(train_resources, res_ids);
@@ -192,7 +190,7 @@ where
 
     async fn stations_visit_each(
         &self,
-        dest: &mut Destination<E>,
+        dest: &Destination<E>,
         train_resources: &TrainResources<E>,
         res_ids_tx: mpsc::UnboundedSender<(StationRtId, ResIds)>,
     ) -> Result<(), Error<E>> {
