@@ -1,4 +1,6 @@
-use choochoo::{cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination};
+use choochoo::{
+    cfg_model::rt::VisitOp, cli_fmt::PlainTextFormatter, rt_logic::Train, rt_model::Destination,
+};
 use tokio::runtime;
 
 use crate::{
@@ -119,7 +121,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             Result::<_, Box<dyn std::error::Error>>::Ok(dest)
         }?;
-        let train_report = Train::default().reach(&mut dest).await?;
+        let train_report = Train::default().reach(&mut dest, VisitOp::Create).await?;
 
         let mut stdout = tokio::io::stdout();
         PlainTextFormatter::fmt_errors(&mut stdout, &train_report.train_resources()).await?;

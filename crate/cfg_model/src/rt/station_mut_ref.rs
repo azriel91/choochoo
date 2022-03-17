@@ -60,21 +60,29 @@ where
     }
 
     /// Checks if the create function needs to be run.
+    ///
+    /// Layers:
+    ///
+    /// * First `Option` is whether the station supports cleaning.
+    /// * Second `Option` is whether the station's clean function supports
+    ///   checking.
+    /// * Outer `Result` is whether the resources needed to clean are borrowed
+    ///   successfully.
+    /// * Inner `Result` is whether the clean function returned successfully.
     pub async fn clean_check<'f>(
         &'f mut self,
         train_resources: &'f TrainResources<E>,
-    ) -> Option<Result<Result<CheckStatus, E>, BorrowFail>> {
-        let check_fn = self
-            .spec
-            .station_op
-            .clean_fns()
-            .and_then(|clean_fns| clean_fns.check_fn.as_ref())
-            .cloned();
-        if let Some(check_fn) = check_fn {
-            let call = check_fn.f.try_call(self, train_resources);
-            match call {
-                Ok(fut) => Some(Ok(fut.await)),
-                Err(e) => Some(Err(e)),
+    ) -> Option<Option<Result<Result<CheckStatus, E>, BorrowFail>>> {
+        let clean_fns = self.spec.station_op.clean_fns();
+        if let Some(clean_fns) = clean_fns {
+            if let Some(check_fn) = clean_fns.check_fn.clone() {
+                let call = check_fn.f.try_call(self, train_resources);
+                match call {
+                    Ok(fut) => Some(Some(Ok(fut.await))),
+                    Err(e) => Some(Some(Err(e))),
+                }
+            } else {
+                Some(None)
             }
         } else {
             None

@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{ProgressLimit, ResIds, StationMutRef},
+        rt::{ProgressLimit, ResIds, StationMutRef, VisitOp},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             dest_builder.build()?
         };
-        let train_resources = Train::default().reach(&mut dest).await?;
+        let train_resources = Train::default().reach(&mut dest, VisitOp::Create).await?;
 
         let mut stdout = tokio::io::stdout();
 

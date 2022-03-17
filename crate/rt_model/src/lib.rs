@@ -4,6 +4,7 @@
 //! analogous to build artifacts.
 
 pub use crate::{
+    clean_ensure_outcome::{CleanEnsureOutcomeErr, CleanEnsureOutcomeOk},
     create_ensure_outcome::{CreateEnsureOutcomeErr, CreateEnsureOutcomeOk},
     destination::Destination,
     destination_builder::DestinationBuilder,
@@ -18,6 +19,7 @@ pub use crate::{
 
 pub mod error;
 
+mod clean_ensure_outcome;
 mod create_ensure_outcome;
 mod destination;
 mod destination_builder;

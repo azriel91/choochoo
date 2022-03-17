@@ -1,6 +1,6 @@
 use choochoo_cfg_model::{
     indexmap::IndexMap,
-    rt::{CheckStatus, OpStatus, ProgressLimit, ResIds, StationRtId},
+    rt::{CheckStatus, OpStatus, ProgressLimit, ResIds, StationRtId, VisitOp},
     SetupFn, StationFn, StationSpec,
 };
 use choochoo_rt_logic::Train;
@@ -13,7 +13,7 @@ fn reaches_empty_dest() -> Result<(), Box<dyn std::error::Error>> {
     let rt = runtime::Builder::new_current_thread().build()?;
     let mut dest = Destination::<()>::builder().build()?;
 
-    let train_report = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_report = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let station_errors = train_report.train_resources().station_errors();
     assert!(station_errors.try_read()?.is_empty());
@@ -38,7 +38,7 @@ fn visits_all_stations_to_destination() -> Result<(), Box<dyn std::error::Error>
         );
         dest_builder.build()?
     };
-    let train_report = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_report = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let station_errors = train_report.train_resources().station_errors();
     assert!(station_errors.try_read()?.is_empty());
@@ -70,7 +70,7 @@ fn records_successful_and_failed_ops() -> Result<(), Box<dyn std::error::Error>>
 
         (dest, station_a, station_b)
     };
-    let train_report = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_report = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let errors_expected = {
         let mut errors = IndexMap::new();
@@ -112,7 +112,7 @@ fn records_check_fn_failure() -> Result<(), Box<dyn std::error::Error>> {
 
         (dest, station_a, station_b)
     };
-    let train_report = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_report = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let errors_expected = {
         let mut errors = IndexMap::new();
@@ -159,7 +159,7 @@ fn records_check_fn_failure_after_op_success() -> Result<(), Box<dyn std::error:
 
         (dest, station_a, station_b)
     };
-    let train_resources = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_resources = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let errors_expected = {
         let mut errors = IndexMap::new();
@@ -203,7 +203,7 @@ fn sets_visit_unnecessary_if_nothing_changed() -> Result<(), Box<dyn std::error:
 
         (dest, station_a, station_b)
     };
-    let train_resources = rt.block_on(Train::default().reach(&mut dest))?;
+    let train_resources = rt.block_on(Train::default().reach(&mut dest, VisitOp::Create))?;
 
     let errors_expected = IndexMap::<StationRtId, ()>::new();
 

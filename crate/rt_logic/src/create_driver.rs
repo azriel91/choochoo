@@ -3,7 +3,7 @@ use std::{fmt, marker::PhantomData};
 use choochoo_cfg_model::rt::{CheckStatus, StationMutRef, TrainResources};
 use choochoo_rt_model::{error::StationSpecError, CreateEnsureOutcomeErr, CreateEnsureOutcomeOk};
 
-/// Logic that conditionally executes an operation's work.
+/// Logic that conditionally executes an operation's create functions.
 #[derive(Debug)]
 pub struct CreateDriver<E> {
     /// Marker.
@@ -14,7 +14,7 @@ impl<E> CreateDriver<E>
 where
     E: fmt::Debug + Send + Sync + 'static,
 {
-    /// Processes a station operation.
+    /// Processes a station create operation.
     ///
     /// The algorithm is as follows:
     ///
