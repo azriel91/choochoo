@@ -1,16 +1,16 @@
 use std::{fmt, marker::PhantomData};
 
 use choochoo_cfg_model::rt::{CheckStatus, StationMutRef, TrainResources};
-use choochoo_rt_model::{error::StationSpecError, EnsureOutcomeErr, EnsureOutcomeOk};
+use choochoo_rt_model::{error::StationSpecError, CreateEnsureOutcomeErr, CreateEnsureOutcomeOk};
 
 /// Logic that conditionally executes an operation's work.
 #[derive(Debug)]
-pub struct Driver<E> {
+pub struct CreateDriver<E> {
     /// Marker.
     marker: PhantomData<E>,
 }
 
-impl<E> Driver<E>
+impl<E> CreateDriver<E>
 where
     E: fmt::Debug + Send + Sync + 'static,
 {
@@ -36,14 +36,15 @@ where
     pub async fn ensure(
         station: &mut StationMutRef<'_, E>,
         train_resources: &TrainResources<E>,
-    ) -> Result<EnsureOutcomeOk, EnsureOutcomeErr<E>>
+    ) -> Result<CreateEnsureOutcomeOk, CreateEnsureOutcomeErr<E>>
     where
         E: From<StationSpecError>,
     {
-        let work_required = if let Some(check_status) = station.check(train_resources).await {
+        let work_required = if let Some(check_status) = station.create_check(train_resources).await
+        {
             check_status
-                .map_err(EnsureOutcomeErr::CheckBorrowFail)?
-                .map_err(EnsureOutcomeErr::CheckFail)?
+                .map_err(CreateEnsureOutcomeErr::CheckBorrowFail)?
+                .map_err(CreateEnsureOutcomeErr::CheckFail)?
                 == CheckStatus::WorkRequired
         } else {
             // if there is no check function, always do the work.
@@ -52,23 +53,24 @@ where
 
         if work_required {
             let res_ids = station
-                .visit(train_resources)
+                .create_visit(train_resources)
                 .await
-                .map_err(EnsureOutcomeErr::VisitBorrowFail)?
-                .map_err(|(res_ids, error)| EnsureOutcomeErr::WorkFail { res_ids, error })?;
+                .map_err(CreateEnsureOutcomeErr::VisitBorrowFail)?
+                .map_err(|(res_ids, error)| CreateEnsureOutcomeErr::WorkFail { res_ids, error })?;
 
             // After we visit, if the check function reports we still
             // need to visit, then the visit function or the check
             // function needs to be corrected.
-            let check_status = if let Some(check_status) = station.check(train_resources).await {
-                Some(
-                    check_status
-                        .map_err(EnsureOutcomeErr::CheckBorrowFail)?
-                        .map_err(EnsureOutcomeErr::CheckFail)?,
-                )
-            } else {
-                None
-            };
+            let check_status =
+                if let Some(check_status) = station.create_check(train_resources).await {
+                    Some(
+                        check_status
+                            .map_err(CreateEnsureOutcomeErr::CheckBorrowFail)?
+                            .map_err(CreateEnsureOutcomeErr::CheckFail)?,
+                    )
+                } else {
+                    None
+                };
 
             let station_spec_error = if let Some(CheckStatus::WorkRequired) = check_status {
                 let id = station.spec.id().clone();
@@ -78,12 +80,12 @@ where
                 None
             };
 
-            Ok(EnsureOutcomeOk::Changed {
+            Ok(CreateEnsureOutcomeOk::Changed {
                 res_ids,
                 station_spec_error,
             })
         } else {
-            Ok(EnsureOutcomeOk::Unchanged)
+            Ok(CreateEnsureOutcomeOk::Unchanged)
         }
     }
 }

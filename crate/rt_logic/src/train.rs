@@ -7,7 +7,8 @@ use choochoo_cfg_model::{
 };
 use choochoo_resource::ProfileHistoryDir;
 use choochoo_rt_model::{
-    error::StationSpecError, Destination, EnsureOutcomeErr, EnsureOutcomeOk, Error, TrainReport,
+    error::StationSpecError, CreateEnsureOutcomeErr, CreateEnsureOutcomeOk, Destination, Error,
+    TrainReport,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use tokio::{
@@ -15,7 +16,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{Driver, OpStatusUpdater, ResIdPersister, ResourceInitializer};
+use crate::{CreateDriver, OpStatusUpdater, ResIdPersister, ResourceInitializer};
 
 /// Ensures all carriages are at the destination.
 #[derive(Debug)]
@@ -243,8 +244,8 @@ where
         station: &mut StationMutRef<'_, E>,
         train_resources: &TrainResources<E>,
     ) -> Option<ResIds> {
-        match Driver::ensure(station, train_resources).await {
-            Ok(EnsureOutcomeOk::Changed {
+        match CreateDriver::ensure(station, train_resources).await {
+            Ok(CreateEnsureOutcomeOk::Changed {
                 res_ids,
                 station_spec_error,
             }) => {
@@ -258,32 +259,32 @@ where
 
                 Some(res_ids)
             }
-            Ok(EnsureOutcomeOk::Unchanged) => {
+            Ok(CreateEnsureOutcomeOk::Unchanged) => {
                 station.progress.op_status = OpStatus::WorkUnnecessary;
                 None
             }
-            Err(EnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
+            Err(CreateEnsureOutcomeErr::CheckBorrowFail(_borrow_fail)) => {
                 station.progress.op_status = OpStatus::CheckFail;
 
                 // TODO: insert borrow fail error somewhere
 
                 None
             }
-            Err(EnsureOutcomeErr::CheckFail(station_error)) => {
+            Err(CreateEnsureOutcomeErr::CheckFail(station_error)) => {
                 station.progress.op_status = OpStatus::CheckFail;
 
                 Self::station_error_insert(train_resources, station.rt_id, station_error).await;
 
                 None
             }
-            Err(EnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
+            Err(CreateEnsureOutcomeErr::VisitBorrowFail(_borrow_fail)) => {
                 station.progress.op_status = OpStatus::WorkFail;
 
                 // TODO: insert borrow fail error somewhere
 
                 None
             }
-            Err(EnsureOutcomeErr::WorkFail {
+            Err(CreateEnsureOutcomeErr::WorkFail {
                 res_ids,
                 error: station_error,
             }) => {

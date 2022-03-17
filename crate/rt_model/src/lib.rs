@@ -4,11 +4,11 @@
 //! analogous to build artifacts.
 
 pub use crate::{
+    create_ensure_outcome::{CreateEnsureOutcomeErr, CreateEnsureOutcomeOk},
     destination::Destination,
     destination_builder::DestinationBuilder,
     destination_dir_calc::DestinationDirCalc,
     destination_dirs::DestinationDirs,
-    ensure_outcome::{EnsureOutcomeErr, EnsureOutcomeOk},
     error::Error,
     station_dirs::StationDirs,
     station_progresses::StationProgresses,
@@ -18,11 +18,11 @@ pub use crate::{
 
 pub mod error;
 
+mod create_ensure_outcome;
 mod destination;
 mod destination_builder;
 mod destination_dir_calc;
 mod destination_dirs;
-mod ensure_outcome;
 mod station_dirs;
 mod station_progresses;
 mod train_report;

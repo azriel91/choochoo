@@ -29,8 +29,8 @@ impl<'s, E> StationMutRef<'s, E>
 where
     E: 'static,
 {
-    /// Checks if the station needs to be visited.
-    pub async fn check<'f>(
+    /// Checks if the create function needs to be run.
+    pub async fn create_check<'f>(
         &'f mut self,
         train_resources: &'f TrainResources<E>,
     ) -> Option<Result<Result<CheckStatus, E>, BorrowFail>> {
@@ -46,8 +46,8 @@ where
         }
     }
 
-    /// Visits the station.
-    pub async fn visit<'f>(
+    /// Runs the create function.
+    pub async fn create_visit<'f>(
         &'f mut self,
         train_resources: &'f TrainResources<E>,
     ) -> Result<Result<ResIds, (ResIds, E)>, BorrowFail> {
@@ -56,6 +56,50 @@ where
         match call {
             Ok(fut) => Ok(fut.await),
             Err(e) => Err(e),
+        }
+    }
+
+    /// Checks if the create function needs to be run.
+    pub async fn clean_check<'f>(
+        &'f mut self,
+        train_resources: &'f TrainResources<E>,
+    ) -> Option<Result<Result<CheckStatus, E>, BorrowFail>> {
+        let check_fn = self
+            .spec
+            .station_op
+            .clean_fns()
+            .and_then(|clean_fns| clean_fns.check_fn.as_ref())
+            .cloned();
+        if let Some(check_fn) = check_fn {
+            let call = check_fn.f.try_call(self, train_resources);
+            match call {
+                Ok(fut) => Some(Ok(fut.await)),
+                Err(e) => Some(Err(e)),
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Runs the clean function.
+    pub async fn clean_visit<'f>(
+        &'f mut self,
+        train_resources: &'f TrainResources<E>,
+    ) -> Option<Result<Result<(), E>, BorrowFail>> {
+        let work_fn = self
+            .spec
+            .station_op
+            .clean_fns()
+            .map(|clean_fns| clean_fns.work_fn.clone());
+        if let Some(work_fn) = work_fn {
+            let call = work_fn.f.try_call(self, train_resources);
+            let result = match call {
+                Ok(fut) => Ok(fut.await),
+                Err(e) => Err(e),
+            };
+            Some(result)
+        } else {
+            None
         }
     }
 }
