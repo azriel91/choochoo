@@ -10,8 +10,9 @@ use tokio::task::JoinHandle;
 
 use crate::ResourceInitializer;
 
-use self::train_create::TrainCreate;
+use self::{train_clean::TrainClean, train_create::TrainCreate};
 
+mod train_clean;
 mod train_create;
 
 /// Ensures all carriages are at the destination.
@@ -67,7 +68,7 @@ where
         let mut train_resources = TrainResources::new();
         ResourceInitializer::initialize(dest, &mut train_resources).await?;
 
-        train_resources = Self::stations_setup(dest, train_resources)
+        train_resources = Self::stations_setup(dest, visit_op, train_resources)
             .await
             .or_else(|error| {
                 if let Error::StationSetup { train_resources } = error {
@@ -80,10 +81,8 @@ where
         // If here are no errors during setup, then we visit each station.
         let train_report = if train_resources.station_errors().read().await.is_empty() {
             let train_report = match visit_op {
-                VisitOp::Create => {
-                    TrainCreate::stations_visit(&self, dest, train_resources).await?
-                }
-                VisitOp::Clean => TrainCreate::stations_visit(&self, dest, train_resources).await?,
+                VisitOp::Create => TrainCreate::stations_visit(self, dest, train_resources).await?,
+                VisitOp::Clean => TrainClean::stations_visit(self, dest, train_resources).await?,
             };
             Self::progress_tracker_join(dest, progress_fut).await?;
             train_report
@@ -137,13 +136,24 @@ where
 
     async fn stations_setup(
         dest: &mut Destination<E>,
+        visit_op: VisitOp,
+        train_resources: TrainResources<E>,
+    ) -> Result<TrainResources<E>, Error<E>> {
+        match visit_op {
+            VisitOp::Create => Self::stations_setup_create(dest, train_resources).await,
+            VisitOp::Clean => Self::stations_setup_clean(dest, train_resources).await,
+        }
+    }
+
+    async fn stations_setup_create(
+        dest: &mut Destination<E>,
         train_resources: TrainResources<E>,
     ) -> Result<TrainResources<E>, Error<E>> {
         stream::iter(dest.stations_mut().map(Result::<_, Error<E>>::Ok))
             .try_fold(
                 train_resources,
                 |mut train_resources, mut station| async move {
-                    let setup_result = station.setup(&mut train_resources).await;
+                    let setup_result = station.create_setup(&mut train_resources).await;
 
                     match setup_result {
                         Ok(progress_limit) => {
@@ -162,6 +172,44 @@ where
                             )
                             .await;
                             Err(Error::StationSetup { train_resources })
+                        }
+                    }
+                },
+            )
+            .await
+    }
+
+    async fn stations_setup_clean(
+        dest: &mut Destination<E>,
+        train_resources: TrainResources<E>,
+    ) -> Result<TrainResources<E>, Error<E>> {
+        stream::iter(dest.stations_mut().map(Result::<_, Error<E>>::Ok))
+            .try_fold(
+                train_resources,
+                |mut train_resources, mut station| async move {
+                    let setup_result = station.clean_setup(&mut train_resources).await;
+
+                    match setup_result {
+                        Some(Ok(progress_limit)) => {
+                            station.progress.op_status = OpStatus::SetupSuccess;
+                            station.progress.progress_limit_set(progress_limit);
+                            station.progress.progress_style_update();
+                            Ok(train_resources)
+                        }
+                        Some(Err(station_error)) => {
+                            station.progress.op_status = OpStatus::SetupFail;
+                            station.progress.progress_style_update();
+                            Self::station_error_insert(
+                                &train_resources,
+                                station.rt_id,
+                                station_error,
+                            )
+                            .await;
+                            Err(Error::StationSetup { train_resources })
+                        }
+                        None => {
+                            station.progress.op_status = OpStatus::SetupSuccess;
+                            Ok(train_resources)
                         }
                     }
                 },

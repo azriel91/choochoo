@@ -172,6 +172,44 @@ where
             })
     }
 
+    /// Returns an iterator over the [`StationMutRef`]s in this destination in
+    /// reverse order.
+    ///
+    /// This uses runtime borrowing ([`RtMap::try_borrow_mut`]) to retrieve the
+    /// station progress, so if a station's progress is already accessed, then
+    /// it will not be returned by the iterator.
+    ///
+    /// [`RtMap::try_borrow_mut`]: rt_map::RtMap::try_borrow_mut
+    pub fn stations_mut_stream_rev(&self) -> impl Stream<Item = StationMutRef<'_, E>> + '_ {
+        self.station_specs
+            .stream_rev()
+            .filter_map(move |station_spec| async move {
+                self.station_id_to_rt_id
+                    .get(station_spec.id())
+                    .and_then(|station_rt_id| {
+                        let station_dir = self.dirs.station_dirs.get(station_rt_id);
+                        let station_progress =
+                            self.station_progresses.try_borrow_mut(station_rt_id);
+
+                        if let (Some(station_dir), Ok(station_progress)) =
+                            (station_dir, station_progress)
+                        {
+                            Some((*station_rt_id, station_dir, station_progress))
+                        } else {
+                            None
+                        }
+                    })
+                    .map(
+                        |(station_rt_id, station_dir, station_progress)| StationMutRef {
+                            spec: station_spec,
+                            rt_id: station_rt_id,
+                            dir: station_dir,
+                            progress: station_progress,
+                        },
+                    )
+            })
+    }
+
     /// Returns a reference to the [`StationSpecs`] for this destination.
     pub fn station_specs(&self) -> &StationSpecs<E> {
         &self.station_specs

@@ -23,11 +23,24 @@ pub struct StationMut<'s, E> {
 
 impl<'s, E> StationMut<'s, E> {
     /// Verifies input, calculates progress limit, and inserts resources.
-    pub async fn setup(
+    pub async fn create_setup(
         &mut self,
         train_resources: &mut TrainResources<E>,
     ) -> Result<ProgressLimit, E> {
         let setup_fn = self.spec.station_op.create_fns().setup_fn.clone();
         setup_fn.0(self, train_resources).await
+    }
+
+    /// Verifies input and inserts resources.
+    pub async fn clean_setup(
+        &mut self,
+        train_resources: &mut TrainResources<E>,
+    ) -> Option<Result<ProgressLimit, E>> {
+        if let Some(clean_fns) = self.spec.station_op.clean_fns().as_ref() {
+            let setup_fn = clean_fns.setup_fn.clone();
+            Some(setup_fn.0(self, train_resources).await)
+        } else {
+            None
+        }
     }
 }

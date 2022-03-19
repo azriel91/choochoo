@@ -55,10 +55,9 @@ where
                 // need to visit, then the visit function or the check
                 // function needs to be corrected.
                 let check_status =
-                    if let Some(check_status) = station.clean_check(train_resources).await {
+                    if let Some(Some(check_status)) = station.clean_check(train_resources).await {
                         Some(
                             check_status
-                                .ok_or(CleanEnsureOutcomeErr::Never)?
                                 .map_err(CleanEnsureOutcomeErr::CheckBorrowFail)?
                                 .map_err(CleanEnsureOutcomeErr::CheckFail)?,
                         )

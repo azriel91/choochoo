@@ -2,7 +2,8 @@ use std::convert::TryFrom;
 
 use crate::{
     rt::{CheckStatus, ResIds},
-    CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
+    CleanFns, CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp,
+    StationSpec,
 };
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
@@ -63,9 +64,9 @@ where
             let setup_fn = SetupFn::<E>::ok(ProgressLimit::Steps(10));
             let work_fn = StationFn::ok(ResIds::new());
             let create_fns = CreateFns::new(setup_fn, work_fn);
-            let clean_op_fns = None;
+            let clean_fns = None;
 
-            StationOp::new(create_fns, clean_op_fns)
+            StationOp::new(create_fns, clean_fns)
         };
 
         Self::new(id, station_op)
@@ -98,24 +99,38 @@ where
         self
     }
 
+    /// Sets the create functions for the [`StationSpec`].
+    #[must_use]
+    pub fn with_create_fns(mut self, create_fns: CreateFns<E>) -> Self {
+        self.station_op.create_fns = create_fns;
+        self
+    }
+
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
+    pub fn with_create_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
         self.station_op.create_fns.setup_fn = setup_fn;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E, E>) -> Self {
+    pub fn with_create_check_fn(mut self, check_fn: StationFn<CheckStatus, E, E>) -> Self {
         self.station_op.create_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_work_fn(mut self, work_fn: StationFn<ResIds, (ResIds, E), E>) -> Self {
+    pub fn with_create_work_fn(mut self, work_fn: StationFn<ResIds, (ResIds, E), E>) -> Self {
         self.station_op.create_fns.work_fn = work_fn;
+        self
+    }
+
+    /// Sets the clean functions for the [`StationSpec`].
+    #[must_use]
+    pub fn with_clean_fns(mut self, clean_fns: CleanFns<E>) -> Self {
+        self.station_op.clean_fns = Some(clean_fns);
         self
     }
 
