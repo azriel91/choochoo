@@ -41,10 +41,14 @@ pub enum ErrorCode {
     AppZipWrite,
     /// Failed to link application to database.
     ApplicationDatabaseLink,
+
+    // === Errors during cleaning === //
+    /// Failed to clean app.zip from artifact server.
+    CleanArtifactServerAppZip,
 }
 
 impl srcerr::ErrorCode for ErrorCode {
-    const ERROR_CODE_MAX: usize = 20;
+    const ERROR_CODE_MAX: usize = 99;
     const PREFIX: &'static str = "E";
 
     fn code(self) -> usize {
@@ -63,6 +67,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipStream => 12,
             Self::AppZipWrite => 13,
             Self::ApplicationDatabaseLink => 14,
+            Self::CleanArtifactServerAppZip => 20,
         }
     }
 
@@ -82,6 +87,7 @@ impl srcerr::ErrorCode for ErrorCode {
             Self::AppZipStream => "`app.zip` download connection broke.",
             Self::AppZipWrite => "Web server failed to write `app.zip` to disk.",
             Self::ApplicationDatabaseLink => "Failed to link application to database.",
+            Self::CleanArtifactServerAppZip => "Failed to clean app.zip from artifact server.",
         }
     }
 }
@@ -205,6 +211,19 @@ pub enum ErrorDetail {
         /// Underlying IO error.
         error: std::io::Error,
     },
+
+    /// Failed to clean app.zip from artifact server.
+    ///
+    /// Currently this is a file system deletion, rather than a `DELETE` request
+    /// to the web server.
+    CleanArtifactServerAppZip {
+        /// Artifact server `app.zip` path file ID.
+        app_zip_path_file_id: FileId,
+        /// Span of the app.zip path.
+        app_zip_path_span: Span,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
 }
 
 impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
@@ -320,6 +339,14 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
                         .with_message("failed to link application to database"),
                 ]
             }
+            Self::CleanArtifactServerAppZip {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => vec![
+                Label::primary(*app_zip_path_file_id, *app_zip_path_span)
+                    .with_message("failed to delete app.zip from artifact server"),
+            ],
         }
     }
 
@@ -482,6 +509,19 @@ impl<'files> srcerr::ErrorDetail<'files> for ErrorDetail {
             Self::ApplicationDatabaseLink { .. } => {
                 vec![]
             }
+            Self::CleanArtifactServerAppZip {
+                app_zip_path_file_id,
+                app_zip_path_span,
+                ..
+            } => {
+                let app_zip_path = files
+                    .source_slice(*app_zip_path_file_id, *app_zip_path_span)
+                    .expect("Expected file to exist.");
+                vec![format!(
+                    "Ensure all parent directories of `{app_zip_path}` are accessible by the current user.",
+                    app_zip_path = app_zip_path
+                )]
+            }
         }
     }
 }
@@ -515,6 +555,9 @@ impl fmt::Display for ErrorDetail {
             Self::ApplicationDatabaseLink { .. } => {
                 write!(f, "{}", ErrorCode::ApplicationDatabaseLink.description())
             }
+            Self::CleanArtifactServerAppZip { .. } => {
+                write!(f, "{}", ErrorCode::CleanArtifactServerAppZip.description())
+            }
         }
     }
 }
@@ -536,6 +579,7 @@ impl std::error::Error for ErrorDetail {
             Self::AppZipStream { error, .. } => Some(error),
             Self::AppZipWrite { error, .. } => Some(error),
             Self::ApplicationDatabaseLink { error, .. } => Some(error),
+            Self::CleanArtifactServerAppZip { error, .. } => Some(error),
         }
     }
 }

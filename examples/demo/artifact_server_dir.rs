@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Directory where `app.zip` is "uploaded" to.
+/// Directory where `app.zip` is uploaded to.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArtifactServerDir(PathBuf);
 
