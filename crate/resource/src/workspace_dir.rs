@@ -9,7 +9,7 @@ use std::{
 /// Given a workspace lives in `workspace_dir`, it is natural for users to
 /// execute `choochoo` in any sub directory of `workspace_dir`, in which case
 /// execution should be consistent with invocations in `workspace_dir`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkspaceDir(PathBuf);
 
 impl WorkspaceDir {

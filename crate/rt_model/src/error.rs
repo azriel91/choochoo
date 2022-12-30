@@ -5,10 +5,10 @@ use std::{fmt, path::PathBuf};
 use tokio::task::JoinError;
 
 use choochoo_cfg_model::{
-    rt::{StationDir, TrainReport},
-    StationSpec,
+    rt::{ResIds, StationDir, StationRtId, TrainResources},
+    StationId,
 };
-use choochoo_resource::{ProfileDir, WorkspaceDir};
+use choochoo_resource::{HistoryDir, ProfileDir, ProfileHistoryDir, WorkspaceDir};
 
 pub use self::{as_diagnostic::AsDiagnostic, station_spec_error::StationSpecError};
 
@@ -22,10 +22,47 @@ pub enum Error<E> {
     MultiProgressTaskJoin(JoinError),
     /// Failed to join the multi-progress bar.
     MultiProgressJoin(std::io::Error),
+    /// Failed to create history directory.
+    HistoryDirCreate {
+        /// The directory that was attempted to be created.
+        history_dir: HistoryDir,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
     /// Failed to create profile directory.
     ProfileDirCreate {
         /// The directory that was attempted to be created.
         profile_dir: ProfileDir,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Failed to create profile history directory.
+    ProfileHistoryDirCreate {
+        /// The directory that was attempted to be created.
+        profile_history_dir: ProfileHistoryDir,
+        /// Underlying IO error.
+        error: std::io::Error,
+    },
+    /// Channel receiver for [`ResIds`] produced by stations was closed.
+    ///
+    /// Should be impossible to hit.
+    ResIdsChannelClosed {
+        /// Runtime ID of the station when the error occurred.
+        station_id: StationId,
+        /// Underlying channel send error.
+        error: tokio::sync::mpsc::error::SendError<(StationRtId, ResIds)>,
+    },
+    /// Failed to serialize a resource ID produced by a station.
+    ResIdSerialize {
+        /// Runtime ID of the station.
+        station_id: StationId,
+        /// Underlying serialization error.
+        error: serde_json::error::Error,
+    },
+    /// Failed to write [`ResIds`] produced by a station.
+    ResIdWrite {
+        /// Runtime ID of the station.
+        station_id: StationId,
         /// Underlying IO error.
         error: std::io::Error,
     },
@@ -38,22 +75,18 @@ pub enum Error<E> {
     },
     /// Station setup failed.
     ///
-    /// Details of failures are recorded in the TrainReport instead of this
+    /// Details of failures are recorded in the TrainResources instead of this
     /// variant.
     StationSetup {
-        /// The train report.
-        train_report: TrainReport<E>,
+        /// The train resources.
+        train_resources: TrainResources<E>,
     },
-    /// Failed to queue a station for visiting.
-    StationQueue {
-        /// The specification of the station that failed to be queued.
-        station_spec: StationSpec<E>,
-    },
-    /// Station visitor failed to notify the queuer that a station is completed.
-    StationVisitNotify {
-        /// The specification of the station whose notification failed to be
-        /// sent.
-        station_spec: StationSpec<E>,
+    /// Failed to create target directory.
+    TargetDirCreate {
+        /// The directory that was attempted to be created.
+        target_dir: PathBuf,
+        /// Underlying IO error.
+        error: std::io::Error,
     },
     /// Failed to read current directory to discover workspace directory.
     WorkingDirRead(std::io::Error),
@@ -83,10 +116,35 @@ where
                 write!(f, "Failed to join the multi-progress bar task.")
             }
             Self::MultiProgressJoin(_) => write!(f, "Failed to join the multi-progress bar."),
+            Self::HistoryDirCreate { history_dir, .. } => write!(
+                f,
+                "Failed to create history directory: `{}`.",
+                history_dir.display()
+            ),
             Self::ProfileDirCreate { profile_dir, .. } => write!(
                 f,
                 "Failed to create profile directory: `{}`.",
                 profile_dir.display()
+            ),
+            Self::ProfileHistoryDirCreate {
+                profile_history_dir,
+                ..
+            } => write!(
+                f,
+                "Failed to create profile history directory: `{}`.",
+                profile_history_dir.display()
+            ),
+            Self::ResIdsChannelClosed { station_id, .. } => write!(
+                f,
+                "Channel receiver for `ResIds` produced by stations was closed while sending resource IDs for {station_id}"
+            ),
+            Self::ResIdSerialize { station_id, .. } => write!(
+                f,
+                "Failed to serialize resource ID produced by station {station_id}."
+            ),
+            Self::ResIdWrite { station_id, .. } => write!(
+                f,
+                "Failed to write `ResIds` produced by station {station_id}."
             ),
             Self::StationDirCreate { station_dir, .. } => write!(
                 f,
@@ -94,17 +152,10 @@ where
                 station_dir.display()
             ),
             Self::StationSetup { .. } => write!(f, "Station setup failed"),
-            Self::StationQueue { station_spec } => write!(
+            Self::TargetDirCreate { target_dir, .. } => write!(
                 f,
-                "Failed to queue station: `{id}: {name}`",
-                id = station_spec.id(),
-                name = station_spec.name()
-            ),
-            Self::StationVisitNotify { station_spec } => write!(
-                f,
-                "Failed to notify completion of station: `{id}: {name}`",
-                id = station_spec.id(),
-                name = station_spec.name()
+                "Failed to create target directory: `{}`.",
+                target_dir.display()
             ),
             Self::WorkingDirRead(_) => write!(
                 f,
@@ -136,11 +187,15 @@ where
         match self {
             Self::MultiProgressTaskJoin(error) => Some(error),
             Self::MultiProgressJoin(error) => Some(error),
+            Self::HistoryDirCreate { error, .. } => Some(error),
             Self::ProfileDirCreate { error, .. } => Some(error),
+            Self::ProfileHistoryDirCreate { error, .. } => Some(error),
+            Self::ResIdsChannelClosed { error, .. } => Some(error),
+            Self::ResIdSerialize { error, .. } => Some(error),
+            Self::ResIdWrite { error, .. } => Some(error),
             Self::StationDirCreate { error, .. } => Some(error),
             Self::StationSetup { .. } => None,
-            Self::StationQueue { .. } => None,
-            Self::StationVisitNotify { .. } => None,
+            Self::TargetDirCreate { error, .. } => Some(error),
             Self::WorkingDirRead(error) => Some(error),
             Self::WorkspaceDirCreate { error, .. } => Some(error),
             Self::WorkspaceFileNotFound { .. } => None,

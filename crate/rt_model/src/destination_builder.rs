@@ -107,8 +107,7 @@ where
         let workspace_spec = workspace_spec.unwrap_or_default();
         let station_specs = StationSpecs::new(fn_graph_builder.build());
 
-        let (workspace_dir, profile_dir, station_dirs) =
-            DestinationDirCalc::calc(&workspace_spec, &profile, &station_specs)?;
+        let destination_dirs = DestinationDirCalc::calc(&workspace_spec, &profile, &station_specs)?;
 
         let mut station_id_to_rt_id = HashMap::with_capacity(station_specs.node_count());
         station_specs
@@ -132,11 +131,9 @@ where
             );
 
         let dest = Destination {
-            workspace_dir,
             profile,
-            profile_dir,
-            station_dirs,
             station_specs,
+            dirs: destination_dirs,
             station_id_to_rt_id,
             station_progresses,
         };

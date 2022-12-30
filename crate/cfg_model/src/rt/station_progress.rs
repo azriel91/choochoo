@@ -4,7 +4,7 @@ use console::Style;
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::{
-    rt::{ProgressLimit, VisitStatus},
+    rt::{OpStatus, ProgressLimit},
     StationSpec,
 };
 
@@ -15,7 +15,7 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct StationProgress {
     /// Whether this station has been visited.
-    pub visit_status: VisitStatus,
+    pub op_status: OpStatus,
     /// Progress bar to display this station's state and progress.
     progress_bar: ProgressBar,
     /// Unit of measurement and limit to indicate progress.
@@ -36,7 +36,7 @@ impl StationProgress {
     where
         E: 'static,
     {
-        let visit_status = VisitStatus::SetupQueued;
+        let op_status = OpStatus::SetupQueued;
         let progress_bar = ProgressBar::hidden();
 
         let message = {
@@ -52,7 +52,7 @@ impl StationProgress {
         progress_bar.set_message(message);
 
         let station_progress = Self {
-            visit_status,
+            op_status,
             progress_bar,
             progress_limit,
         };
@@ -94,7 +94,7 @@ impl StationProgress {
         };
 
         let progress_style_template =
-            Self::progress_style_template(self.visit_status, self.progress_limit);
+            Self::progress_style_template(self.op_status, self.progress_limit);
         self.progress_bar.set_length(progress_length);
 
         self.progress_bar.set_style(
@@ -104,19 +104,19 @@ impl StationProgress {
         );
 
         // Finish the progress bar if our progress is complete.
-        match self.visit_status {
-            VisitStatus::SetupQueued
-            | VisitStatus::SetupSuccess
-            | VisitStatus::ParentPending
-            | VisitStatus::VisitQueued
-            | VisitStatus::InProgress => {}
-            VisitStatus::SetupFail
-            | VisitStatus::ParentFail
-            | VisitStatus::CheckFail
-            | VisitStatus::VisitFail => {
+        match self.op_status {
+            OpStatus::SetupQueued
+            | OpStatus::SetupSuccess
+            | OpStatus::ParentPending
+            | OpStatus::OpQueued
+            | OpStatus::WorkInProgress => {}
+            OpStatus::SetupFail
+            | OpStatus::ParentFail
+            | OpStatus::CheckFail
+            | OpStatus::WorkFail => {
                 self.progress_bar.abandon();
             }
-            VisitStatus::VisitSuccess | VisitStatus::VisitUnnecessary => {
+            OpStatus::WorkSuccess | OpStatus::WorkUnnecessary => {
                 self.progress_bar.finish();
             }
         }
@@ -125,49 +125,45 @@ impl StationProgress {
         self.progress_bar.tick();
     }
 
-    fn progress_style_template(visit_status: VisitStatus, progress_limit: ProgressLimit) -> String {
-        let (symbol, status) = match visit_status {
-            VisitStatus::SetupQueued => ("⏳", "setup queued"),
-            VisitStatus::SetupSuccess => ("⏳", "setup success"),
-            VisitStatus::SetupFail => ("❌", "setup fail"),
-            VisitStatus::ParentPending => ("⏰", "parent pending"),
-            VisitStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
-            VisitStatus::VisitQueued => ("⏳", "visit queued"),
-            VisitStatus::CheckFail => ("❌", "check fail"),
-            VisitStatus::InProgress => ("{spinner:.green}{spinner:.green}", "in progress"),
-            VisitStatus::VisitUnnecessary => ("✅", "visit unnecessary"),
-            VisitStatus::VisitSuccess => ("✅", "visit success"),
-            VisitStatus::VisitFail => ("❌", "visit fail"),
+    fn progress_style_template(op_status: OpStatus, progress_limit: ProgressLimit) -> String {
+        let (symbol, status) = match op_status {
+            OpStatus::SetupQueued => ("⏳", "setup queued"),
+            OpStatus::SetupSuccess => ("⏳", "setup success"),
+            OpStatus::SetupFail => ("❌", "setup fail"),
+            OpStatus::ParentPending => ("⏰", "parent pending"),
+            OpStatus::ParentFail => ("☠️ ", "parent fail"), // Extra space is deliberate
+            OpStatus::OpQueued => ("⏳", "visit queued"),
+            OpStatus::CheckFail => ("❌", "check fail"),
+            OpStatus::WorkInProgress => ("{spinner:.green}{spinner:.green}", "in progress"),
+            OpStatus::WorkUnnecessary => ("✅", "visit unnecessary"),
+            OpStatus::WorkSuccess => ("✅", "visit success"),
+            OpStatus::WorkFail => ("❌", "visit fail"),
         };
 
-        let progress_bar = match visit_status {
-            VisitStatus::SetupQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+        let progress_bar = match op_status {
+            OpStatus::SetupQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
                 .black()
                 .dim(),
-            VisitStatus::SetupSuccess => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+            OpStatus::SetupSuccess => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
                 .blue()
                 .dim(),
-            VisitStatus::SetupFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+            OpStatus::SetupFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
                 .magenta()
                 .dim(),
-            VisitStatus::ParentPending => {
-                console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
-                    .blue()
-                    .dim()
-            }
-            VisitStatus::ParentFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
-                .black()
-                .dim(),
-            VisitStatus::VisitQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+            OpStatus::ParentPending => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
                 .blue()
                 .dim(),
-            VisitStatus::CheckFail => {
-                console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").red()
-            }
-            VisitStatus::InProgress => console::style("{bar:40.green.on_17}"),
-            VisitStatus::VisitUnnecessary => console::style("{bar:40.green.dim}"),
-            VisitStatus::VisitSuccess => console::style("{bar:40.green}"),
-            VisitStatus::VisitFail => console::style("{bar:40.red.dim}"),
+            OpStatus::ParentFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .black()
+                .dim(),
+            OpStatus::OpQueued => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒")
+                .blue()
+                .dim(),
+            OpStatus::CheckFail => console::style("▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒").red(),
+            OpStatus::WorkInProgress => console::style("{bar:40.green.on_17}"),
+            OpStatus::WorkUnnecessary => console::style("{bar:40.green.dim}"),
+            OpStatus::WorkSuccess => console::style("{bar:40.green}"),
+            OpStatus::WorkFail => console::style("{bar:40.red.dim}"),
         };
 
         let units = match progress_limit {
@@ -176,13 +172,7 @@ impl StationProgress {
             ProgressLimit::Bytes(_) => "{bytes}/{total_bytes}",
         };
 
-        format!(
-            "{symbol} {{msg:20}} [{progress_bar}] {units} ({status})",
-            symbol = symbol,
-            progress_bar = progress_bar,
-            units = units,
-            status = status,
-        )
+        format!("{symbol} {{msg:20}} [{progress_bar}] {units} ({status})")
     }
 }
 
@@ -194,7 +184,7 @@ struct StationProgressDisplay<'station, E> {
 
 impl<E> fmt::Display for StationProgressDisplay<'_, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{:?}] ", self.station_progress.visit_status)?;
+        write!(f, "[{:?}] ", self.station_progress.op_status)?;
 
         self.station_spec.fmt(f)
     }

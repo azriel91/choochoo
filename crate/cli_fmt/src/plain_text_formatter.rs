@@ -5,11 +5,11 @@ use std::{
 };
 
 use choochoo_cfg_model::{
-    rt::{TrainReport, VisitStatus},
+    rt::{OpStatus, TrainResources},
     srcerr::codespan_reporting::{term, term::termcolor::Buffer},
 };
 use choochoo_resource::{Files, FilesRw};
-use choochoo_rt_model::{error::AsDiagnostic, Destination};
+use choochoo_rt_model::{error::AsDiagnostic, Destination, TrainReport};
 use futures::{stream, StreamExt, TryStreamExt};
 use tokio::io::{AsyncWrite, AsyncWriteExt, BufWriter};
 
@@ -66,7 +66,7 @@ where
     W: AsyncWrite + Unpin,
     E: AsDiagnostic<'static, Files = Files> + fmt::Debug + Send + Sync + 'static,
 {
-    /// Formats the value using the given formatter.
+    /// Formats the train report as a human readable text report.
     pub async fn fmt(
         w: &mut W,
         dest: &Destination<E>,
@@ -75,22 +75,24 @@ where
         let mut write_buf = WriterAndBuffer::new(w);
         write_buf = Self::write_station_statuses(dest, write_buf).await?;
 
+        let train_resources = train_report.train_resources();
+
         // `E` should either:
         //
         // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
         //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
-        //   (maybe in `TrainReport`, or in the `Station` somehow), or
+        //   (maybe in `TrainResources`, or in the `Station` somehow), or
         //
         // * It should store its own `SimpleFile`, and we call `term::emit` with that
         //   (and we retrieve `files` from E itself).
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<FilesRw>();
+        let files = train_resources.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 
-        let station_errors = train_report.station_errors();
+        let station_errors = train_resources.station_errors();
         let station_rt_id_to_error = station_errors.read().await;
         let (mut write_buf, _writer) = stream::iter(station_rt_id_to_error.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -111,26 +113,30 @@ where
         write_buf.writer.flush().await
     }
 
-    /// Formats the errors using the given formatter.
-    pub async fn fmt_errors(w: &mut W, train_report: &TrainReport<E>) -> Result<(), io::Error> {
+    /// Formats the errors in the train resources as a human readable text
+    /// report.
+    pub async fn fmt_errors(
+        w: &mut W,
+        train_resources: &TrainResources<E>,
+    ) -> Result<(), io::Error> {
         let write_buf = WriterAndBuffer::new(w);
 
         // `E` should either:
         //
         // * Be a `codespan_reporting::diagnostic::Diagnostic` which means we need to
         //   store the `Files<'a>` that the diagnostic's `file_id` comes from separately
-        //   (maybe in `TrainReport`, or in the `Station` somehow), or
+        //   (maybe in `TrainResources`, or in the `Station` somehow), or
         //
         // * It should store its own `SimpleFile`, and we call `term::emit` with that
         //   (and we retrieve `files` from E itself).
         let writer = Buffer::ansi(); // TODO: switch between `ansi()` and `no_color()`
         let config = term::Config::default();
         let config = &config;
-        let files = &*train_report.borrow::<FilesRw>();
+        let files = &*train_resources.borrow::<FilesRw>();
         let files = files.read().await;
         let files = &*files;
 
-        let station_errors = train_report.station_errors();
+        let station_errors = train_resources.station_errors();
         let station_rt_id_to_error = station_errors.read().await;
         let (mut write_buf, _writer) = stream::iter(station_rt_id_to_error.values())
             .map(Result::<&E, io::Error>::Ok)
@@ -160,17 +166,15 @@ where
         stream::iter(dest.stations())
             .map(Result::<_, io::Error>::Ok)
             .try_fold(write_buf, |mut write_buf, station| async move {
-                let icon = match station.progress.visit_status {
-                    VisitStatus::SetupQueued => "⏳",
-                    VisitStatus::SetupSuccess => "⏳",
-                    VisitStatus::ParentPending => "⏰",
-                    VisitStatus::ParentFail => "☠️",
-                    VisitStatus::VisitQueued => "⏳",
-                    VisitStatus::InProgress => "⏳",
-                    VisitStatus::VisitUnnecessary | VisitStatus::VisitSuccess => "✅",
-                    VisitStatus::SetupFail | VisitStatus::CheckFail | VisitStatus::VisitFail => {
-                        "❌"
-                    }
+                let icon = match station.progress.op_status {
+                    OpStatus::SetupQueued => "⏳",
+                    OpStatus::SetupSuccess => "⏳",
+                    OpStatus::ParentPending => "⏰",
+                    OpStatus::ParentFail => "☠️",
+                    OpStatus::OpQueued => "⏳",
+                    OpStatus::WorkInProgress => "⏳",
+                    OpStatus::WorkUnnecessary | OpStatus::WorkSuccess => "✅",
+                    OpStatus::SetupFail | OpStatus::CheckFail | OpStatus::WorkFail => "❌",
                 };
 
                 b_writeln!(

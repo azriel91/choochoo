@@ -1,11 +1,11 @@
 use tokio::runtime;
 
 use choochoo_cfg_model::{
-    rt::{StationErrors, StationRtId, TrainReport, VisitStatus},
+    rt::{OpStatus, StationErrors, StationRtId, TrainResources},
     StationSpec,
 };
 use choochoo_cli_fmt::PlainTextFormatter;
-use choochoo_rt_model::Destination;
+use choochoo_rt_model::{Destination, TrainReport};
 
 #[test]
 fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error::Error>> {
@@ -78,19 +78,19 @@ fn writes_station_status_name_and_description() -> Result<(), Box<dyn std::error
     };
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::SetupQueued;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::SetupSuccess;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::SetupFail;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::ParentPending;
-        station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::ParentFail;
-        station_progresses[&station_f].borrow_mut().visit_status = VisitStatus::VisitQueued;
-        station_progresses[&station_k].borrow_mut().visit_status = VisitStatus::CheckFail;
-        station_progresses[&station_g].borrow_mut().visit_status = VisitStatus::InProgress;
-        station_progresses[&station_h].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_i].borrow_mut().visit_status = VisitStatus::VisitUnnecessary;
-        station_progresses[&station_j].borrow_mut().visit_status = VisitStatus::VisitFail;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::SetupQueued;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::SetupSuccess;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::SetupFail;
+        station_progresses[&station_d].borrow_mut().op_status = OpStatus::ParentPending;
+        station_progresses[&station_e].borrow_mut().op_status = OpStatus::ParentFail;
+        station_progresses[&station_f].borrow_mut().op_status = OpStatus::OpQueued;
+        station_progresses[&station_k].borrow_mut().op_status = OpStatus::CheckFail;
+        station_progresses[&station_g].borrow_mut().op_status = OpStatus::WorkInProgress;
+        station_progresses[&station_h].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_i].borrow_mut().op_status = OpStatus::WorkUnnecessary;
+        station_progresses[&station_j].borrow_mut().op_status = OpStatus::WorkFail;
     }
-    let train_report = TrainReport::new();
+    let train_report = TrainReport::default();
 
     rt.block_on(PlainTextFormatter::fmt(&mut output, &dest, &train_report))?;
 
@@ -120,14 +120,14 @@ fn formats_errors_as_human_readable_text() -> Result<(), Box<dyn std::error::Err
     let rt = runtime::Builder::new_current_thread().build()?;
 
     rt.block_on(async {
-        let train_report = TrainReport::<()>::new();
+        let train_resources = TrainResources::<()>::new();
         {
-            let errors = train_report.borrow::<StationErrors<()>>();
+            let errors = train_resources.borrow::<StationErrors<()>>();
             let mut errors = errors.write().await;
             errors.insert(StationRtId::new(0), ());
         }
 
-        PlainTextFormatter::fmt_errors(&mut output, &train_report).await
+        PlainTextFormatter::fmt_errors(&mut output, &train_resources).await
     })?;
 
     let output_expected = "\u{1b}[0m\u{1b}[1m\u{1b}[38;5;9merror\u{1b}[0m\u{1b}[1m: \u{1b}[0m\n\n";

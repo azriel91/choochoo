@@ -5,7 +5,7 @@ use std::{
 
 use choochoo_cfg_model::rt::{StationDir, StationRtId};
 
-/// Map from [`StationRtId`] to the station's execution directory.
+/// Map from [`StationRtId`] to each station's execution directory.
 #[derive(Clone, Debug, Default)]
 pub struct StationDirs(pub HashMap<StationRtId, StationDir>);
 

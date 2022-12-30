@@ -3,18 +3,20 @@ use std::{borrow::Cow, path::Path};
 use bytes::Bytes;
 use choochoo::{
     cfg_model::{
-        rt::{CheckStatus, ProgressLimit, StationMutRef, StationProgress, StationRtId},
+        rt::{
+            CheckStatus, ProgressLimit, ResIdLogical, ResIds, StationMutRef, StationProgress,
+            StationRtId,
+        },
         srcerr::{
             codespan::{FileId, Span},
             codespan_reporting::diagnostic::Severity,
         },
-        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+        CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     resource::{Files, FilesRw},
     rt_model::StationDirs,
 };
-use futures::{Stream, StreamExt, TryStreamExt};
+use futures::{future::LocalBoxFuture, Stream, StreamExt, TryStreamExt};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -42,9 +44,10 @@ impl StationC {
     pub fn build(
         station_a_rt_id: StationRtId,
     ) -> Result<StationSpec<DemoError>, StationIdInvalidFmt<'static>> {
-        let station_spec_fns =
-            StationSpecFns::new(Self::setup_fn(), Self::visit_fn(station_a_rt_id))
-                .with_check_fn(StationFn::new(Self::check_fn));
+        let create_fns = CreateFns::new(Self::setup_fn(), Self::work_fn(station_a_rt_id))
+            .with_check_fn(StationFn::new(Self::check_fn));
+        let station_op = StationOp::new(create_fns, None);
+
         let station_id = StationId::new("c")?;
         let station_name = String::from("Download App");
         let station_description = String::from("Downloads web application onto web server.");
@@ -52,14 +55,14 @@ impl StationC {
             station_id,
             station_name,
             station_description,
-            station_spec_fns,
+            station_op,
         ))
     }
 
     fn setup_fn() -> SetupFn<DemoError> {
-        SetupFn::new(move |_station, train_report| {
+        SetupFn::new(move |_station, train_resources| {
             Box::pin(async move {
-                let app_zip_file_length = train_report.borrow::<AppZipFileLength>().0;
+                let app_zip_file_length = train_resources.borrow::<AppZipFileLength>().0;
                 Ok(ProgressLimit::Bytes(app_zip_file_length))
             })
         })
@@ -69,13 +72,13 @@ impl StationC {
         station: &'f mut StationMutRef<'_, DemoError>,
         files: &'f FilesRw,
         artifact_server_dir: &'f ArtifactServerDir,
-    ) -> StationFnReturn<'f, CheckStatus, DemoError> {
+    ) -> LocalBoxFuture<'f, Result<CheckStatus, DemoError>> {
         let client = reqwest::Client::new();
         Box::pin(async move {
             let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
             // Short circuit in case the file doesn't exist locally.
             if !Path::new(&app_zip_app_server_path).exists() {
-                return Result::<CheckStatus, DemoError>::Ok(CheckStatus::VisitRequired);
+                return Result::<CheckStatus, DemoError>::Ok(CheckStatus::WorkRequired);
             }
 
             let mut files = files.write().await;
@@ -126,31 +129,32 @@ impl StationC {
                         .progress_bar()
                         .set_length(remote_file_length);
                     if local_file_length == remote_file_length {
-                        CheckStatus::VisitNotRequired
+                        CheckStatus::WorkNotRequired
                     } else {
-                        CheckStatus::VisitRequired
+                        CheckStatus::WorkRequired
                     }
                 } else {
                     // Not sure of file length, so we download it.
-                    CheckStatus::VisitRequired
+                    CheckStatus::WorkRequired
                 }
             } else {
                 // Failed to check. We don't report an error, but maybe we should.
-                CheckStatus::VisitRequired
+                CheckStatus::WorkRequired
             };
             Result::<CheckStatus, DemoError>::Ok(check_status)
         })
     }
 
-    fn visit_fn(station_a_rt_id: StationRtId) -> StationFn<(), DemoError> {
+    fn work_fn(station_a_rt_id: StationRtId) -> StationFn<ResIds, (ResIds, DemoError), DemoError> {
         StationFn::new2(
             move |station: &mut StationMutRef<'_, DemoError>,
                   station_dirs: &StationDirs,
                   files: &FilesRw|
-                  -> StationFnReturn<'_, (), DemoError> {
+                  -> LocalBoxFuture<'_, Result<ResIds, (ResIds, DemoError)>> {
                 let client = reqwest::Client::new();
                 Box::pin(async move {
                     station.progress.progress_bar().reset();
+                    let mut res_ids = ResIds::new();
                     let mut files = files.write().await;
 
                     let address = Cow::<'_, str>::Owned(SERVER_PARAMS_DEFAULT.address());
@@ -161,23 +165,28 @@ impl StationC {
 
                     let address_file_id = files.add("artifact_server_address", address);
 
-                    let response = client.get(&app_zip_url).send().await.map_err(|error| {
-                        let station_a_dir = station_dirs
-                            .get(&station_a_rt_id)
-                            .expect("Failed to find `StationA` directory");
-                        let app_zip_dir_file_id = files.add(
-                            station_a_dir,
-                            Cow::Owned(station_a_dir.to_string_lossy().into_owned()),
-                        );
-                        let address = files.source(address_file_id);
-                        Self::get_error(
-                            &SERVER_PARAMS_DEFAULT,
-                            app_zip_dir_file_id,
-                            address,
-                            address_file_id,
-                            error,
-                        )
-                    })?;
+                    let response = client
+                        .get(&app_zip_url)
+                        .send()
+                        .await
+                        .map_err(|error| {
+                            let station_a_dir = station_dirs
+                                .get(&station_a_rt_id)
+                                .expect("Failed to find `StationA` directory");
+                            let app_zip_dir_file_id = files.add(
+                                station_a_dir,
+                                Cow::Owned(station_a_dir.to_string_lossy().into_owned()),
+                            );
+                            let address = files.source(address_file_id);
+                            Self::get_error(
+                                &SERVER_PARAMS_DEFAULT,
+                                app_zip_dir_file_id,
+                                address,
+                                address_file_id,
+                                error,
+                            )
+                        })
+                        .map_err(|e| (res_ids.clone(), e))?;
 
                     let app_zip_app_server_path = station.dir.join(APP_ZIP_NAME);
                     let status_code = response.status();
@@ -189,8 +198,16 @@ impl StationC {
                             app_zip_url,
                             response.bytes_stream(),
                         )
-                        .await?;
-                        Result::<(), DemoError>::Ok(())
+                        .await
+                        .map_err(|e| (res_ids.clone(), e))?;
+
+                        // We don't have to clean up any existing file, as we overwrite.
+                        let _ = res_ids.insert(
+                            ResIdLogical::new(crate::res_ids::APP_SERVER_APP_ZIP),
+                            app_zip_app_server_path,
+                        );
+
+                        Ok(res_ids)
                     } else {
                         let app_zip_url_file_id = files.add(APP_ZIP_NAME, Cow::Owned(app_zip_url));
                         let app_zip_url = files.source(app_zip_url_file_id);
@@ -210,7 +227,7 @@ impl StationC {
                             app_zip_url_span,
                             server_message,
                         };
-                        Err(DemoError::new(code, detail, Severity::Error))
+                        Err((res_ids, DemoError::new(code, detail, Severity::Error)))
                     }
                 })
             },

@@ -2,22 +2,21 @@ use std::{borrow::Cow, path::Path};
 
 use choochoo::{
     cfg_model::{
-        rt::{ProgressLimit, StationMutRef},
+        rt::{ProgressLimit, ResIds, StationMutRef, VisitOp},
         srcerr::{
             self,
             codespan::{FileId, Files, Span},
             codespan_reporting::diagnostic::{Diagnostic, Severity},
             SourceError,
         },
-        SetupFn, StationFn, StationFnReturn, StationId, StationIdInvalidFmt, StationSpec,
-        StationSpecFns,
+        CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp, StationSpec,
     },
     cli_fmt::PlainTextFormatter,
     resource::FilesRw,
     rt_logic::Train,
     rt_model::{error::StationSpecError, Destination},
 };
-use futures::future::FutureExt;
+use futures::future::{FutureExt, LocalBoxFuture};
 use tokio::{fs, runtime};
 
 use crate::error::{ErrorCode, ErrorDetail};
@@ -32,11 +31,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             dest_builder.build()?
         };
-        let train_report = Train::reach(&mut dest).await?;
+        let train_resources = Train::default().reach(&mut dest, VisitOp::Create).await?;
 
         let mut stdout = tokio::io::stdout();
 
-        PlainTextFormatter::fmt(&mut stdout, &dest, &train_report).await?;
+        PlainTextFormatter::fmt(&mut stdout, &dest, &train_resources).await?;
 
         Result::<(), Box<dyn std::error::Error>>::Ok(())
     })?;
@@ -79,10 +78,10 @@ fn station_a() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 
 fn station_a_impl<'f>(
     _: &'f mut StationMutRef<'_, ExampleError>,
-) -> StationFnReturn<'f, (), ExampleError> {
+) -> LocalBoxFuture<'f, Result<ResIds, (ResIds, ExampleError)>> {
     Box::pin(async move {
         eprintln!("Visiting {}.", "Station A");
-        Result::<(), ExampleError>::Ok(())
+        Result::<ResIds, (ResIds, ExampleError)>::Ok(ResIds::new())
     })
 }
 
@@ -98,7 +97,7 @@ fn station_b() -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>
 fn station_b_impl<'f>(
     station: &'f mut StationMutRef<'_, ExampleError>,
     files: &'f mut FilesRw,
-) -> StationFnReturn<'f, (), ExampleError> {
+) -> LocalBoxFuture<'f, Result<ResIds, (ResIds, ExampleError)>> {
     async move {
         eprintln!("Visiting {}.", station.spec.name());
 
@@ -109,7 +108,7 @@ fn station_b_impl<'f>(
             .expect("Failed to read simple.toml");
 
         let error = value_out_of_range(file_id);
-        Result::<(), ExampleError>::Err(error)
+        Result::<ResIds, (ResIds, ExampleError)>::Err((ResIds::new(), error))
     }
     .boxed_local()
 }
@@ -142,17 +141,18 @@ fn new_station(
     station_id: &'static str,
     station_name: &'static str,
     station_description: &'static str,
-    visit_fn: StationFn<(), ExampleError>,
+    work_fn: StationFn<ResIds, (ResIds, ExampleError), ExampleError>,
 ) -> Result<StationSpec<ExampleError>, StationIdInvalidFmt<'static>> {
     let station_id = StationId::new(station_id)?;
     let station_name = String::from(station_name);
     let station_description = String::from(station_description);
-    let station_spec_fns = StationSpecFns::new(SetupFn::ok(ProgressLimit::Steps(1)), visit_fn);
+    let create_fns = CreateFns::new(SetupFn::ok(ProgressLimit::Steps(1)), work_fn);
+    let station_op = StationOp::new(create_fns, None);
     Ok(StationSpec::new(
         station_id,
         station_name,
         station_description,
-        station_spec_fns,
+        station_op,
     ))
 }
 
@@ -247,9 +247,7 @@ mod error {
                     vec![suggestion]
                 }
                 Self::StationSpecError(error) => vec![
-                    String::from(
-                        "Make sure the `visit_fn` updates what the `check_fn` is reading.",
-                    ),
+                    String::from("Make sure the `work_fn` updates what the `check_fn` is reading."),
                     error.to_string(),
                 ],
             }

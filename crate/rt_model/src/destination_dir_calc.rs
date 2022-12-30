@@ -5,9 +5,9 @@ use std::{
 };
 
 use choochoo_cfg_model::{rt::StationDir, StationSpecs};
-use choochoo_resource::{Profile, ProfileDir, WorkspaceDir};
+use choochoo_resource::{HistoryDir, Profile, ProfileDir, ProfileHistoryDir, WorkspaceDir};
 
-use crate::{Error, StationDirs, WorkspaceSpec};
+use crate::{DestinationDirs, Error, StationDirs, WorkspaceSpec};
 
 /// Computes directories for a destination.
 #[derive(Debug)]
@@ -17,21 +17,25 @@ impl<E> DestinationDirCalc<E>
 where
     E: 'static,
 {
+    /// Directory to contain all profile history directories.
+    pub const HISTORY_DIR_NAME: &'static str = ".history";
     /// Directory to contain all profile directories.
-    pub const TARGET_DIR: &'static str = "target";
+    pub const TARGET_DIR_NAME: &'static str = "target";
 
     /// Computes directories for a destination.
     ///
     /// This includes:
     ///
     /// * [`WorkspaceDir`]: `${workspace}`
+    /// * [`HistoryDir`]: `${workspace}/target/.history`
+    /// * [`ProfileHistoryDir`]: `${workspace}/target/.history/${profile}`
     /// * [`ProfileDir`]: `${workspace}/target/${profile}`
     /// * [`StationDirs`]: `${workspace}/target/${profile}/${station_id}`
     pub fn calc(
         workspace_spec: &WorkspaceSpec,
         profile: &Profile,
         station_specs: &StationSpecs<E>,
-    ) -> Result<(WorkspaceDir, ProfileDir, StationDirs), Error<E>> {
+    ) -> Result<DestinationDirs, Error<E>> {
         let workspace_dir = {
             let working_dir = std::env::current_dir().map_err(Error::WorkingDirRead)?;
             let workspace_dir = match workspace_spec {
@@ -51,9 +55,18 @@ where
             WorkspaceDir::new(workspace_dir)
         };
 
-        let profile_dir =
-            ProfileDir::new(workspace_dir.join(Self::TARGET_DIR).join(profile.as_ref()));
+        let history_dir = HistoryDir::new(
+            workspace_dir
+                .join(Self::TARGET_DIR_NAME)
+                .join(Self::HISTORY_DIR_NAME),
+        );
+        let profile_history_dir = ProfileHistoryDir::new(history_dir.join(profile.as_ref()));
 
+        let profile_dir = ProfileDir::new(
+            workspace_dir
+                .join(Self::TARGET_DIR_NAME)
+                .join(profile.as_ref()),
+        );
         let station_dirs = {
             let station_dirs = station_specs.iter_insertion_with_indices().fold(
                 HashMap::with_capacity(station_specs.node_count()),
@@ -68,7 +81,13 @@ where
             StationDirs(station_dirs)
         };
 
-        Ok((workspace_dir, profile_dir, station_dirs))
+        Ok(DestinationDirs {
+            workspace_dir,
+            history_dir,
+            profile_history_dir,
+            profile_dir,
+            station_dirs,
+        })
     }
 
     fn first_dir_with_file(working_dir: &Path, path: &Path) -> Option<PathBuf> {

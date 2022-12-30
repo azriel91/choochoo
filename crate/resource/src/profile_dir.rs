@@ -4,7 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Directory to store all data produced by an execution.
+/// Directory to store all data produced by the current profile's execution.
+///
+/// Typically `${workspace}/target/${profile}`.
 ///
 /// This is the directory that physically and logically contains all information
 /// produced and used during a `choochoo` invocation. Exceptions include

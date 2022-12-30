@@ -11,21 +11,21 @@ use crate::rt::StationErrors;
 
 /// Record of what happened during a train's drive.
 #[derive(Debug)]
-pub struct TrainReport<E>(Resources, PhantomData<E>);
+pub struct TrainResources<E>(Resources, PhantomData<E>);
 
-impl<E> TrainReport<E>
+impl<E> TrainResources<E>
 where
     E: fmt::Debug + Send + Sync + 'static,
 {
-    /// Returns a new TrainReport.
+    /// Returns a new TrainResources.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Returns a reference to [`StationErrors`].
     ///
-    /// There is `errors_mut` as [`StationErrors`] is behind a [`RwLock`], and
-    /// you can choose to [`read`] or [`write`] as necessary.
+    /// Note that [`StationErrors`] is behind a [`RwLock`], and you can choose
+    /// to [`read`] or [`write`] as necessary.
     ///
     /// [`RwLock`]: tokio::sync::RwLock
     /// [`read`]: tokio::sync::RwLock::read
@@ -35,7 +35,7 @@ where
     }
 }
 
-impl<E> Default for TrainReport<E>
+impl<E> Default for TrainResources<E>
 where
     E: fmt::Debug + Send + Sync + 'static,
 {
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<E> Deref for TrainReport<E> {
+impl<E> Deref for TrainResources<E> {
     type Target = Resources;
 
     fn deref(&self) -> &Self::Target {
@@ -56,7 +56,7 @@ impl<E> Deref for TrainReport<E> {
     }
 }
 
-impl<E> DerefMut for TrainReport<E> {
+impl<E> DerefMut for TrainResources<E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

@@ -35,8 +35,9 @@ https://user-images.githubusercontent.com/2993230/116825827-04b89c00-abe5-11eb-9
 * 🟢 Skip unnecessary work
 * 🟢 Understandable progress
 * 🟢 Actionable error messages
+* 🟢 Namespaced working directory ([#21](https://github.com/azriel91/choochoo/issues/21))
+* 🟡 Resource clean up ([#28](https://github.com/azriel91/choochoo/issues/28))
 * 🟡 API Ergonomics and ease of doing the right thing.
-* ⚫ Namespaced working directory ([#21](https://github.com/azriel91/choochoo/issues/21))
 * ⚫ Dry run
 * ⚫ `choochoo` binary for configuration based workflows
 * ⚫ Off-the-shelf support for common tasks

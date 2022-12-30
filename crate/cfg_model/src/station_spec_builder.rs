@@ -1,8 +1,9 @@
 use std::convert::TryFrom;
 
 use crate::{
-    rt::CheckStatus, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationSpec,
-    StationSpecFns,
+    rt::{CheckStatus, ResIds},
+    CleanFns, CreateFns, SetupFn, StationFn, StationId, StationIdInvalidFmt, StationOp,
+    StationSpec,
 };
 
 /// Builder to make it more ergonomic to construct a [`StationSpec`].
@@ -18,8 +19,8 @@ pub struct StationSpecBuilder<E> {
     name: Option<String>,
     /// Short description of the station's purpose.
     description: Option<String>,
-    /// Steps to run when this station is visited.
-    station_spec_fns: StationSpecFns<E>,
+    /// Grouping of operations to create and clean up resources.
+    station_op: StationOp<E>,
 }
 
 impl<E> StationSpecBuilder<E>
@@ -31,11 +32,8 @@ where
     /// # Parameters
     ///
     /// * `id`: Unique identifier of the station.
-    /// * `station_spec_fns`: Steps to run when this station is visited.
-    pub fn new<Id>(
-        id: Id,
-        station_spec_fns: StationSpecFns<E>,
-    ) -> Result<Self, StationIdInvalidFmt<'static>>
+    /// * `station_op`: Grouping of operations to create and clean up resources.
+    pub fn new<Id>(id: Id, station_op: StationOp<E>) -> Result<Self, StationIdInvalidFmt<'static>>
     where
         StationId: TryFrom<Id, Error = StationIdInvalidFmt<'static>>,
     {
@@ -44,13 +42,13 @@ where
             id,
             name: None,
             description: None,
-            station_spec_fns,
+            station_op,
         })
     }
 
     /// Returns a new [`StationSpecBuilder`] to build a mock [`StationSpec`].
     ///
-    /// This defaults the [`StationSpecFns`] to be success / no-op functions.
+    /// This defaults the [`CreateFns`] to be success / no-op functions.
     ///
     /// # Parameters
     ///
@@ -62,13 +60,16 @@ where
     {
         use crate::rt::ProgressLimit;
 
-        let station_spec_fns = {
-            let setup_fn = SetupFn::ok(ProgressLimit::Steps(10));
-            let visit_fn = StationFn::ok(());
-            StationSpecFns::new(setup_fn, visit_fn)
+        let station_op = {
+            let setup_fn = SetupFn::<E>::ok(ProgressLimit::Steps(10));
+            let work_fn = StationFn::ok(ResIds::new());
+            let create_fns = CreateFns::new(setup_fn, work_fn);
+            let clean_fns = None;
+
+            StationOp::new(create_fns, clean_fns)
         };
 
-        Self::new(id, station_spec_fns)
+        Self::new(id, station_op)
     }
 
     /// Sets the name of the [`StationSpec`].
@@ -91,31 +92,45 @@ where
         self
     }
 
-    /// Sets the [`StationSpecFns`] of the [`StationSpec`].
+    /// Sets the [`CreateFns`] of the [`StationSpec`].
     #[must_use]
-    pub fn with_station_spec_fns(mut self, station_spec_fns: StationSpecFns<E>) -> Self {
-        self.station_spec_fns = station_spec_fns;
+    pub fn with_station_op(mut self, station_op: StationOp<E>) -> Self {
+        self.station_op = station_op;
+        self
+    }
+
+    /// Sets the create functions for the [`StationSpec`].
+    #[must_use]
+    pub fn with_create_fns(mut self, create_fns: CreateFns<E>) -> Self {
+        self.station_op.create_fns = create_fns;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
-        self.station_spec_fns.setup_fn = setup_fn;
+    pub fn with_create_setup_fn(mut self, setup_fn: SetupFn<E>) -> Self {
+        self.station_op.create_fns.setup_fn = setup_fn;
         self
     }
 
     /// Sets the check function for the [`StationSpec`].
     #[must_use]
-    pub fn with_check_fn(mut self, check_fn: StationFn<CheckStatus, E>) -> Self {
-        self.station_spec_fns.check_fn = Some(check_fn);
+    pub fn with_create_check_fn(mut self, check_fn: StationFn<CheckStatus, E, E>) -> Self {
+        self.station_op.create_fns.check_fn = Some(check_fn);
         self
     }
 
     /// Sets the visit function for the [`StationSpec`].
     #[must_use]
-    pub fn with_visit_fn(mut self, visit_fn: StationFn<(), E>) -> Self {
-        self.station_spec_fns.visit_fn = visit_fn;
+    pub fn with_create_work_fn(mut self, work_fn: StationFn<ResIds, (ResIds, E), E>) -> Self {
+        self.station_op.create_fns.work_fn = work_fn;
+        self
+    }
+
+    /// Sets the clean functions for the [`StationSpec`].
+    #[must_use]
+    pub fn with_clean_fns(mut self, clean_fns: CleanFns<E>) -> Self {
+        self.station_op.clean_fns = Some(clean_fns);
         self
     }
 
@@ -125,7 +140,7 @@ where
             id,
             name,
             description,
-            station_spec_fns,
+            station_op,
         } = self;
 
         let id_ref = &*id;
@@ -136,7 +151,7 @@ where
             id,
             name,
             description,
-            station_spec_fns,
+            station_op,
         }
     }
 }

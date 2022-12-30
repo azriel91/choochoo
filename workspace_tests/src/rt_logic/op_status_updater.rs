@@ -1,5 +1,5 @@
-use choochoo_cfg_model::{rt::VisitStatus, StationSpec};
-use choochoo_rt_logic::VisitStatusUpdater;
+use choochoo_cfg_model::{rt::OpStatus, StationSpec};
+use choochoo_rt_logic::OpStatusUpdater;
 use choochoo_rt_model::Destination;
 
 #[test]
@@ -22,8 +22,8 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     ] = dest_builder.add_stations([
         StationSpec::mock("a")?.build(),
         StationSpec::mock("b")?.build(),
-        StationSpec::mock("c")?.build(), // Should become `VisitQueued`
-        StationSpec::mock("d")?.build(), // Should become `VisitQueued`
+        StationSpec::mock("c")?.build(), // Should become `OpQueued`
+        StationSpec::mock("d")?.build(), // Should become `OpQueued`
         StationSpec::mock("e")?.build(),
         StationSpec::mock("f")?.build(), // Should become `ParentFail`
     ]);
@@ -36,15 +36,15 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::ParentPending;
-        station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_f].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
+        station_progresses[&station_d].borrow_mut().op_status = OpStatus::ParentPending;
+        station_progresses[&station_e].borrow_mut().op_status = OpStatus::WorkFail;
+        station_progresses[&station_f].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    VisitStatusUpdater::update(&mut dest);
+    OpStatusUpdater::update(&mut dest);
 
     let station_progresses = dest.station_progresses();
     let station_a = &station_progresses[&station_a];
@@ -53,12 +53,12 @@ fn update_processes_all_possible_transitions() -> Result<(), Box<dyn std::error:
     let station_d = &station_progresses[&station_d];
     let station_e = &station_progresses[&station_e];
     let station_f = &station_progresses[&station_f];
-    assert_eq!(VisitStatus::VisitSuccess, station_a.borrow().visit_status);
-    assert_eq!(VisitStatus::VisitSuccess, station_b.borrow().visit_status);
-    assert_eq!(VisitStatus::VisitQueued, station_c.borrow().visit_status);
-    assert_eq!(VisitStatus::VisitQueued, station_d.borrow().visit_status);
-    assert_eq!(VisitStatus::VisitFail, station_e.borrow().visit_status);
-    assert_eq!(VisitStatus::ParentFail, station_f.borrow().visit_status);
+    assert_eq!(OpStatus::WorkSuccess, station_a.borrow().op_status);
+    assert_eq!(OpStatus::WorkSuccess, station_b.borrow().op_status);
+    assert_eq!(OpStatus::OpQueued, station_c.borrow().op_status);
+    assert_eq!(OpStatus::OpQueued, station_d.borrow().op_status);
+    assert_eq!(OpStatus::WorkFail, station_e.borrow().op_status);
+    assert_eq!(OpStatus::ParentFail, station_f.borrow().op_status);
     Ok(())
 }
 
@@ -84,46 +84,46 @@ fn update_propagates_parent_fail_transitions() -> Result<(), Box<dyn std::error:
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::InProgress;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
-        station_progresses[&station_d].borrow_mut().visit_status = VisitStatus::ParentPending;
-        station_progresses[&station_e].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkInProgress;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::WorkFail;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
+        station_progresses[&station_d].borrow_mut().op_status = OpStatus::ParentPending;
+        station_progresses[&station_e].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    VisitStatusUpdater::update(&mut dest);
+    OpStatusUpdater::update(&mut dest);
 
     let station_a = &dest.station_progresses()[&station_a];
     let station_b = &dest.station_progresses()[&station_b];
     let station_c = &dest.station_progresses()[&station_c];
     let station_d = &dest.station_progresses()[&station_d];
     let station_e = &dest.station_progresses()[&station_e];
-    assert_eq!(VisitStatus::InProgress, station_a.borrow().visit_status);
-    assert_eq!(VisitStatus::VisitFail, station_b.borrow().visit_status);
-    assert_eq!(VisitStatus::ParentFail, station_c.borrow().visit_status);
-    assert_eq!(VisitStatus::ParentFail, station_d.borrow().visit_status);
-    assert_eq!(VisitStatus::ParentFail, station_e.borrow().visit_status);
+    assert_eq!(OpStatus::WorkInProgress, station_a.borrow().op_status);
+    assert_eq!(OpStatus::WorkFail, station_b.borrow().op_status);
+    assert_eq!(OpStatus::ParentFail, station_c.borrow().op_status);
+    assert_eq!(OpStatus::ParentFail, station_d.borrow().op_status);
+    assert_eq!(OpStatus::ParentFail, station_e.borrow().op_status);
     Ok(())
 }
 
 #[test]
-fn updates_parent_pending_to_visit_queued_when_no_parents_exist()
+fn updates_parent_pending_to_op_queued_when_no_parents_exist()
 -> Result<(), Box<dyn std::error::Error>> {
     let mut dest_builder = Destination::<()>::builder();
     let station_a = dest_builder.add_station(StationSpec::mock("a")?.build());
     let mut dest = dest_builder.build()?;
     dest.station_progresses_mut()[&station_a]
         .borrow_mut()
-        .visit_status = VisitStatus::ParentPending;
+        .op_status = OpStatus::ParentPending;
 
-    let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
+    let op_status_next = OpStatusUpdater::op_status_next(&dest, station_a);
 
-    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
+    assert_eq!(Some(OpStatus::OpQueued), op_status_next);
     Ok(())
 }
 
 #[test]
-fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success()
+fn updates_parent_pending_to_op_queued_when_all_parents_visit_success()
 -> Result<(), Box<dyn std::error::Error>> {
     // a -> c
     //      ^
@@ -138,19 +138,19 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success()
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
+    let op_status_next = OpStatusUpdater::op_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
+    assert_eq!(Some(OpStatus::OpQueued), op_status_next);
     Ok(())
 }
 
 #[test]
-fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success_or_unnecessary()
+fn updates_parent_pending_to_op_queued_when_all_parents_visit_success_or_unnecessary()
 -> Result<(), Box<dyn std::error::Error>> {
     // a -> c
     //      ^
@@ -165,14 +165,14 @@ fn updates_parent_pending_to_visit_queued_when_all_parents_visit_success_or_unne
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitUnnecessary;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::WorkUnnecessary;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
+    let op_status_next = OpStatusUpdater::op_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::VisitQueued), visit_status_next);
+    assert_eq!(Some(OpStatus::OpQueued), op_status_next);
     Ok(())
 }
 
@@ -192,14 +192,14 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_visit_fail()
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::VisitFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::WorkFail;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
+    let op_status_next = OpStatusUpdater::op_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
+    assert_eq!(Some(OpStatus::ParentFail), op_status_next);
     Ok(())
 }
 
@@ -216,14 +216,14 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_parent_fail()
     let mut dest = dest_builder.build()?;
     {
         let station_progresses = dest.station_progresses_mut();
-        station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-        station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::ParentFail;
-        station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+        station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+        station_progresses[&station_b].borrow_mut().op_status = OpStatus::ParentFail;
+        station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
     }
 
-    let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
+    let op_status_next = OpStatusUpdater::op_status_next(&dest, station_c);
 
-    assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
+    assert_eq!(Some(OpStatus::ParentFail), op_status_next);
     Ok(())
 }
 
@@ -231,11 +231,11 @@ fn updates_parent_pending_to_parent_fail_when_any_parents_parent_fail()
 fn no_change_to_parent_pending_when_any_parents_on_other_status()
 -> Result<(), Box<dyn std::error::Error>> {
     IntoIterator::into_iter([
-        VisitStatus::ParentPending,
-        VisitStatus::VisitQueued,
-        VisitStatus::InProgress,
+        OpStatus::ParentPending,
+        OpStatus::OpQueued,
+        OpStatus::WorkInProgress,
     ])
-    .try_for_each(|visit_status_parent| {
+    .try_for_each(|op_status_parent| {
         let mut dest_builder = Destination::<()>::builder();
         let [station_a, station_b, station_c] = dest_builder.add_stations([
             StationSpec::mock("a")?.build(),
@@ -246,14 +246,14 @@ fn no_change_to_parent_pending_when_any_parents_on_other_status()
         let mut dest = dest_builder.build()?;
         {
             let station_progresses = dest.station_progresses_mut();
-            station_progresses[&station_a].borrow_mut().visit_status = VisitStatus::VisitSuccess;
-            station_progresses[&station_b].borrow_mut().visit_status = visit_status_parent;
-            station_progresses[&station_c].borrow_mut().visit_status = VisitStatus::ParentPending;
+            station_progresses[&station_a].borrow_mut().op_status = OpStatus::WorkSuccess;
+            station_progresses[&station_b].borrow_mut().op_status = op_status_parent;
+            station_progresses[&station_c].borrow_mut().op_status = OpStatus::ParentPending;
         }
 
-        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_c);
+        let op_status_next = OpStatusUpdater::op_status_next(&dest, station_c);
 
-        assert_eq!(None, visit_status_next);
+        assert_eq!(None, op_status_next);
 
         Ok(())
     })
@@ -263,21 +263,21 @@ fn no_change_to_parent_pending_when_any_parents_on_other_status()
 fn no_change_to_parent_fail_visit_success_or_visit_fail() -> Result<(), Box<dyn std::error::Error>>
 {
     IntoIterator::into_iter([
-        VisitStatus::ParentFail,
-        VisitStatus::VisitSuccess,
-        VisitStatus::VisitFail,
+        OpStatus::ParentFail,
+        OpStatus::WorkSuccess,
+        OpStatus::WorkFail,
     ])
-    .try_for_each(|visit_status| {
+    .try_for_each(|op_status| {
         let mut dest_builder = Destination::<()>::builder();
         let station_a = dest_builder.add_station(StationSpec::mock("a")?.build());
         let mut dest = dest_builder.build()?;
         dest.station_progresses_mut()[&station_a]
             .borrow_mut()
-            .visit_status = visit_status;
+            .op_status = op_status;
 
-        let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_a);
+        let op_status_next = OpStatusUpdater::op_status_next(&dest, station_a);
 
-        assert_eq!(None, visit_status_next);
+        assert_eq!(None, op_status_next);
 
         Ok(())
     })
@@ -286,8 +286,8 @@ fn no_change_to_parent_fail_visit_success_or_visit_fail() -> Result<(), Box<dyn 
 #[test]
 fn no_change_to_setup_queued_when_parents_on_setup_queued_or_setup_success()
 -> Result<(), Box<dyn std::error::Error>> {
-    IntoIterator::into_iter([VisitStatus::SetupQueued, VisitStatus::SetupSuccess]).try_for_each(
-        |visit_status_parent| {
+    IntoIterator::into_iter([OpStatus::SetupQueued, OpStatus::SetupSuccess]).try_for_each(
+        |op_status_parent| {
             let mut dest_builder = Destination::<()>::builder();
             let [station_a, station_b] = dest_builder.add_stations([
                 StationSpec::mock("a")?.build(),
@@ -297,13 +297,13 @@ fn no_change_to_setup_queued_when_parents_on_setup_queued_or_setup_success()
             let mut dest = dest_builder.build()?;
             {
                 let station_progresses = dest.station_progresses_mut();
-                station_progresses[&station_a].borrow_mut().visit_status = visit_status_parent;
-                station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::SetupQueued;
+                station_progresses[&station_a].borrow_mut().op_status = op_status_parent;
+                station_progresses[&station_b].borrow_mut().op_status = OpStatus::SetupQueued;
             }
 
-            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_b);
+            let op_status_next = OpStatusUpdater::op_status_next(&dest, station_b);
 
-            assert_eq!(None, visit_status_next);
+            assert_eq!(None, op_status_next);
 
             Ok(())
         },
@@ -313,8 +313,8 @@ fn no_change_to_setup_queued_when_parents_on_setup_queued_or_setup_success()
 #[test]
 fn updates_setup_queued_to_parent_fail_when_parents_on_setup_fail_or_parent_fail()
 -> Result<(), Box<dyn std::error::Error>> {
-    IntoIterator::into_iter([VisitStatus::SetupFail, VisitStatus::ParentFail]).try_for_each(
-        |visit_status_parent| {
+    IntoIterator::into_iter([OpStatus::SetupFail, OpStatus::ParentFail]).try_for_each(
+        |op_status_parent| {
             let mut dest_builder = Destination::<()>::builder();
             let [station_a, station_b] = dest_builder.add_stations([
                 StationSpec::mock("a")?.build(),
@@ -324,13 +324,13 @@ fn updates_setup_queued_to_parent_fail_when_parents_on_setup_fail_or_parent_fail
             let mut dest = dest_builder.build()?;
             {
                 let station_progresses = dest.station_progresses_mut();
-                station_progresses[&station_a].borrow_mut().visit_status = visit_status_parent;
-                station_progresses[&station_b].borrow_mut().visit_status = VisitStatus::SetupQueued;
+                station_progresses[&station_a].borrow_mut().op_status = op_status_parent;
+                station_progresses[&station_b].borrow_mut().op_status = OpStatus::SetupQueued;
             }
 
-            let visit_status_next = VisitStatusUpdater::visit_status_next(&dest, station_b);
+            let op_status_next = OpStatusUpdater::op_status_next(&dest, station_b);
 
-            assert_eq!(Some(VisitStatus::ParentFail), visit_status_next);
+            assert_eq!(Some(OpStatus::ParentFail), op_status_next);
 
             Ok(())
         },
