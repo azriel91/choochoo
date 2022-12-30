@@ -107,8 +107,8 @@ mod common {
                 } else {
                     arg_refs_iter
                         .try_for_each(|(index, arg_ref)| match arg_ref {
-                            Ref::Immutable => write!(arg_refs_csv, ", &A{}", index),
-                            Ref::Mutable => write!(arg_refs_csv, ", &mut A{}", index),
+                            Ref::Immutable => write!(arg_refs_csv, ", &A{index}"),
+                            Ref::Mutable => write!(arg_refs_csv, ", &mut A{index}"),
                         })
                         .expect("Failed to append to `arg_refs_csv` string.");
                 }
@@ -133,10 +133,10 @@ mod common {
                     arg_refs_iter
                         .try_for_each(|(index, arg_ref)| match arg_ref {
                             Ref::Immutable => {
-                                write!(arg_refs_lifetime_csv, ", &'f A{}", index)
+                                write!(arg_refs_lifetime_csv, ", &'f A{index}")
                             }
                             Ref::Mutable => {
-                                write!(arg_refs_lifetime_csv, ", &'f mut A{}", index)
+                                write!(arg_refs_lifetime_csv, ", &'f mut A{index}")
                             }
                         })
                         .expect("Failed to append to `arg_refs_lifetime_csv` string.");
@@ -181,15 +181,15 @@ mod common {
         let mut arg_refs_iter = arg_refs.iter().copied().enumerate();
         if let Some((index, arg_ref)) = arg_refs_iter.next() {
             match arg_ref {
-                Ref::Immutable => write!(resource_arg_vars, "&*a{}", index),
-                Ref::Mutable => write!(resource_arg_vars, "&mut *a{}", index),
+                Ref::Immutable => write!(resource_arg_vars, "&*a{index}"),
+                Ref::Mutable => write!(resource_arg_vars, "&mut *a{index}"),
             }
             .expect("Failed to append to `resource_arg_vars` string.")
         }
         arg_refs_iter
             .try_for_each(|(index, arg_ref)| match arg_ref {
-                Ref::Immutable => write!(resource_arg_vars, ", &*a{}", index),
-                Ref::Mutable => write!(resource_arg_vars, ", &mut *a{}", index),
+                Ref::Immutable => write!(resource_arg_vars, ", &*a{index}"),
+                Ref::Mutable => write!(resource_arg_vars, ", &mut *a{index}"),
             })
             .expect("Failed to append to `resource_arg_vars` string.");
         resource_arg_vars
@@ -203,12 +203,10 @@ mod common {
                 Ref::Immutable => writeln!(
                     resource_arg_borrows,
                     "let a{index} = train_resources.borrow::<A{index}>();",
-                    index = index
                 ),
                 Ref::Mutable => writeln!(
                     resource_arg_borrows,
                     "let mut a{index} = train_resources.borrow_mut::<A{index}>();",
-                    index = index
                 ),
             })
             .expect("Failed to append to `resource_arg_borrows` string.");
@@ -223,12 +221,10 @@ mod common {
                 Ref::Immutable => writeln!(
                     resource_arg_try_borrows,
                     "let a{index} = train_resources.try_borrow::<A{index}>()?;",
-                    index = index
                 ),
                 Ref::Mutable => writeln!(
                     resource_arg_try_borrows,
                     "let mut a{index} = train_resources.try_borrow_mut::<A{index}>()?;",
-                    index = index
                 ),
             })
             .expect("Failed to append to `resource_arg_try_borrows` string.");
@@ -301,13 +297,12 @@ mod common {
             #[cfg(feature = "debug")]
             write!(
                 arg_bounds_list,
-                "\n    A{}: std::fmt::Debug + Send + Sync + 'static,",
-                n
+                "\n    A{n}: std::fmt::Debug + Send + Sync + 'static,",
             )
             .expect("Failed to append to args_csv string.");
 
             #[cfg(not(feature = "debug"))]
-            write!(arg_bounds_list, "\n    A{}: Send + Sync + 'static,", n)
+            write!(arg_bounds_list, "\n    A{n}: Send + Sync + 'static,")
                 .expect("Failed to append to args_csv string.");
             arg_bounds_list
         })
@@ -317,7 +312,7 @@ mod common {
         let mut args_csv = String::with_capacity(N * 4);
         args_csv.push_str("A0");
         (1..N).fold(args_csv, |mut args_csv, n| {
-            write!(args_csv, ", A{}", n).expect("Failed to append to args_csv string.");
+            write!(args_csv, ", A{n}").expect("Failed to append to args_csv string.");
             args_csv
         })
     }
@@ -355,9 +350,6 @@ where
     }}
 }}
 "#,
-            args_csv = args_csv,
-            arg_refs_csv = arg_refs_csv,
-            arg_bounds_list = arg_bounds_list,
         )
         .expect("Failed to append to station_fn_metadata_ext.");
     }
@@ -408,10 +400,6 @@ where
     }}
 }}
 "#,
-            args_csv = args_csv,
-            arg_refs_csv = arg_refs_csv,
-            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
-            arg_bounds_list = arg_bounds_list,
         )
         .expect("Failed to write to station_fn_res_impl.rs");
     }
@@ -471,13 +459,6 @@ where
     }}
 }}
 "#,
-            args_csv = args_csv,
-            arg_refs_csv = arg_refs_csv,
-            arg_refs_lifetime_csv = arg_refs_lifetime_csv,
-            arg_bounds_list = arg_bounds_list,
-            resource_arg_borrows = resource_arg_borrows,
-            resource_arg_try_borrows = resource_arg_try_borrows,
-            resource_arg_vars = resource_arg_vars,
         )
         .expect("Failed to write to station_fn_resource.rs");
     }

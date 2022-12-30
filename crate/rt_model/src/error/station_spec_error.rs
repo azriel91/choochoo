@@ -22,9 +22,7 @@ impl fmt::Display for StationSpecError {
         match self {
             Self::WorkRequiredAfterVisit { id, name } => write!(
                 f,
-                "Station `{id}: {name}`'s check function reported the station still requires work after the work function was run.",
-                id = id,
-                name = name
+                "Station `{id}: {name}`'s check function reported the station still requires work after the work function was run."
             ),
         }
     }

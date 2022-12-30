@@ -172,13 +172,7 @@ impl StationProgress {
             ProgressLimit::Bytes(_) => "{bytes}/{total_bytes}",
         };
 
-        format!(
-            "{symbol} {{msg:20}} [{progress_bar}] {units} ({status})",
-            symbol = symbol,
-            progress_bar = progress_bar,
-            units = units,
-            status = status,
-        )
+        format!("{symbol} {{msg:20}} [{progress_bar}] {units} ({status})")
     }
 }
 

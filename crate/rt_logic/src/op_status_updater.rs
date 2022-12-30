@@ -106,7 +106,7 @@ where
 
         station_specs
             .children(station_rt_id)
-            .iter(&*station_specs)
+            .iter(station_specs)
             .for_each(|(_edge, station_rt_id)| {
                 let op_status_next = Self::op_status_next(dest, station_rt_id);
 
